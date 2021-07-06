@@ -7,10 +7,22 @@ main = do
   _ <- runTestTT tests
   return ()
 
-tests = TestList [testLexer]
+tests = TestList [testLexer, testLexer2, testLexer3]
 
-testLexer = TestCase (assertEqual "lexical analyser should tokenize this text correctly," 
-        (tokenize "1+2\n222\"abc+-/*!%74漢語if\\else1while\"*8+5.-4.44/hhh_hh")
-        [LiteralInteger 1, Operator PlusOperator, LiteralInteger 2, LiteralInteger 222, LiteralString "abc+-/*!%74漢語if\\else1while",
-          Operator MultiplyOperator, LiteralInteger 8, Operator PlusOperator, LiteralFloat 5 0, Operator MinusOperator,
-            LiteralFloat 444 2, Operator DivideOperator, Identifier "hhh", Identifier "hh"])
+testLexer = TestCase (assertEqual "Lexical analyser should tokenize this text correctly"
+        [LiteralInteger 10 1, Operator Plus, LiteralInteger 10 2, LiteralInteger 10 222, LiteralString "abc+-/*!%74漢語if\nelse1while",
+        Operator Multiply, LiteralInteger 10 8, Operator Plus, LiteralFloat 10 5 0, Operator Minus,
+        LiteralFloat 10 444 2, Operator Divide, Identifier "hhh_hh"]
+        (tokenize "1+2\n222\"abc+-/*!%74漢語if^\nelse1while\"*8+5.-4.44/hhh_hh"))
+
+testLexer2 = TestCase (assertEqual "Mathematical expressions should be tokenized correctly"
+        [LiteralInteger 16 255, Operator Minus, LiteralInteger 11 5, LiteralInteger 10 0, LiteralInteger 10 7, Operator IntDivide,
+        Operator Assign, Identifier "var", Operator RaiseToThePowerOf, LiteralInteger 10 4, Operator Xor, LiteralInteger 10 5,
+        Operator And, LiteralInteger 10 7, Operator GreatherThanOrEqualTo, LiteralInteger 10 4, Operator LowerThanOrEqualTo,
+        LiteralFloat 2 11 2, Operator NotEqual, LiteralInteger 10 7, Operator LowerThan, Operator Minus, Operator LowerThan,
+        Operator LowerThan, Identifier "fu", Operator Apply, LiteralInteger 16 16]
+        (tokenize "16rFF--11r5 0\n7//5->var    **4^5&7>=4<=2r0.11~7<-<<fu:16r10"))
+
+testLexer3 = TestCase (assertEqual "comments and strings should be tokenized correctly"
+        [Empty]
+        (tokenize "{This is just a comment{which should be ignored}and I hope it will be}"))
