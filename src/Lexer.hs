@@ -1,19 +1,20 @@
-module Lexer (Token (..), OperatorType (..), KeywordType (..), tokenize, processToken) where
+module Lexer (Token (..), Operator (..), Keyword (..), tokenize) where
 
 import Data.Char (chr, ord, toUpper)
+import Data.Ratio (numerator, denominator, (%))
 
-data OperatorType = Plus | Minus | Multiply | Divide | IntDivide | Modulo | And | Or | Xor | RaiseToThePowerOf | Assign
+data Operator = Plus | Minus | Multiply | Divide | IntDivide | Modulo | And | Or | Xor | RaiseToThePowerOf | Assign
         | Equal | NotEqual | GreaterThan | LowerThan | GreaterThanOrEqualTo | LowerThanOrEqualTo | Apply deriving (Show, Eq)
-data KeywordType = If | Elif | Else | End | While deriving (Show, Eq)
+data Keyword = If | Elif | Else | End | While deriving (Show, Eq)
 
 data Token = Empty
         | Comment Int
         | Identifier String
         | LiteralInteger Integer Integer
-        | LiteralFloat Integer Integer Integer
+        | LiteralDecimal Integer Integer Integer
         | LiteralString String
-        | Operator OperatorType
-        | Keyword KeywordType
+        | Operator Operator
+        | Keyword Keyword
         | ParenthesisOpen
         | ParenthesisClose
         | BracketOpen
@@ -61,9 +62,9 @@ processToken token char = case token of
         LiteralString s | char == '"' -> [Empty, LiteralString (reverse s)]
         LiteralString s -> [LiteralString (char:s)]
         LiteralInteger radix n | isDigitIn radix char -> [LiteralInteger radix (n * radix + digitToInteger char)]
-        LiteralInteger radix n | char == '.' -> [LiteralFloat radix n 0]
+        LiteralInteger radix n | char == '.' -> [LiteralDecimal radix n 0]
         LiteralInteger 10 n | (n /= 10) && (char == 'r') -> [LiteralInteger n 0]
-        LiteralFloat radix n exp | isDigitIn radix char -> [LiteralFloat radix (n * radix + digitToInteger char) (exp + 1)]
+        LiteralDecimal radix n exp | isDigitIn radix char -> [LiteralDecimal radix (radix * n + digitToInteger char) (exp + 1)]
         Identifier name | isLetter char -> [keywordOrIdentifier (name ++ [char])]
         Comment 1 | char == '}' -> [Empty]
         Comment level | char == '}' -> [Comment (level - 1)]
