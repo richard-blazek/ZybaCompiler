@@ -3,7 +3,7 @@ module Lexer (Token (..), OperatorType (..), KeywordType (..), tokenize, process
 import Data.Char (chr, ord, toUpper)
 
 data OperatorType = Plus | Minus | Multiply | Divide | IntDivide | Modulo | And | Or | Xor | RaiseToThePowerOf | Assign
-        | Equal | NotEqual | GreaterThan | LowerThan | GreatherThanOrEqualTo | LowerThanOrEqualTo | Apply deriving (Show, Eq)
+        | Equal | NotEqual | GreaterThan | LowerThan | GreaterThanOrEqualTo | LowerThanOrEqualTo | Apply deriving (Show, Eq)
 data KeywordType = If | Elif | Else | End | While deriving (Show, Eq)
 
 data Token = Empty
@@ -71,7 +71,7 @@ processToken token char = case token of
         Comment level -> [Comment level]
         Operator Multiply | char == '*' -> [Operator RaiseToThePowerOf]
         Operator Minus | char == '>' -> [Operator Assign]
-        Operator GreaterThan | char == '=' -> [Operator GreatherThanOrEqualTo]
+        Operator GreaterThan | char == '=' -> [Operator GreaterThanOrEqualTo]
         Operator LowerThan | char == '=' -> [Operator LowerThanOrEqualTo]
         Operator Divide | char == '/' -> [Operator IntDivide]
         _ -> case char of
@@ -84,8 +84,8 @@ processToken token char = case token of
                 '|' -> nonEmpty (Operator Or) token
                 '^' -> nonEmpty (Operator Xor) token
                 '~' -> nonEmpty (Operator NotEqual) token
-                '<' -> nonEmpty (Operator GreaterThan) token
-                '>' -> nonEmpty (Operator LowerThan) token
+                '<' -> nonEmpty (Operator LowerThan) token
+                '>' -> nonEmpty (Operator GreaterThan) token
                 '=' -> nonEmpty (Operator Equal) token
                 ':' -> nonEmpty (Operator Apply) token
                 '"' -> nonEmpty (LiteralString "") token
