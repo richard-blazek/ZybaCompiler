@@ -90,6 +90,7 @@ processToken token char = case token of
                 '=' -> nonEmpty (Operator Equal) token
                 ':' -> nonEmpty (Operator Apply) token
                 '"' -> nonEmpty (LiteralString "") token
+                '(' -> nonEmpty ParenthesisOpen token
                 ')' -> nonEmpty ParenthesisClose token
                 '[' -> nonEmpty BracketOpen token
                 ']' -> nonEmpty BracketClose token
@@ -98,7 +99,6 @@ processToken token char = case token of
                 _ | isLetter char -> nonEmpty (keywordOrIdentifier [char]) token
                 _ | isWhite char -> Empty : (nonEmpty Empty token)
                 _ -> [Error char]
-
 
 addToken :: [Token] -> Char -> [Token]
 addToken (token:tokens) char = processToken token char ++ tokens
