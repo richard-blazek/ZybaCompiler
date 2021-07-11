@@ -65,7 +65,7 @@ processToken token char = case token of
         LiteralInteger radix n | char == '.' -> [LiteralDecimal radix n 0]
         LiteralInteger 10 n | (n /= 10) && (char == 'r') -> [LiteralInteger n 0]
         LiteralDecimal radix n exp | isDigitIn radix char -> [LiteralDecimal radix (radix * n + digitToInteger char) (exp + 1)]
-        Identifier name | isLetter char -> [keywordOrIdentifier (name ++ [char])]
+        Identifier name | isLetter char || isDigit char -> [keywordOrIdentifier (name ++ [char])]
         Comment 1 | char == '}' -> [Empty]
         Comment level | char == '}' -> [Comment (level - 1)]
         Comment level | char == '{' -> [Comment (level + 1)]
