@@ -7,8 +7,10 @@ data Expression = Integer Integer
                 | Rational Rational
                 | String String
                 | Variable String
+                | Call Expression [Expression]
                 | BinaryOperation Operator Expression Expression
-                | Conditional [(Expression, [Expression])] (Maybe [Expression]) deriving (Show, Eq)
+                | IfStatement [(Expression, [Expression])] (Maybe [Expression])
+                | WhileLoop (Expression, [Expression]) deriving (Show, Eq)
 
 parseValue :: [Token] -> (Expression, [Token])
 parseValue (LiteralInteger _ n : tokens) = (Integer n, tokens)
@@ -17,35 +19,53 @@ parseValue (LiteralString string : tokens) = (String string, tokens)
 parseValue (Identifier name : tokens) = (Variable name, tokens)
 parseValue (ParenthesisOpen : tokens) = case parseExpression tokens of 
     (expression, ParenthesisClose : restTokens) -> (expression, restTokens)
+parseValue (Keyword If : tokens) = parseIf [] tokens
+parseValue (Keyword While : tokens) = parseWhile tokens
+
+parseBrackets :: Expression -> [Token] -> (Expression, [Token])
+parseBrackets callable (BracketOpen : tokens) = parseBrackets newCallable tokensAfterCall
+    where
+        (arguments, _, tokensAfterCall) = parseBlock [BracketClose] [] tokens
+        newCallable = Call callable arguments
+parseBrackets callable tokens = (callable, tokens)
+
+parseCall :: [Token] -> (Expression, [Token])
+parseCall tokens = parseBrackets value restTokens
+    where (value, restTokens) = parseValue tokens
 
 parseBinaryOperation :: Expression -> [Token] -> (Expression, [Token])
 parseBinaryOperation current (Operator operator : tokens) = parseBinaryOperation operation restTokens
     where
-        (operand, restTokens) = parseValue tokens
+        (operand, restTokens) = parseCall tokens
         operation = BinaryOperation operator current operand
 parseBinaryOperation current tokens = (current, tokens)
 
-parseBlock :: [Expression] -> [Token] -> ([Expression], [Token])
-parseBlock expressions tokens
-    | head tokens `elem` [Keyword Else, Keyword Elif, Keyword End] = (reverse expressions, tokens)
-    | otherwise = parseBlock (firstExpression : expressions) restTokens
+parseExpression :: [Token] -> (Expression, [Token])
+parseExpression tokens = parseBinaryOperation value restTokens
+    where (value, restTokens) = parseCall tokens
+
+parseBlock :: [Token] -> [Expression] -> [Token] -> ([Expression], Token, [Token])
+parseBlock terminators expressions tokens
+    | head tokens `elem` terminators = (reverse expressions, head tokens, tail tokens)
+    | otherwise = parseBlock terminators (firstExpression : expressions) restTokens
     where (firstExpression, restTokens) = parseExpression tokens
 
-parseConditional :: [(Expression, [Expression])] -> [Token] -> (Expression, [Token])
-parseConditional ifs tokens = case head tokensAfterBlock of
-    Keyword Else -> (Conditional (reverse allIfs) (Just elseBlock), tokensAfterElse)
-    Keyword End -> (Conditional (reverse allIfs) Nothing, tokensAfterBlock)
-    Keyword Elif -> parseConditional allIfs tokensAfterBlock
+parseIf :: [(Expression, [Expression])] -> [Token] -> (Expression, [Token])
+parseIf ifs tokens = case blockTerminator of
+    Keyword Else -> (IfStatement (reverse allIfs) (Just elseBlock), tokensAfterElse)
+    Keyword End -> (IfStatement (reverse allIfs) Nothing, tokensAfterBlock)
+    Keyword Elif -> parseIf allIfs tokensAfterBlock
+    where
+        (condition, tokensAfterCondition) = parseExpression tokens
+        (block, blockTerminator, tokensAfterBlock) = parseBlock [Keyword Else, Keyword Elif, Keyword End] [] tokensAfterCondition
+        (elseBlock, _, tokensAfterElse) = parseBlock [Keyword End] [] (tail tokensAfterBlock)
+        allIfs = (condition, block) : ifs
+
+parseWhile :: [Token] -> (Expression, [Token])
+parseWhile tokens = (WhileLoop (conditionExpression, blockExpressions), tokensAfterBlock)
     where
         (conditionExpression, tokensAfterCondition) = parseExpression tokens
-        (blockExpressions, tokensAfterBlock) = parseBlock [] tokensAfterCondition
-        (elseBlock, tokensAfterElse) = parseBlock [] (tail tokensAfterBlock)
-        allIfs = (conditionExpression, blockExpressions) : ifs
-
-parseExpression :: [Token] -> (Expression, [Token])
-parseExpression (Keyword If : tokens) = parseConditional [] tokens
-parseExpression tokens = parseBinaryOperation value restTokens
-    where (value, restTokens) = parseValue tokens
+        (blockExpressions, _, tokensAfterBlock) = parseBlock [Keyword End] [] tokensAfterCondition
 
 parse :: [Token] -> Expression
 parse = fst . parseExpression
