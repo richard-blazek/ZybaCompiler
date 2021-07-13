@@ -17,12 +17,10 @@ parseValue (LiteralInteger _ n : tokens) = (Integer n, tokens)
 parseValue (LiteralDecimal radix n exp : tokens) = (Rational (n % (radix ^ exp)), tokens)
 parseValue (LiteralString string : tokens) = (String string, tokens)
 parseValue (Identifier name : tokens) = (Variable name, tokens)
-parseValue (ParenthesisOpen : tokens)
-    | isOne = (head expressions, restTokens)
-    | otherwise = (Tuple expressions, restTokens)
-    where
-        (expressions, _, restTokens) = parseBlock [ParenthesisClose] [] tokens
-        isOne = tail expressions == []
+parseValue (ParenthesisOpen : tokens) = (expression, restTokens)
+    where (expression, restTokens) = case parseBlock [ParenthesisClose] [] tokens of
+            (expr : [], _, rest) -> (expr, rest)
+            (expressions, _, rest) -> (Tuple expressions, rest)
 parseValue (Keyword If : tokens) = parseIf [] tokens
 parseValue (Keyword While : tokens) = parseWhile tokens
 
