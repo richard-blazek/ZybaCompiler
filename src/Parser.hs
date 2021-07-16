@@ -10,7 +10,9 @@ data Expression = Integer Integer
                 | Tuple [Expression]
                 | BinaryOperation Operator Expression Expression
                 | IfStatement [(Expression, [Expression])] (Maybe [Expression])
-                | WhileLoop (Expression, [Expression]) deriving (Show, Eq)
+                | WhileLoop Expression [Expression]
+                | Function String [String] [Expression]
+                | Dereference Expression deriving (Show, Eq)
 
 parseValue :: [Token] -> (Expression, [Token])
 parseValue (LiteralInteger _ n : tokens) = (Integer n, tokens)
@@ -23,6 +25,10 @@ parseValue (ParenthesisOpen : tokens) = (expression, restTokens)
             (expressions, _, rest) -> (Tuple expressions, rest)
 parseValue (Keyword If : tokens) = parseIf [] tokens
 parseValue (Keyword While : tokens) = parseWhile tokens
+parseValue (Keyword Fun : tokens) = parseFunction tokens
+parseValue (BracketOpen : tokens)
+    | head tokensAfterExpression == BracketClose = (Dereference expression, tail tokensAfterExpression)
+    where (expression, tokensAfterExpression) = parseExpression tokens
 
 parseOperationWith :: ([Token] -> (Expression, [Token])) -> [Operator] -> Expression -> [Token] -> (Expression, [Token])
 parseOperationWith parseFn operators first tokens
@@ -65,5 +71,17 @@ parseWhile tokens = (WhileLoop (conditionExpression, blockExpressions), tokensAf
         (conditionExpression, tokensAfterCondition) = parseExpression tokens
         (blockExpressions, _, tokensAfterBlock) = parseBlock [Keyword End] [] tokensAfterCondition
 
-parse :: [Token] -> Expression
-parse = fst . parseExpression
+parseFunction :: [Token] -> (Expression, [Token])
+parseFunction (Identifier name : (ParenthesisOpen : tokens)) = (Function name args block, tokensAfterBlock)
+    where
+        parseArgList args (ParenthesisClose : tokens) = (reverse args, tokens)
+        parseArgList args (Identifier name : tokens) = parseArgList (name : args) tokens
+        (args, tokensAfterArgs) = parseArgList [] tokens
+        (block, _, tokensAfterBlock) = parseBlock [Keyword End] [] tokensAfterArgs
+
+parseFile :: [Expression] -> [Token] -> [Expression]
+parseFile previous [] = reverse previous
+parseFile previous tokens = parseFile (expression : previous) restTokens
+    where (expression, restTokens) = parseExpression tokens
+
+parse = parseFile []
