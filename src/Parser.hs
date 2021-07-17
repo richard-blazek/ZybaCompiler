@@ -9,7 +9,7 @@ data Expression = Integer Integer
                 | Variable String
                 | Tuple [Expression]
                 | BinaryOperation Operator Expression Expression
-                | IfStatement [(Expression, [Expression])] (Maybe [Expression])
+                | IfStatement [(Expression, [Expression])] [Expression]
                 | WhileLoop Expression [Expression]
                 | Function String [String] [Expression]
                 | Dereference Expression deriving (Show, Eq)
@@ -56,8 +56,8 @@ parseBlock terminators expressions tokens
 
 parseIf :: [(Expression, [Expression])] -> [Token] -> (Expression, [Token])
 parseIf ifs tokens = case blockTerminator of
-    Keyword Else -> (IfStatement (reverse allIfs) (Just elseBlock), tokensAfterElse)
-    Keyword End -> (IfStatement (reverse allIfs) Nothing, tokensAfterBlock)
+    Keyword Else -> (IfStatement (reverse allIfs) elseBlock, tokensAfterElse)
+    Keyword End -> (IfStatement (reverse allIfs) [], tokensAfterBlock)
     Keyword Elif -> parseIf allIfs tokensAfterBlock
     where
         (condition, tokensAfterCondition) = parseExpression tokens
@@ -66,7 +66,7 @@ parseIf ifs tokens = case blockTerminator of
         allIfs = (condition, block) : ifs
 
 parseWhile :: [Token] -> (Expression, [Token])
-parseWhile tokens = (WhileLoop (conditionExpression, blockExpressions), tokensAfterBlock)
+parseWhile tokens = (WhileLoop conditionExpression blockExpressions, tokensAfterBlock)
     where
         (conditionExpression, tokensAfterCondition) = parseExpression tokens
         (blockExpressions, _, tokensAfterBlock) = parseBlock [Keyword End] [] tokensAfterCondition

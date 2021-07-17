@@ -27,17 +27,17 @@ lexerTest3 = TestCase (assertEqual "Tokenization of comments"
     (tokenize "{This is a comment{which shou\"ld be ignored}and it is}\"I said: ^\"Ho, ho^\" and {it} worked!\"{}7")
     [LiteralString "I said: \"Ho, ho\" and {it} worked!", LiteralInteger 10 7])
 
-parserTest = TestCase (assertEqual "Parsing first mathematical expression" (parse (tokenize "((13))")) (Integer 13))
+parserTest = TestCase (assertEqual "Parsing first mathematical expression" (parse (tokenize "((13))")) [Integer 13])
 
 parserTest2 = TestCase (assertEqual "Parsing second mathematical expression"
     (parse (tokenize "1/(1+1/(3.1416))"))
-    (BinaryOperation Divide (Integer 1) (BinaryOperation Divide (BinaryOperation Plus (Integer 1) (Integer 1))
-    (Rational (31416 % 10000)))))
+    [BinaryOperation Divide (Integer 1) (BinaryOperation Divide (BinaryOperation Plus (Integer 1) (Integer 1))
+    (Rational (31416 % 10000)))])
 
 parserTest3 = TestCase (assertEqual "Parsing second mathematical expression"
     (parse (tokenize "my_var1+(\"lit^eral\"{comment}/(3**4))"))
-    (BinaryOperation Plus (Variable "my_var1") (BinaryOperation Divide (String "literal")
-    (BinaryOperation RaiseToThePowerOf (Integer 3) (Integer 4)))))
+    [BinaryOperation Plus (Variable "my_var1") (BinaryOperation Divide (String "literal")
+    (BinaryOperation RaiseToThePowerOf (Integer 3) (Integer 4)))])
 
 parserTest4 = TestCase (assertEqual "Parsing \"real\" code"
     (parse (tokenize "\
@@ -73,7 +73,7 @@ parserTest4 = TestCase (assertEqual "Parsing \"real\" code"
         BinaryOperation Assign (IfStatement [
             (BinaryOperation LowerThan (Dereference (Variable "num")) (Integer 10), [Integer 10]),
             (BinaryOperation GreaterThan (Dereference (Variable "num")) (Integer 15), [Integer 15])
-        ] (Just [Dereference (Variable "num")])) (Variable "num")
+        ] [Dereference (Variable "num")]) (Variable "num")
     ])
 
 tests = TestList [lexerTest, lexerTest2, lexerTest3, parserTest, parserTest2, parserTest3, parserTest4]
