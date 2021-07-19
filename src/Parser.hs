@@ -1,4 +1,4 @@
-module Parser (Expression (..), parse) where
+module Parser (Expression (..), parse, parseValue) where
 
 import Lexer (Token (..), Operator (..), Keyword (..))
 import Data.Ratio ((%))
@@ -62,7 +62,7 @@ parseIf ifs tokens = case blockTerminator of
     where
         (condition, tokensAfterCondition) = parseExpression tokens
         (block, blockTerminator, tokensAfterBlock) = parseBlock [Keyword Else, Keyword Elif, Keyword End] [] tokensAfterCondition
-        (elseBlock, _, tokensAfterElse) = parseBlock [Keyword End] [] (tail tokensAfterBlock)
+        (elseBlock, _, tokensAfterElse) = parseBlock [Keyword End] [] tokensAfterBlock
         allIfs = (condition, block) : ifs
 
 parseWhile :: [Token] -> (Expression, [Token])
