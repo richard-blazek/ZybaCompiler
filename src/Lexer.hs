@@ -1,7 +1,6 @@
 module Lexer (Token (..), Operator (..), Keyword (..), tokenize) where
 
 import Data.Char (chr, ord, toUpper)
-import Data.Ratio (numerator, denominator, (%))
 
 data Operator = Plus | Minus | Multiply | Divide | IntDivide | Modulo | And | Or | Xor | RaiseToThePowerOf | Assign
     | Equal | NotEqual | GreaterThan | LowerThan | GreaterThanOrEqualTo | LowerThanOrEqualTo | Apply deriving (Show, Eq)
@@ -27,7 +26,7 @@ between min max value = value <= max && value >= min
 
 isDigit = between '0' '9'
 isLetter c = between 'A' 'Z' c || between 'a' 'z' c || c == '_'
-isWhite = (`elem` [' ', '\n', '\r', '\t'])
+isWhite = (`elem` " \n\r\t")
 
 isDigitIn :: Integer -> Char -> Bool
 isDigitIn radix c

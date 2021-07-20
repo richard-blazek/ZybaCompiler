@@ -44,7 +44,6 @@ parserTest4 = TestCase (assertEqual "Parsing \"real\" code"
 \   fun fact (n)\
 \       1 -> result\
 \       [n] -> i\
-\\
 \       while [i] > 1\
 \           [result] * [i] -> result\
 \           [i] - 1 -> i\
@@ -63,17 +62,32 @@ parserTest4 = TestCase (assertEqual "Parsing \"real\" code"
         Function "fact" ["n"] [
             BinaryOperation Assign (Integer 1) (Variable "result"),
             BinaryOperation Assign (Dereference (Variable "n")) (Variable "i"),
-            WhileLoop (BinaryOperation GreaterThan (Dereference (Variable "i")) (Integer 1)) [
+            WhileExpression (BinaryOperation GreaterThan (Dereference (Variable "i")) (Integer 1)) [
                 BinaryOperation Assign (BinaryOperation Multiply (Dereference (Variable "result")) (Dereference (Variable "i"))) (Variable "result"),
                 BinaryOperation Assign (BinaryOperation Minus (Dereference (Variable "i")) (Integer 1)) (Variable "i")
             ],
             Dereference (Variable "result")
         ],
         BinaryOperation Assign (Integer 5) (Variable "num"),
-        BinaryOperation Assign (IfStatement [
+        BinaryOperation Assign (IfExpression [
             (BinaryOperation LowerThan (Dereference (Variable "num")) (Integer 10), [Integer 10]),
             (BinaryOperation GreaterThan (Dereference (Variable "num")) (Integer 15), [Integer 15])
         ] [Dereference (Variable "num")]) (Variable "num")
     ])
 
-tests = TestList [lexerTest, lexerTest2, lexerTest3, parserTest, parserTest2, parserTest3, parserTest4]
+parserTest5 = TestCase (assertEqual "Parsing another real code"
+    (parse (tokenize "fun power(n exp) if [exp] = 0 1 else [n] * power:([n] [exp] - 1) end end"))
+    [
+        Function "power" ["n", "exp"] [
+            IfExpression [
+                (BinaryOperation Equal (Dereference (Variable "exp")) (Integer 0), [Integer 1])
+            ] [
+                BinaryOperation Multiply (Dereference (Variable "n")) (BinaryOperation Apply (Variable "power") (Tuple [
+                    (Dereference (Variable "n")),
+                    (BinaryOperation Minus (Dereference (Variable "exp")) (Integer 1))
+                ]))
+            ]
+        ]
+    ])
+
+tests = TestList [lexerTest, lexerTest2, lexerTest3, parserTest, parserTest2, parserTest3, parserTest4, parserTest5]
