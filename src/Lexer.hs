@@ -1,9 +1,12 @@
 module Lexer (Token (..), Operator (..), Keyword (..), tokenize) where
 
 import Data.Char (chr, ord, toUpper)
+import qualified Data.Map as Map
+import Algorithms (distinctSort)
 
 data Operator = Plus | Minus | Multiply | Divide | IntDivide | Modulo | And | Or | Xor | RaiseToThePowerOf | Assign
-    | Equal | NotEqual | GreaterThan | LowerThan | GreaterThanOrEqualTo | LowerThanOrEqualTo | Apply deriving (Show, Eq)
+    | Equal | NotEqual | GreaterThan | LowerThan | GreaterThanOrEqualTo | LowerThanOrEqualTo | Apply | ShiftLeft
+    | ShiftRight deriving (Show, Eq)
 data Keyword = If | Elif | Else | End | While | Fun deriving (Show, Eq)
 
 data Token = Empty
@@ -19,8 +22,25 @@ data Token = Empty
     | BracketOpen
     | BracketClose
     | Colon
-    | Error Char
+    | Error String
+    | UnknownOperator String
     deriving (Show, Eq)
+
+operatorList = [
+    ("+", Plus), ("-", Minus), ("*", Multiply), ("/", Divide), ("//", IntDivide),
+    ("%", Modulo), ("&", And), ("|", Or), ("^", Xor), ("**", RaiseToThePowerOf),
+    ("->", Assign), ("=", Equal), ("~", NotEqual), ("<", LowerThan), (">", GreaterThan),
+    (">=", GreaterThanOrEqualTo), ("<=", LowerThanOrEqualTo), ("'", Apply),
+    ("=>", GreaterThanOrEqualTo), ("=<", LowerThanOrEqualTo), ("<<", ShiftLeft),
+    (">>", ShiftRight)]
+
+operatorMap = Map.fromList operatorList
+operatorChars = (distinctSort . concat) (map fst operatorList)
+
+lookupOperator :: String -> Token
+lookupOperator s = case Map.lookup s operatorMap of
+    Just op -> Operator op
+    Nothing -> Error s
 
 between :: (Ord t) => t -> t -> t -> Bool
 between min max value = value <= max && value >= min
@@ -28,6 +48,7 @@ between min max value = value <= max && value >= min
 isDigit = between '0' '9'
 isLetter c = between 'A' 'Z' c || between 'a' 'z' c || c == '_'
 isWhite = (`elem` " \n\r\t")
+isOperatorChar = (`elem` operatorChars)
 
 isDigitIn :: Integer -> Char -> Bool
 isDigitIn radix c
@@ -69,25 +90,9 @@ processToken token char = case token of
     Identifier name | isLetter char || isDigit char -> [keywordOrIdentifier (name ++ [char])]
     Comment | char == '\n' -> [Empty]
     Comment -> [Comment]
-    Operator Multiply | char == '*' -> [Operator RaiseToThePowerOf]
-    Operator Minus | char == '>' -> [Operator Assign]
-    Operator GreaterThan | char == '=' -> [Operator GreaterThanOrEqualTo]
-    Operator LowerThan | char == '=' -> [Operator LowerThanOrEqualTo]
-    Operator Divide | char == '/' -> [Operator IntDivide]
+    UnknownOperator s | isOperatorChar char -> [UnknownOperator (char : s)]
+    UnknownOperator s -> processToken Empty char ++ [lookupOperator (reverse s)]
     _ -> case char of
-        '+' -> nonEmpty (Operator Plus) token
-        '-' -> nonEmpty (Operator Minus) token
-        '*' -> nonEmpty (Operator Multiply) token
-        '/' -> nonEmpty (Operator Divide) token
-        '%' -> nonEmpty (Operator Modulo) token
-        '&' -> nonEmpty (Operator And) token
-        '|' -> nonEmpty (Operator Or) token
-        '^' -> nonEmpty (Operator Xor) token
-        '~' -> nonEmpty (Operator NotEqual) token
-        '<' -> nonEmpty (Operator LowerThan) token
-        '>' -> nonEmpty (Operator GreaterThan) token
-        '=' -> nonEmpty (Operator Equal) token
-        '\'' -> nonEmpty (Operator Apply) token
         '"' -> nonEmpty (LiteralString "") token
         '(' -> nonEmpty ParenthesisOpen token
         ')' -> nonEmpty ParenthesisClose token
@@ -95,13 +100,14 @@ processToken token char = case token of
         ']' -> nonEmpty BracketClose token
         ':' -> nonEmpty Colon token
         ';' -> nonEmpty Comment token
+        _ | isOperatorChar char -> nonEmpty (UnknownOperator [char]) token
         _ | isDigit char -> nonEmpty (LiteralInteger 10 (digitToInteger char)) token
         _ | isLetter char -> nonEmpty (keywordOrIdentifier [char]) token
         _ | isWhite char -> Empty : (nonEmpty Empty token)
-        _ -> [Error char]
+        _ -> [Error [char]]
 
 addToken :: [Token] -> Char -> [Token]
 addToken (token : tokens) char = processToken token char ++ tokens
 
 tokenize :: String -> [Token]
-tokenize input = reverse (foldl addToken [Empty] input)
+tokenize input = reverse (foldl addToken [Empty] ('\n' : input))
