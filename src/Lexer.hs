@@ -7,7 +7,7 @@ data Operator = Plus | Minus | Multiply | Divide | IntDivide | Modulo | And | Or
 data Keyword = If | Elif | Else | End | While | Fun deriving (Show, Eq)
 
 data Token = Empty
-    | Comment Int
+    | Comment
     | Identifier String
     | LiteralInteger Integer Integer
     | LiteralDecimal Integer Integer Integer
@@ -18,6 +18,7 @@ data Token = Empty
     | ParenthesisClose
     | BracketOpen
     | BracketClose
+    | Colon
     | Error Char
     deriving (Show, Eq)
 
@@ -58,7 +59,7 @@ keywordOrIdentifier name = Identifier name
 
 processToken :: Token -> Char -> [Token]
 processToken token char = case token of
-    LiteralString ('^':s) -> [LiteralString (char:s)]
+    LiteralString ('^' : s) -> [LiteralString (char : s)]
     LiteralString s | char == '"' -> [Empty, LiteralString (reverse s)]
     LiteralString s -> [LiteralString (char:s)]
     LiteralInteger radix n | isDigitIn radix char -> [LiteralInteger radix (n * radix + digitToInteger char)]
@@ -66,10 +67,8 @@ processToken token char = case token of
     LiteralInteger 10 n | (n /= 10) && (char == 'r') -> [LiteralInteger n 0]
     LiteralDecimal radix n exp | isDigitIn radix char -> [LiteralDecimal radix (radix * n + digitToInteger char) (exp + 1)]
     Identifier name | isLetter char || isDigit char -> [keywordOrIdentifier (name ++ [char])]
-    Comment 1 | char == '}' -> [Empty]
-    Comment level | char == '}' -> [Comment (level - 1)]
-    Comment level | char == '{' -> [Comment (level + 1)]
-    Comment level -> [Comment level]
+    Comment | char == '\n' -> [Empty]
+    Comment -> [Comment]
     Operator Multiply | char == '*' -> [Operator RaiseToThePowerOf]
     Operator Minus | char == '>' -> [Operator Assign]
     Operator GreaterThan | char == '=' -> [Operator GreaterThanOrEqualTo]
@@ -88,20 +87,21 @@ processToken token char = case token of
         '<' -> nonEmpty (Operator LowerThan) token
         '>' -> nonEmpty (Operator GreaterThan) token
         '=' -> nonEmpty (Operator Equal) token
-        ':' -> nonEmpty (Operator Apply) token
+        '\'' -> nonEmpty (Operator Apply) token
         '"' -> nonEmpty (LiteralString "") token
         '(' -> nonEmpty ParenthesisOpen token
         ')' -> nonEmpty ParenthesisClose token
         '[' -> nonEmpty BracketOpen token
         ']' -> nonEmpty BracketClose token
-        '{' -> nonEmpty (Comment 1) token
+        ':' -> nonEmpty Colon token
+        ';' -> nonEmpty Comment token
         _ | isDigit char -> nonEmpty (LiteralInteger 10 (digitToInteger char)) token
         _ | isLetter char -> nonEmpty (keywordOrIdentifier [char]) token
         _ | isWhite char -> Empty : (nonEmpty Empty token)
         _ -> [Error char]
 
 addToken :: [Token] -> Char -> [Token]
-addToken (token:tokens) char = processToken token char ++ tokens
+addToken (token : tokens) char = processToken token char ++ tokens
 
 tokenize :: String -> [Token]
 tokenize input = reverse (foldl addToken [Empty] input)

@@ -16,7 +16,7 @@ lexerTest = TestCase (assertEqual "Tokenization of sample text"
     LiteralDecimal 10 4404 3, Operator Divide, Identifier "hhh_hh"])
 
 lexerTest2 = TestCase (assertEqual "Tokenization of mathematical expressions"
-    (tokenize "16rFF--11r5 0\n7//5->var    **4^5&7>=4<=2r0.11~7<-<<fu:16r10")
+    (tokenize "16rFF--11r5 0\n7//5->var    **4^5&7>=4<=2r0.11~7<-<<fu'16r10")
     [LiteralInteger 16 255, Operator Minus, Operator Minus, LiteralInteger 11 5, LiteralInteger 10 0, LiteralInteger 10 7, Operator IntDivide,
     LiteralInteger 10 5, Operator Assign, Identifier "var", Operator RaiseToThePowerOf, LiteralInteger 10 4, Operator Xor,
     LiteralInteger 10 5, Operator And, LiteralInteger 10 7, Operator GreaterThanOrEqualTo, LiteralInteger 10 4, Operator LowerThanOrEqualTo,
@@ -24,8 +24,8 @@ lexerTest2 = TestCase (assertEqual "Tokenization of mathematical expressions"
     Operator LowerThan, Identifier "fu", Operator Apply, LiteralInteger 16 16])
 
 lexerTest3 = TestCase (assertEqual "Tokenization of comments"
-    (tokenize "{This is a comment{which shou\"ld be ignored}and it is}\"I said: ^\"Ho, ho^\" and {it} worked!\"{}7")
-    [LiteralString "I said: \"Ho, ho\" and {it} worked!", LiteralInteger 10 7])
+    (tokenize ";This is a comment which shou\"ld be ignored and it is\n\"I said: ^\"Ho, ho^\" and ;it\n worked!\";\n7")
+    [LiteralString "I said: \"Ho, ho\" and ;it\n worked!", LiteralInteger 10 7])
 
 parserTest = TestCase (assertEqual "Parsing first mathematical expression" (parse (tokenize "((13))")) [Integer 13])
 
@@ -35,13 +35,13 @@ parserTest2 = TestCase (assertEqual "Parsing second mathematical expression"
     (Rational (31416 % 10000)))])
 
 parserTest3 = TestCase (assertEqual "Parsing second mathematical expression"
-    (parse (tokenize "my_var1+(\"lit^eral\"{comment}/(3**4))"))
+    (parse (tokenize "my_var1+(\"lit^eral\";comment\n/(3**4))"))
     [BinaryOperation Plus (Variable "my_var1") (BinaryOperation Divide (String "literal")
     (BinaryOperation RaiseToThePowerOf (Integer 3) (Integer 4)))])
 
 parserTest4 = TestCase (assertEqual "Parsing \"real\" code"
     (parse (tokenize "\
-\   fun fact (n)\
+\   fun fact n:\
 \       1 -> result\
 \       [n] -> i\
 \       while [i] > 1\
@@ -76,7 +76,7 @@ parserTest4 = TestCase (assertEqual "Parsing \"real\" code"
     ])
 
 parserTest5 = TestCase (assertEqual "Parsing another real code"
-    (parse (tokenize "fun power(n exp) if [exp] = 0 1 else [n] * power:([n] [exp] - 1) end end"))
+    (parse (tokenize "fun power n exp: if [exp] = 0 1 else [n] * power' ([n] [exp] - 1) end end"))
     [
         Function "power" ["n", "exp"] [
             IfExpression [

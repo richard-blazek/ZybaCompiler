@@ -72,9 +72,9 @@ parseWhile tokens = (WhileExpression conditionExpression blockExpressions, token
         (blockExpressions, _, tokensAfterBlock) = parseBlock [Keyword End] [] tokensAfterCondition
 
 parseFunction :: [Token] -> (Expression, [Token])
-parseFunction (Identifier name : (ParenthesisOpen : tokens)) = (Function name args block, tokensAfterBlock)
+parseFunction (Identifier name : tokens) = (Function name args block, tokensAfterBlock)
     where
-        parseArgList args (ParenthesisClose : tokens) = (reverse args, tokens)
+        parseArgList args (Colon : tokens) = (reverse args, tokens)
         parseArgList args (Identifier name : tokens) = parseArgList (name : args) tokens
         (args, tokensAfterArgs) = parseArgList [] tokens
         (block, _, tokensAfterBlock) = parseBlock [Keyword End] [] tokensAfterArgs
