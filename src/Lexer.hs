@@ -27,12 +27,11 @@ data Token = Empty
     deriving (Show, Eq)
 
 operatorList = [
-    ("+", Plus), ("-", Minus), ("*", Multiply), ("/", Divide), ("//", IntDivide),
-    ("%", Modulo), ("&", And), ("|", Or), ("^", Xor), ("**", RaiseToThePowerOf),
-    ("->", Assign), ("=", Equal), ("~", NotEqual), ("<", LowerThan), (">", GreaterThan),
-    (">=", GreaterThanOrEqualTo), ("<=", LowerThanOrEqualTo), ("'", Apply),
-    ("=>", GreaterThanOrEqualTo), ("=<", LowerThanOrEqualTo), ("<<", ShiftLeft),
-    (">>", ShiftRight)]
+    ("+", Plus), ("-", Minus), ("*", Multiply), ("/", Divide), ("//", IntDivide), ("%", Modulo),
+    ("&", And), ("|", Or), ("^", Xor), ("**", RaiseToThePowerOf), ("->", Assign), ("=", Equal),
+    ("~", NotEqual), ("<", LowerThan), (">", GreaterThan), (">=", GreaterThanOrEqualTo),
+    ("<=", LowerThanOrEqualTo), ("'", Apply), ("=>", GreaterThanOrEqualTo), ("=<", LowerThanOrEqualTo),
+    ("<<", ShiftLeft), (">>", ShiftRight)]
 
 operatorMap = Map.fromList operatorList
 operatorChars = (distinctSort . concat) (map fst operatorList)

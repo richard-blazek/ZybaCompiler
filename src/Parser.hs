@@ -46,7 +46,7 @@ parseExpressionWith parseFn operators tokens = parseOperationWith parseFn operat
 
 parseApplication = parseExpressionWith parseValue [Apply]
 parseExpression = parseExpressionWith parseApplication [Plus, Minus, Multiply, Divide, IntDivide, Modulo, And, Or, Xor, RaiseToThePowerOf,
-    Assign, Equal, NotEqual, GreaterThan, LowerThan, GreaterThanOrEqualTo, LowerThanOrEqualTo]
+    Assign, Equal, NotEqual, GreaterThan, LowerThan, GreaterThanOrEqualTo, LowerThanOrEqualTo, ShiftLeft, ShiftRight]
 
 parseBlock :: [Token] -> [Expression] -> [Token] -> ([Expression], Token, [Token])
 parseBlock terminators expressions tokens
