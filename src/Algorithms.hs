@@ -15,7 +15,6 @@ mergeDistinct merged (x:xs) (y:ys)
     | x > y = mergeDistinct (y : merged) (x : xs) ys
     | otherwise = mergeDistinct (x : merged) xs ys
 
-
 listify :: t -> [t]
 listify x = [x]
 

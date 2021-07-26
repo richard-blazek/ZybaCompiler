@@ -1,7 +1,6 @@
 module Parser (Expression (..), parse, parseValue) where
 
 import Lexer (Token (..), Operator (..), Keyword (..))
-import Data.Ratio ((%))
 
 data Expression = Integer Integer
                 | Rational Rational
@@ -15,29 +14,28 @@ data Expression = Integer Integer
                 | Dereference Expression deriving (Show, Eq)
 
 parseValue :: [Token] -> (Expression, [Token])
-parseValue (LiteralInteger _ n : tokens) = (Integer n, tokens)
-parseValue (LiteralDecimal radix n exp : tokens) = (Rational (n % (radix ^ exp)), tokens)
-parseValue (LiteralString string : tokens) = (String string, tokens)
-parseValue (Identifier name : tokens) = (Variable name, tokens)
-parseValue (ParenthesisOpen : tokens) = (expression, restTokens)
-    where (expression, restTokens) = case parseBlock [ParenthesisClose] [] tokens of
-            (expr : [], _, rest) -> (expr, rest)
-            (expressions, _, rest) -> (Tuple expressions, rest)
+parseValue (LiteralInteger i : tokens) = (Integer i, tokens)
+parseValue (LiteralDecimal d : tokens) = (Rational d, tokens)
+parseValue (LiteralString s : tokens) = (String s, tokens)
+parseValue (Identifier n : tokens) = (Variable n, tokens)
+parseValue (Operator ParenthesisOpen : tokens) = case parseBlock [Operator ParenthesisClose] [] tokens of
+        (expression : [], _, restTokens) -> (expression, restTokens)
+        (expressions, _, restTokens) -> (Tuple expressions, restTokens)
 parseValue (Keyword If : tokens) = parseIf [] tokens
 parseValue (Keyword While : tokens) = parseWhile tokens
 parseValue (Keyword Fun : tokens) = parseFunction tokens
-parseValue (BracketOpen : tokens)
-    | head tokensAfterExpression == BracketClose = (Dereference expression, tail tokensAfterExpression)
+parseValue (Operator BracketOpen : tokens)
+    | head tokensAfterExpression == Operator BracketClose = (Dereference expression, tail tokensAfterExpression)
     where (expression, tokensAfterExpression) = parseExpression tokens
 
 parseOperationWith :: ([Token] -> (Expression, [Token])) -> [Operator] -> Expression -> [Token] -> (Expression, [Token])
 parseOperationWith parseFn operators first tokens
-    | isOperator = parseOperationWith parseFn operators (BinaryOperation operator first second) restTokens
+    | isOperator = parseOperationWith parseFn operators operation restTokens
     | otherwise = (first, tokens)
     where
         (second, restTokens) = parseFn (tail tokens)
-        (isOperator, operator) = case tokens of
-            Operator op : _ -> (op `elem` operators, op)
+        (isOperator, operation) = case tokens of
+            Operator op : _ -> (op `elem` operators, BinaryOperation op first second)
             _ -> (False, undefined)
 
 parseExpressionWith :: ([Token] -> (Expression, [Token])) -> [Operator] -> [Token] -> (Expression, [Token])
@@ -74,7 +72,7 @@ parseWhile tokens = (WhileExpression conditionExpression blockExpressions, token
 parseFunction :: [Token] -> (Expression, [Token])
 parseFunction (Identifier name : tokens) = (Function name args block, tokensAfterBlock)
     where
-        parseArgList args (Colon : tokens) = (reverse args, tokens)
+        parseArgList args (Operator Colon : tokens) = (reverse args, tokens)
         parseArgList args (Identifier name : tokens) = parseArgList (name : args) tokens
         (args, tokensAfterArgs) = parseArgList [] tokens
         (block, _, tokensAfterBlock) = parseBlock [Keyword End] [] tokensAfterArgs
