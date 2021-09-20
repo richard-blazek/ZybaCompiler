@@ -1,19 +1,22 @@
 module Algorithms (distinctSort, mergeSort) where
 
 merge :: (Ord t) => [t] -> [t] -> [t] -> [t]
-merge merged xs [] = xs ++ merged
-merge merged [] ys = ys ++ merged
-merge merged (x:xs) (y:ys)
-    | x > y = merge (y : merged) (x : xs) ys
-    | otherwise = merge (x : merged) xs (y : ys)
+merge result [] [] = reverse result
+merge result (x : xs) [] = merge (x : result) xs []
+merge result [] (y : ys) = merge (y : result) [] ys
+merge result (x : xs) (y : ys)
+    | x > y = merge (y : result) (x : xs) ys
+    | otherwise = merge (x : result) xs (y : ys)
 
 mergeDistinct :: (Ord t) => [t] -> [t] -> [t] -> [t]
-mergeDistinct merged xs [] = xs ++ merged
-mergeDistinct merged [] ys = ys ++ merged
-mergeDistinct merged (x:xs) (y:ys)
-    | x < y = mergeDistinct (x : merged) xs (y : ys)
-    | x > y = mergeDistinct (y : merged) (x : xs) ys
-    | otherwise = mergeDistinct (x : merged) xs ys
+mergeDistinct result [] [] = reverse result
+mergeDistinct result [] ys = mergeDistinct result ys []
+mergeDistinct [] (x : xs) [] = mergeDistinct [x] xs []
+mergeDistinct (r : rs) (x : xs) [] = mergeDistinct (if r == x then r : rs else x : r : rs) xs []
+mergeDistinct result (x : xs) (y : ys)
+    | x > y = mergeDistinct (y : result) (x : xs) ys
+    | x < y = mergeDistinct (x : result) xs (y : ys)
+    | otherwise = mergeDistinct (x : result) xs ys
 
 listify :: t -> [t]
 listify x = [x]

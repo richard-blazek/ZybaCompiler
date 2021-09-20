@@ -12,33 +12,33 @@ main = do
 
 testEqual t x y = TestCase $ assertEqual t x y
 lexerTest = testEqual "Tokenization of sample text"
-    [LiteralInteger 1, Operator Plus, LiteralInteger 2, LiteralInteger 222, LiteralString "abc+-/*!%74漢語if^\nelse1while",
-    Operator Multiply, LiteralInteger 8, Operator Plus, LiteralDecimal $ 5 % 1, Operator Minus,
-    LiteralDecimal $ 4404 % 1000, Operator Divide, Identifier "abh_hc"]
+    [LiteralInteger 10 1, Operator Plus "", LiteralInteger 10 2, LiteralInteger 10 222, LiteralString "abc+-/*!%74漢語if^\nelse1while",
+    Operator Multiply "", LiteralInteger 10 8, Operator Plus "", LiteralDecimal 10 5 0, Operator Minus "",
+    LiteralDecimal 10 4404 3, Operator Divide "", Identifier "abh_hc"]
     (tokenize "1+2\n222\"abc+-/*!%74漢語if^\nelse1while\"*8+5.-4.404/abh_hc")
 
 lexerTest2 = testEqual "Tokenization of mathematical expressions"
-    [Operator BracketOpen, LiteralInteger 255, Operator Minus, Operator Minus, LiteralInteger 5, LiteralInteger 0,
-    LiteralInteger 7, Operator IntDivide, LiteralInteger 5, Operator Assign, Identifier "var", Operator RaiseToThePowerOf,
-    LiteralInteger 4, Operator Xor, LiteralInteger 5, Operator And, LiteralInteger 7, Operator GreaterThanOrEqualTo,
-    LiteralInteger 4, Operator LowerThanOrEqualTo, LiteralDecimal $ 3 % 4, Operator NotEqual, LiteralInteger 7, Operator LowerThan,
-    Operator Minus, Operator ShiftLeft, Identifier "fu", Operator BracketOpen, LiteralInteger 16, Operator BracketClose, Operator IntDivide]
+    [Operator BracketOpen "", LiteralInteger 16 255, Operator Minus "", Operator Minus "", LiteralInteger 11 5, LiteralInteger 10 0,
+    LiteralInteger 10 7, Operator IntDivide "", LiteralInteger 10 5, Operator Assign "", Identifier "var", Operator RaiseToThePowerOf "",
+    LiteralInteger 10 4, Operator Xor "", LiteralInteger 10 5, Operator And "", LiteralInteger 10 7, Operator GreaterThanOrEqualTo "",
+    LiteralInteger 10 4, Operator LowerThanOrEqualTo "", LiteralDecimal 2 3 2, Operator NotEqual "", LiteralInteger 10 7, Operator LowerThan "",
+    Operator Minus "", Operator ShiftLeft "", Identifier "fu", Operator BracketOpen "", LiteralInteger 16 16, Operator BracketClose "", Operator IntDivide ""]
     (tokenize "[16rFF--11r5 0\n7:5->var    ^4'5&7>=4<=2r0.11~7< - <<fu[16r10];\n:")
 
 lexerTest3 = testEqual "Tokenization of comments"
-    [LiteralString "I said: \"Ho, ho\" and ;it\n worked!", LiteralInteger 7]
+    [LiteralString "I said: \"Ho, ho\" and ;it\n worked!", LiteralInteger 10 7]
     (tokenize ";This is a comment which shou\"ld be ignored and it is\n\"I said: \"\"Ho, ho\"\" and ;it\n worked!\";\n7")
 
 lexerTest4 = testEqual "Tokenization of real code"
-    [Keyword Fun, Identifier "power", Operator BracketOpen, Identifier "n", Identifier "exp", Operator BracketClose, Keyword If,
-    Identifier "@", Operator BracketOpen, Identifier "exp", Operator BracketClose, Operator Equal, LiteralInteger 0, LiteralInteger 1,
-    Keyword Else, Identifier "@", Operator BracketOpen, Identifier "n", Operator BracketClose, Operator Multiply, Identifier "power",
-    Operator BracketOpen, Identifier "@", Operator BracketOpen, Identifier "n", Operator BracketClose,
-    Identifier "@", Operator BracketOpen, Identifier "exp", Operator BracketClose,
-    Operator Minus, LiteralInteger 1, Operator BracketClose, Keyword End, Keyword End]
+    [Keyword Fun "", Identifier "power", Operator BracketOpen "", Identifier "n", Identifier "exp", Operator BracketClose "", Keyword If "",
+    Identifier "@", Operator BracketOpen "", Identifier "exp", Operator BracketClose "", Operator Equal "", LiteralInteger 10 0, LiteralInteger 10 1,
+    Keyword Else "", Identifier "@", Operator BracketOpen "", Identifier "n", Operator BracketClose "", Operator Multiply "", Identifier "power",
+    Operator BracketOpen "", Identifier "@", Operator BracketOpen "", Identifier "n", Operator BracketClose "",
+    Identifier "@", Operator BracketOpen "", Identifier "exp", Operator BracketClose "",
+    Operator Minus "", LiteralInteger 10 1, Operator BracketClose "", Keyword End "", Keyword End ""]
     (tokenize "fun power [n exp] if @[exp] = 0 1 else @[n] * power[@[n] @[exp] - 1] end end")
 
-dereference x = FunctionCall (Variable "@") [x]
+dereference x = Call (Variable "@") [x]
 
 parserTest = testEqual "Parsing first mathematical expression" [Integer 13] (parse $ tokenize "((13))")
 
@@ -46,7 +46,7 @@ parserTest2 = testEqual "Parsing second mathematical expression"
     [BinaryOperation Divide (Integer 1) $ BinaryOperation Divide (BinaryOperation Plus (Integer 1) $ Integer 1) $ Rational $ 31416 % 10000]
     (parse $ tokenize "1/(1+1/(3.1416))")
 
-parserTest3 = testEqual "Parsing second mathematical expression"
+parserTest3 = testEqual "Parsing third mathematical expression"
     [BinaryOperation Plus (Variable "my_var1") $ BinaryOperation Divide (String "literal")
     $ BinaryOperation RaiseToThePowerOf (Integer 3) $ Integer 4]
     (parse $ tokenize "my_var1+(\"literal\";comment\n/(3^4))")
@@ -93,7 +93,7 @@ parserTest5 = testEqual "Parsing another real code"
             IfExpression [
                 (BinaryOperation Equal (dereference $ Variable "exp") $ Integer 0, [Integer 1])
             ] [
-                BinaryOperation Multiply (dereference $ Variable "n") $ FunctionCall (Variable "power") [
+                BinaryOperation Multiply (dereference $ Variable "n") $ Call (Variable "power") [
                     dereference $ Variable "n",
                     BinaryOperation Minus (dereference $ Variable "exp") $ Integer 1
                 ]
@@ -102,6 +102,6 @@ parserTest5 = testEqual "Parsing another real code"
     ]
     (parse $ tokenize "fun power[n exp] if @[exp] = 0 1 else @[n] * power[@[n] @[exp] - 1] end end")
 
-algorithmTest = testEqual "Testing distinctSort" (distinctSort [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9]) [1, 2, 3, 4, 5, 6, 8, 9]
+algorithmTest = testEqual "Testing distinctSort" [1, 2, 3, 4, 5, 6, 8, 9] (distinctSort [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9])
 
-tests = TestList [lexerTest, lexerTest2, lexerTest3, lexerTest4, parserTest, parserTest2, parserTest3, parserTest4, parserTest5]
+tests = TestList [lexerTest, lexerTest2, lexerTest3, lexerTest4, parserTest, parserTest2, parserTest3, parserTest4, parserTest5, algorithmTest]
