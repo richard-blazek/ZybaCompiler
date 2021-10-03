@@ -2,106 +2,87 @@ import Test.HUnit
 
 import Lexer
 import Parser
-import Algorithms
+import Functions
 import Data.Ratio
+
+testEqual t x y = TestCase $ assertEqual t x y
+lexerTest = testEqual "Tokenization of first code"
+    [LiteralInteger 10 1, Operator "+", LiteralInteger 10 2, LiteralInteger 10 222, LiteralString "a+%74漢語if^\nelse1e",
+    Operator "*", LiteralInteger 9 8, Operator "+", LiteralDecimal 9 5 0, Operator "-", LiteralDecimal 10 4404 3,
+    Operator "/", Word "abh_hc"]
+    $ tokenize "1+2\n222\"a+%74漢語if^\nelse1e\"*9r8+9r5.-4.404/abh_hc"
+
+lexerTest2 = testEqual "Tokenization of second code"
+    [Separator '[', LiteralInteger 16 255, Operator "--", LiteralInteger 9 5, LiteralInteger 10 0, LiteralInteger 10 7,
+    Operator ":", LiteralInteger 10 5, Operator "->", Word "var", Operator "^", LiteralInteger 10 4, Operator "~",
+    LiteralInteger 10 5, Operator "&", LiteralInteger 10 7, Operator ">=", LiteralInteger 10 4, Operator "<=",
+    LiteralDecimal 2 3 2, Operator "!=", LiteralInteger 10 7, Operator "<", Operator "-", Operator "<<", Word "fu",
+    Separator '[', LiteralInteger 16 16, Separator ']', Operator ":"]
+    $ tokenize "[16rFF--9r5 0\n7:5->var    ^4~5&7>=4<=2r0.11!=7< - <<fu[16r10];\n:"
+
+lexerTest3 = testEqual "Tokenization of third code"
+    [LiteralString "I said: \"Ho, ho\" and ;it\n worked!", LiteralInteger 10 7]
+    $ tokenize ";Just a comment which i\"s ignored\n\"I said: \"\"Ho, ho\"\" and ;it\n worked!\";\n7"
+
+lexerTest4 = testEqual "Tokenization of fourth code"
+    [Word "fun", Word "power", Separator '[', Word "n", Word "exp", Separator ']', Word "if", Word "f", Separator '[',
+    Word "exp", Separator ']', Operator "=", LiteralInteger 10 0, LiteralInteger 10 1, Word "else", Word "f",
+    Separator '[', Word "n", Separator ']', Operator "*", Word "power", Separator '[', Word "f", Separator '[',
+    Word "n", Separator ']', Word "f", Separator '[', Word "exp", Separator ']', Operator "-", LiteralInteger 10 1,
+    Separator ']', Word "is", Word "is"]
+    $ tokenize "fun power [n exp] if f[exp] = 0 1 else f[n] * power[f[n] f[exp] - 1] is is"
+
+parserTest = testEqual "Parsing first code" (Program [Function "some" [] $ Integer 13])
+    $ parse $ tokenize "some is fun[] ((13))"
+
+parserTest2 = testEqual "Parsing second code" (
+    Program [
+        Function "some" [] $
+            Operation "/" (Integer 1) $ Operation "/" (Operation "+" (Integer 1) $ Integer 1)
+            $ Rational $ 31416 % 10000])
+    $ parse $ tokenize "some is fun[] 1/(1+1/(3.1416))"
+
+parserTest3 = testEqual "Parsing third code" (
+    Program [
+        Function "some" [] $
+            Operation "+" (Variable "my_var1") $ Operation "/" (String "literal")
+            $ Operation "^" (Integer 3) $ Integer 4])
+    $ parse $ tokenize "some is fun[] my_var1+(\"literal\";comment\n/(3^4))"
+
+parserTest4 = testEqual "Parsing fourth code" (
+    Program [
+        Function "fact" ["n"]
+            $ IfExpression (Operation "=" (Variable "n") $ Integer 0) (Integer 1)
+            $ Operation "*" (Variable "n") $ Call (Variable "fact")
+            [Operation "-" (Variable "n") $ Integer 1],
+        Function "power" ["n", "exp"]
+            $ IfExpression (Operation "=" (Variable "exp") $ Integer 0) (Integer 1)
+            $ Operation "*" (Variable "n") $ Call (Variable "power")
+            [Variable "n", Operation "-" (Variable "exp") $ Integer 1],
+        Function "getBit" ["n", "i"]
+            $ Operation "&" (Operation ">>" (Variable "n") $ Variable "i") $ Integer 1,
+        Function "signum" ["x"]
+            $ IfExpression (Operation "=" (Variable "x") $ Integer 0) (Integer 0)
+            $ IfExpression (Operation "<" (Variable "x") $ Integer 0) (Operation "-" (Integer 0) $ Integer 1) $ Integer 1,
+        Function "signOf" ["x"]
+            $ IfExpression (Operation "=" (Variable "x") $ Integer 0) (Integer 0)
+            $ IfExpression (Operation "<" (Variable "x") $ Integer 0) (Operation "-" (Integer 0) $ Integer 1) $ Integer 1])
+    $ parse $ tokenize "\
+\   fact is fun[n] if n = 0 1 n * fact[n-1]\
+\   power is fun[n exp] if exp = 0 1 n * power[n exp-1]\
+\   getBit is fun[n i] (n >> i) & 1\
+\   signum is fun[x] if (x = 0) 0 (if (x < 0) (0 - 1) 1)\
+\   signOf is fun[x] if x = 0 0 if x < 0 0 - 1 1"
+
+algorithmTest = testEqual "Testing distinctSort" [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    $ distinctSort [7, 7, 7, 3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9]
+
+tests = TestList [
+    lexerTest, lexerTest2, lexerTest3, lexerTest4,
+    parserTest, parserTest2, parserTest3, parserTest4,
+    algorithmTest]
 
 main :: IO ()
 main = do
   _ <- runTestTT tests
   return ()
-
-testEqual t x y = TestCase $ assertEqual t x y
-lexerTest = testEqual "Tokenization of sample text"
-    [LiteralInteger 10 1, Operator Plus "", LiteralInteger 10 2, LiteralInteger 10 222, LiteralString "abc+-/*!%74漢語if^\nelse1while",
-    Operator Multiply "", LiteralInteger 10 8, Operator Plus "", LiteralDecimal 10 5 0, Operator Minus "",
-    LiteralDecimal 10 4404 3, Operator Divide "", Identifier "abh_hc"]
-    (tokenize "1+2\n222\"abc+-/*!%74漢語if^\nelse1while\"*8+5.-4.404/abh_hc")
-
-lexerTest2 = testEqual "Tokenization of mathematical expressions"
-    [Operator BracketOpen "", LiteralInteger 16 255, Operator Minus "", Operator Minus "", LiteralInteger 11 5, LiteralInteger 10 0,
-    LiteralInteger 10 7, Operator IntDivide "", LiteralInteger 10 5, Operator Assign "", Identifier "var", Operator RaiseToThePowerOf "",
-    LiteralInteger 10 4, Operator Xor "", LiteralInteger 10 5, Operator And "", LiteralInteger 10 7, Operator GreaterThanOrEqualTo "",
-    LiteralInteger 10 4, Operator LowerThanOrEqualTo "", LiteralDecimal 2 3 2, Operator NotEqual "", LiteralInteger 10 7, Operator LowerThan "",
-    Operator Minus "", Operator ShiftLeft "", Identifier "fu", Operator BracketOpen "", LiteralInteger 16 16, Operator BracketClose "", Operator IntDivide ""]
-    (tokenize "[16rFF--11r5 0\n7:5->var    ^4'5&7>=4<=2r0.11~7< - <<fu[16r10];\n:")
-
-lexerTest3 = testEqual "Tokenization of comments"
-    [LiteralString "I said: \"Ho, ho\" and ;it\n worked!", LiteralInteger 10 7]
-    (tokenize ";This is a comment which shou\"ld be ignored and it is\n\"I said: \"\"Ho, ho\"\" and ;it\n worked!\";\n7")
-
-lexerTest4 = testEqual "Tokenization of real code"
-    [Keyword Fun "", Identifier "power", Operator BracketOpen "", Identifier "n", Identifier "exp", Operator BracketClose "", Keyword If "",
-    Identifier "@", Operator BracketOpen "", Identifier "exp", Operator BracketClose "", Operator Equal "", LiteralInteger 10 0, LiteralInteger 10 1,
-    Keyword Else "", Identifier "@", Operator BracketOpen "", Identifier "n", Operator BracketClose "", Operator Multiply "", Identifier "power",
-    Operator BracketOpen "", Identifier "@", Operator BracketOpen "", Identifier "n", Operator BracketClose "",
-    Identifier "@", Operator BracketOpen "", Identifier "exp", Operator BracketClose "",
-    Operator Minus "", LiteralInteger 10 1, Operator BracketClose "", Keyword End "", Keyword End ""]
-    (tokenize "fun power [n exp] if @[exp] = 0 1 else @[n] * power[@[n] @[exp] - 1] end end")
-
-dereference x = Call (Variable "@") [x]
-
-parserTest = testEqual "Parsing first mathematical expression" [Integer 13] (parse $ tokenize "((13))")
-
-parserTest2 = testEqual "Parsing second mathematical expression"
-    [BinaryOperation Divide (Integer 1) $ BinaryOperation Divide (BinaryOperation Plus (Integer 1) $ Integer 1) $ Rational $ 31416 % 10000]
-    (parse $ tokenize "1/(1+1/(3.1416))")
-
-parserTest3 = testEqual "Parsing third mathematical expression"
-    [BinaryOperation Plus (Variable "my_var1") $ BinaryOperation Divide (String "literal")
-    $ BinaryOperation RaiseToThePowerOf (Integer 3) $ Integer 4]
-    (parse $ tokenize "my_var1+(\"literal\";comment\n/(3^4))")
-
-parserTest4 = testEqual "Parsing \"real\" code"
-    [
-        Function "fact" ["n"] [
-            BinaryOperation Assign (Integer 1) $ Variable "result",
-            BinaryOperation Assign (dereference $ Variable "n") $ Variable "i",
-            WhileExpression (BinaryOperation GreaterThan (dereference $ Variable "i") $ Integer 1) [
-                BinaryOperation Assign (BinaryOperation Multiply (dereference $ Variable "result") $ dereference $ Variable "i") $ Variable "result",
-                BinaryOperation Assign (BinaryOperation Minus (dereference $ Variable "i") $ Integer 1) $ Variable "i"
-            ],
-            dereference $ Variable "result"
-        ],
-        BinaryOperation Assign (Integer 5) $ Variable "num",
-        BinaryOperation Assign (IfExpression [
-            (BinaryOperation LowerThan (dereference $ Variable "num") $ Integer 10, [Integer 10]),
-            (BinaryOperation GreaterThan (dereference $ Variable "num") $ Integer 15, [Integer 15])
-        ] [dereference $ Variable "num"]) $ Variable "num"
-    ]
-    (parse $ tokenize "\
-\   fun fact[n]\
-\       1 -> result\
-\       @[n] -> i\
-\       while @[i] > 1\
-\           @[result] * @[i] -> result\
-\           @[i] - 1 -> i\
-\       end\
-\       @[result]\
-\   end\
-\   5 -> num\
-\   if @[num] < 10\
-\       10\
-\   elif @[num] > 15\
-\       15\
-\   else\
-\       @[num]\
-\   end -> num")
-
-parserTest5 = testEqual "Parsing another real code"
-    [
-        Function "power" ["n", "exp"] [
-            IfExpression [
-                (BinaryOperation Equal (dereference $ Variable "exp") $ Integer 0, [Integer 1])
-            ] [
-                BinaryOperation Multiply (dereference $ Variable "n") $ Call (Variable "power") [
-                    dereference $ Variable "n",
-                    BinaryOperation Minus (dereference $ Variable "exp") $ Integer 1
-                ]
-            ]
-        ]
-    ]
-    (parse $ tokenize "fun power[n exp] if @[exp] = 0 1 else @[n] * power[@[n] @[exp] - 1] end end")
-
-algorithmTest = testEqual "Testing distinctSort" [1, 2, 3, 4, 5, 6, 8, 9] (distinctSort [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9])
-
-tests = TestList [lexerTest, lexerTest2, lexerTest3, lexerTest4, parserTest, parserTest2, parserTest3, parserTest4, parserTest5, algorithmTest]

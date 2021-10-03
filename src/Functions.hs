@@ -1,4 +1,4 @@
-module Algorithms (distinctSort, mergeSort) where
+module Functions (distinctSort, mergeSort, pair, apply) where
 
 merge :: (Ord t) => [t] -> [t] -> [t] -> [t]
 merge result [] [] = reverse result
@@ -39,3 +39,9 @@ mergeSort = sortWith merge
 
 distinctSort :: (Ord t) => [t] -> [t]
 distinctSort = sortWith mergeDistinct
+
+pair :: a -> b -> (a, b)
+pair a b = (a, b)
+
+apply :: (a, b) -> (a -> b -> t) -> t
+apply (a, b) fn = fn a b
