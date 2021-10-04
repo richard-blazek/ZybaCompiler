@@ -80,6 +80,12 @@ parserTest4 = testEqual "Parsing the fourth code" (
 \       for s = a + b + c / 2\
 \       s * (s - a) * (s - b) * (s - c)"
 
+parserTest5 = testEqual "Parsing the second code" (
+    Program [
+        InvalidDeclaration "Expected Word \"fun\" but got Word \"not\"",
+        Function "fun" ["a", "b"] $ InvalidExpression "Expected a value but reached the EOF"])
+    $ parse $ tokenize "some is not fun is fun[a b]"
+
 algorithmTest = testEqual "Testing distinctSort" [1, 2, 3, 4, 5, 6, 7, 8, 9]
     $ distinctSort [7, 7, 7, 3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9]
 
