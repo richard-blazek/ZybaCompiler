@@ -4,9 +4,10 @@ import System.IO
 import System.Environment
 
 import Lexer
+import Parser
 
 main :: IO ()
 main = do
     line <- getLine
-    putStrLn (unlines (map show (tokenize line)))
+    putStrLn (show $ parse $ tokenize line)
 

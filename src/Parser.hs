@@ -4,7 +4,7 @@ import Lexer (Token (..))
 import Data.Ratio ((%))
 import Functions (pair, apply)
 
-data Program = Program [Declaration] deriving (Show, Read, Eq)
+newtype Program = Program [Declaration] deriving (Show, Read, Eq)
 data Declaration
     = Function String [String] Expression
     | InvalidDeclaration String deriving (Show, Read, Eq)
