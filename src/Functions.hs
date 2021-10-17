@@ -1,4 +1,4 @@
-module Functions (distinctSort, mergeSort, pair, apply) where
+module Functions (distinctSort, mergeSort, pair, apply, imap) where
 
 merge :: (Ord t) => [t] -> [t] -> [t] -> [t]
 merge result [] [] = reverse result
@@ -45,3 +45,6 @@ pair a b = (a, b)
 
 apply :: (a, b) -> (a -> b -> t) -> t
 apply (a, b) fn = fn a b
+
+imap :: Integral t => (t -> a -> b) -> [a] -> [b]
+imap fn list = zipWith fn [0..] list

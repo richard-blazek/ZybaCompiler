@@ -1,16 +1,13 @@
-module MapChain (Maps, insert, empty, lookup) where
+module Maps (insert, Maps.lookup) where
 
 import qualified Data.Map as Map
 
-insert :: k -> a -> [Map.Map k a] -> [Map.Map k a]
-insert key value [] = [Map.singletion key value]
+insert :: Ord k => k -> a -> [Map.Map k a] -> [Map.Map k a]
+insert key value [] = [Map.singleton key value]
 insert key value (x : xs) = Map.insert key value x : xs
 
-empty :: [Map.Map k a]
-empty = []
-
-lookup :: k -> [Map.Map k a] -> Maybe a
-lookup key (MapChain []) = Nothing
-lookup key (MapChain (x : xs)) = case Map.lookup key x of
-    Just x -> x
-    Nothing -> lookup key (MapChain xs)
+lookup :: Ord k => k -> [Map.Map k a] -> Maybe a
+lookup key [] = Nothing
+lookup key (x : xs) = case Map.lookup key x of
+    Nothing -> Maps.lookup key xs
+    just -> just

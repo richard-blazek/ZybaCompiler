@@ -1,7 +1,7 @@
 name:                Compiler
 version:             0.1.0.0
 github:              "RichardBlazek/Compiler"
-license:             BSD3
+license:             MIT
 author:              "Richard Blažek"
 maintainer:          "blazek.risa@gmail.com"
 copyright:           "2021 Richard Blažek"
@@ -14,9 +14,6 @@ extra-source-files:
 # synopsis:            Short description of your package
 # category:            Web
 
-# To avoid duplicated efforts in documentation and dealing with the
-# complications of embedding Haddock markup inside cabal files, it is
-# common to point users to the README.md file.
 description:         Please see the README on GitHub at <https://github.com/RichardBlazek/Compiler>
 
 dependencies:

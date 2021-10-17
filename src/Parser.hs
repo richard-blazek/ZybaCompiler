@@ -9,7 +9,8 @@ data Declaration
     = Function String [String] Expression
     | InvalidDeclaration String deriving (Show, Read, Eq)
 
-data Expression = Integer Integer
+data Expression
+    = Integer Integer
     | Rational Rational
     | String String
     | Variable String

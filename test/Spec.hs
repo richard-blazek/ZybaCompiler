@@ -2,6 +2,7 @@ import Test.HUnit
 
 import Lexer
 import Parser
+import Semantics
 import Functions
 import Data.Ratio
 
@@ -33,8 +34,8 @@ lexerTest4 = testEqual "Tokenization of the fourth code"
     $ tokenize "fun power [n exp] if f[exp] = 0 1 else f[n] * power[f[n] f[exp] - 1] is is"
 
 lexerTest5 = testEqual "Tokenization of an incorrent code"
-    [Word "stri", Unknown '#', LiteralInteger 10 2, LiteralString "###\"```", LiteralInteger 10 987, Operator "<==>",
-    Unknown '`', Unknown '.', LiteralDecimal 8 25 0]
+    [Word "stri", InvalidToken '#', LiteralInteger 10 2, LiteralString "###\"```", LiteralInteger 10 987, Operator "<==>",
+    InvalidToken '`', InvalidToken '.', LiteralDecimal 8 25 0]
     $ tokenize "stri#2\"###\"\"```\"987<==>`.8r31."
 
 parserTest = testEqual "Parsing the first code" (Program [Function "some" [] $ Integer 13])

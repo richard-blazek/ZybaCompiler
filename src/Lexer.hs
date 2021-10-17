@@ -2,7 +2,8 @@ module Lexer (Token (..), tokenize) where
 
 import Data.Char (ord)
 
-data Token = Empty
+data Token
+    = Empty
     | Comment
     | LiteralInteger Integer Integer
     | LiteralDecimal Integer Integer Integer
@@ -10,7 +11,7 @@ data Token = Empty
     | Word String
     | Operator String
     | Separator Char
-    | Unknown Char
+    | InvalidToken Char
     deriving (Show, Read, Eq)
 
 between :: (Ord t) => t -> t -> t -> Bool
@@ -36,7 +37,7 @@ startToken char
     | isNameStart char = Word [char]
     | isOperator char = Operator [char]
     | isSeparator char = Separator char
-    | otherwise = Unknown char
+    | otherwise = InvalidToken char
 
 processToken :: [Token] -> Char -> [Token]
 processToken tokens char = case tokens of
