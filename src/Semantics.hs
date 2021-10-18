@@ -22,14 +22,14 @@ data Value
     | Call Type Value [Value]
     | InvalidValue String deriving (Eq, Read, Show)
 
+tuple :: [Type] -> Type
+tuple = foldr Pair Unit
+
 operation :: Type -> Type
-operation t = Projection (Pair t t) t
+operation t = Projection (tuple [t, t]) t
 
 operator :: Primitive -> Value
 operator = Primitive (operation Int)
-
-tuple :: [Type] -> Type
-tuple = foldr Pair Unit
 
 typeOf :: Value -> Type
 typeOf (Literal t _) = t
@@ -59,14 +59,18 @@ analyseExpression :: Context -> Parser.Expression -> Value
 analyseExpression ctx (Parser.Integer int) = Literal Int int
 analyseExpression ctx (Parser.Rational _) = undefined
 analyseExpression ctx (Parser.String _) = undefined
+
 analyseExpression ctx (Parser.Variable name) = case Maps.lookup name ctx of
     Just value -> Variable (typeOf value) name ctx
     Nothing -> InvalidValue $ "Variable " ++ name ++ " does not exist"
+
 analyseExpression ctx (Parser.Call fn args) = analyseOperation (analyseExpression ctx fn) arguments
     where arguments = map (analyseExpression ctx) args
+
 analyseExpression ctx (Parser.Operation op a1 a2) = case Maps.lookup op ctx of
     Just operator -> analyseOperation operator $ analyseExpressions ctx [a1, a2]
     Nothing -> InvalidValue $ "Unknown operator " ++ op
+
 analyseExpression ctx (Parser.Condition cond ifTrue ifFalse) = analyseOperation condition expressions
     where
         expressions = analyseExpressions ctx [cond, ifTrue, ifFalse]
@@ -77,13 +81,12 @@ analyseExpression ctx (Parser.Assignment name assigned result) = analyseExpressi
     where value = analyseExpression ctx assigned
 
 analyseDeclaration :: Scope -> Parser.Declaration -> Scope
-analyseDeclaration scope (Parser.Function name [] result) = Map.insert name (InvalidValue "Function must have") scope
 analyseDeclaration scope (Parser.Function name args result) = resultScope
     where
-        argsScope = Map.fromList $ imap (\i arg -> (arg, Argument Int i)) args
         functionType = Projection (tuple $ map (const Int) args) Int
-        tmpScope = Map.insert name (Primitive functionType Abstract) scope
-        functionValue = analyseExpression [argsScope, tmpScope] result
+        this = (name, Primitive functionType Abstract)
+        innerScope = Map.fromList $ this : imap (\i arg -> (arg, Argument Int i)) args
+        functionValue = analyseExpression [innerScope, scope] result
         resultScope = Map.insert name (Function functionType functionValue) scope
 
 analyse :: Parser.Program -> Scope
