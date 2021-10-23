@@ -25,9 +25,9 @@ source-repository head
 
 library
   exposed-modules:
+      Errors
       Functions
       Lexer
-      Maps
       Parser
       Semantics
   other-modules:

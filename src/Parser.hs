@@ -13,9 +13,8 @@ data Expression
     = Integer Integer
     | Rational Rational
     | String String
-    | Variable String
-    | Call Expression [Expression]
-    | Operation String Expression Expression
+    | Name String
+    | Operation Expression [Expression]
     | Condition Expression Expression Expression
     | Assignment String Expression Expression
     | InvalidExpression String deriving (Show, Read, Eq)
@@ -39,14 +38,14 @@ parseValue (LiteralDecimal _ n exp : tokens) = (Rational $ n % (10 ^ exp), token
 parseValue (LiteralString s : tokens) = (String s, tokens)
 parseValue (Word "if" : tokens) = parseCondition tokens
 parseValue (Word "for" : tokens) = parseAssignment tokens
-parseValue (Word i : tokens) = (Variable i, tokens)
+parseValue (Word name : tokens) = (Name name, tokens)
 parseValue (Separator '(' : tokens) = expect [Separator ')'] (pair expression) InvalidExpression restTokens
     where (expression, restTokens) = parseExpression tokens
 parseValue (token : tokens) = (InvalidExpression $ "Expected a value but got " ++ show token, tokens)
 parseValue [] = (InvalidExpression "Expected a value but reached the EOF", [])
 
 parseBrackets :: Expression -> [Token] -> (Expression, [Token])
-parseBrackets func (Separator '[' : tokens) = parseBrackets (Call func args) restTokens
+parseBrackets func (Separator '[' : tokens) = parseBrackets (Operation func args) restTokens
     where (args, restTokens) = parseMany [] parseExpression (Separator ']') tokens
 parseBrackets func tokens = (func, tokens)
 
@@ -54,7 +53,7 @@ parseCall :: [Token] -> (Expression, [Token])
 parseCall tokens = apply (parseValue tokens) parseBrackets
 
 parseOperation :: Expression -> [Token] -> (Expression, [Token])
-parseOperation first (Operator op : tokens) = parseOperation (Operation op first second) restTokens
+parseOperation first (Operator op : tokens) = parseOperation (Operation (Name op) [first, second]) restTokens
     where (second, restTokens) = parseCall tokens
 parseOperation first tokens = (first, tokens)
 
@@ -74,8 +73,8 @@ parseAssignment (Word name : Operator "=" : tokens) = (Assignment name assigned 
         (assigned, tokensAfterAssignment) = parseExpression tokens
         (expression, restTokens) = parseExpression tokensAfterAssignment
 parseAssignment (Word name : tokens) = (InvalidExpression $ "Expected '=' when assigning to " ++ name, tokens)
-parseAssignment (token : tokens) = (InvalidExpression $ "Expected a variable name but got " ++ show token, tokens)
-parseAssignment [] = (InvalidExpression "Expected a variable name but reached the EOF", [])
+parseAssignment (token : tokens) = (InvalidExpression $ "Expected a Name name but got " ++ show token, tokens)
+parseAssignment [] = (InvalidExpression "Expected a Name name but reached the EOF", [])
 
 parseFunction :: String -> [Token] -> (Declaration, [Token])
 parseFunction name tokens = (Function name args expression, restTokens)

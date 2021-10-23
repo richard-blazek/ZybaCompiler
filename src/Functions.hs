@@ -1,4 +1,4 @@
-module Functions (distinctSort, mergeSort, pair, apply, imap) where
+module Functions (distinctSort, mergeSort, pair, apply, (!?), (??)) where
 
 merge :: (Ord t) => [t] -> [t] -> [t] -> [t]
 merge result [] [] = reverse result
@@ -23,16 +23,16 @@ listify x = [x]
 
 mergeLevel :: (Ord t) => ([t] -> [t] -> [t]) -> [[t]] -> [[t]] -> [[t]]
 mergeLevel merger merged [] = merged
-mergeLevel merger merged (first : []) = first : merged
+mergeLevel merger merged [first] = first : merged
 mergeLevel merger merged (first : (second : rest)) = mergeLevel merger (merger first second : merged) rest
 
 mergeAll :: (Ord t) => ([t] -> [t] -> [t]) -> [[t]] -> [t]
-mergeAll _ [] = []
-mergeAll _ (x:[]) = x
+mergeAll merger [] = []
+mergeAll merger [x] = x
 mergeAll merger lol = mergeAll merger (mergeLevel merger [] lol)
 
 sortWith :: (Ord t) => ([t] -> [t] -> [t] -> [t]) -> [t] -> [t]
-sortWith merger = (mergeAll (merger [])) . (map listify)
+sortWith merger = mergeAll (merger []) . map listify
 
 mergeSort :: (Ord t) => [t] -> [t]
 mergeSort = sortWith merge
@@ -46,5 +46,13 @@ pair a b = (a, b)
 apply :: (a, b) -> (a -> b -> t) -> t
 apply (a, b) fn = fn a b
 
-imap :: Integral t => (t -> a -> b) -> [a] -> [b]
-imap fn list = zipWith fn [0..] list
+infixl 9 !?
+(!?) :: Integral i => [a] -> i -> Maybe a
+(x : _) !? 0 = Just x
+(_ : xs) !? n = xs !? (n - 1)
+_ !? _ = Nothing
+
+infixl 3 ??
+(??) :: Maybe a -> a -> a
+Nothing ?? x = x
+Just x ?? _ = x

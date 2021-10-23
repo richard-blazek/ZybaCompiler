@@ -51,12 +51,12 @@ parserTest2 = testEqual "Parsing the second code" (
 parserTest3 = testEqual "Parsing the third code" (
     Program [
         Function "some" [] $
-            Operation "+" (Variable "my_var1") $ Operation "/" (String "literal")
+            Operation "+" (Name "my_var1") $ Operation "/" (String "literal")
             $ Operation "^" (Integer 3) $ Integer 4])
     $ parse $ tokenize "some is fun[] my_var1+(\"literal\";comment\n/(3^4))"
 
 parserTest4 = testEqual "Parsing the fourth code" (
-    let (zero, one, n, e, invoke) = (Integer 0, Integer 1, Variable "n", Variable "e", Call . Variable) in
+    let (zero, one, n, e, invoke) = (Integer 0, Integer 1, Name "n", Name "e", Call . Name) in
     Program [
         Function "fact" ["n"]
             $ Condition (Operation "=" n zero) one $ Operation "*" n $ invoke "fact" [Operation "-" n one],
@@ -67,7 +67,7 @@ parserTest4 = testEqual "Parsing the fourth code" (
             $ Condition (Operation "=" n zero) zero $ Condition (Operation "<" n zero) (Operation "-" zero one) one,
         Function "signOf" ["n"]
             $ Condition (Operation "=" n zero) zero $ Condition (Operation "<" n zero) (Operation "-" zero one) one,
-        let (two, s, a, b, c) = (Integer 2, Variable "s", Variable "a", Variable "b", Variable "c") in
+        let (two, s, a, b, c) = (Integer 2, Name "s", Name "a", Name "b", Name "c") in
         Function "heron" ["a", "b", "c"]
             $ Assignment "s" (Operation "/" (Operation "+" (Operation "+" a b) c) two) $ (Operation "*" (Operation "*"
             (Operation "*" s $ Operation "-" s a) $ Operation "-" s b) $ Operation "-" s c)])
