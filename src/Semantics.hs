@@ -18,7 +18,6 @@ data Value
     = Literal Type Integer
     | Function Type [String] Value
     | Primitive Type Primitive
-    | Argument Type Integer
     | Binding Type String Value Value
     | Name Type String
     | Call Type Value [Value]
@@ -34,7 +33,6 @@ typeOf :: Value -> Type
 typeOf (Literal t _) = t
 typeOf (Function t _ _) = t
 typeOf (Primitive t _) = t
-typeOf (Argument t _) = t
 typeOf (Name t _) = t
 typeOf (Call t _ _) = t
 typeOf (Binding t _ _ _) = t

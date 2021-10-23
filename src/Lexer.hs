@@ -56,4 +56,4 @@ processToken tokens char = case tokens of
     tokens -> startToken char : tokens
 
 tokenize :: String -> [Token]
-tokenize = reverse . filter (not . (`elem` [Empty, Comment])) . foldl processToken []
+tokenize = reverse . dropWhile (`elem` [Empty, Comment]) . foldl processToken []
