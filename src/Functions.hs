@@ -1,4 +1,4 @@
-module Functions (distinctSort, mergeSort, pair, apply, (!?), (??)) where
+module Functions (distinctSort, mergeSort, pair, apply, (!?), (??), fill) where
 
 merge :: (Ord t) => [t] -> [t] -> [t] -> [t]
 merge result [] [] = reverse result
@@ -56,3 +56,6 @@ infixl 3 ??
 (??) :: Maybe a -> a -> a
 Nothing ?? x = x
 Just x ?? _ = x
+
+fill :: b -> [a] -> [b]
+fill = map . const

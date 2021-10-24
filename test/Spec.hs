@@ -9,7 +9,7 @@ import Data.Ratio
 testEqual t x y = TestCase $ assertEqual t x y
 lexerTest = testEqual "Tokenization of the first code"
     [LiteralInteger 10 1, Operator "+", LiteralInteger 10 2, LiteralInteger 10 222, LiteralString "a+%74漢語if^\nelse1e",
-    Operator "*", LiteralInteger 9 8, Operator "+", LiteralDecimal 9 5 0, Operator "-", LiteralDecimal 10 4404 3,
+    Operator "*", LiteralInteger 9 8, Operator "+", LiteralRational 9 5 0, Operator "-", LiteralRational 10 4404 3,
     Operator "/", Word "abh_hc"]
     $ tokenize "1+2\n222\"a+%74漢語if^\nelse1e\"*9r8+9r5.-4.404/abh_hc"
 
@@ -17,7 +17,7 @@ lexerTest2 = testEqual "Tokenization of the second code"
     [Separator '[', LiteralInteger 16 255, Operator "--", LiteralInteger 9 5, LiteralInteger 10 0, LiteralInteger 10 7,
     Operator ":", LiteralInteger 10 5, Operator "->", Word "var", Operator "^", LiteralInteger 10 4, Operator "~",
     LiteralInteger 10 5, Operator "&", LiteralInteger 10 7, Operator ">=", LiteralInteger 10 4, Operator "<=",
-    LiteralDecimal 2 3 2, Operator "!=", LiteralInteger 10 7, Operator "<", Operator "-", Operator "<<", Word "fu",
+    LiteralRational 2 3 2, Operator "!=", LiteralInteger 10 7, Operator "<", Operator "-", Operator "<<", Word "fu",
     Separator '[', LiteralInteger 16 16, Separator ']', Operator ":"]
     $ tokenize "[16rFF--9r5 0\n7:5->var    ^4~5&7>=4<=2r0.11!=7< - <<fu[16r10];\n:"
 
@@ -34,9 +34,9 @@ lexerTest4 = testEqual "Tokenization of the fourth code"
     $ tokenize "fun power [n exp] if f[exp] = 0 1 else f[n] * power[f[n] f[exp] - 1] is is"
 
 lexerTest5 = testEqual "Tokenization of an incorrent code"
-    [Word "stri", InvalidToken '#', LiteralInteger 10 2, LiteralString "###\"```", LiteralInteger 10 987, Operator "<==>",
-    InvalidToken '`', InvalidToken '.', LiteralDecimal 8 25 0]
-    $ tokenize "stri#2\"###\"\"```\"987<==>`.8r31."
+    [Word "stri", LiteralInteger 10 2, LiteralString "###\"```", LiteralInteger 10 987, Operator "<==", Operator ">",
+    LiteralRational 8 25 0]
+    $ tokenize "stri#2\"###\"\"```\"987<== >`.8r31."
 
 parserTest = testEqual "Parsing the first code" (Program [Function "some" [] $ Integer 13])
     $ parse $ tokenize "some is fun[] ((13))"

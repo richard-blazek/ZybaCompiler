@@ -14,8 +14,8 @@ transcribe fn input output = input >>= output . fn
 compile :: [String] -> IO ()
 compile args = transcribe (show . analyse . parse . tokenize) input output
     where
-        input = (args !? 0 >>= return . IO.readFile) ?? IO.getLine
-        output = (args !? 1 >>= return . IO.writeFile) ?? IO.putStrLn
+        input = fmap IO.readFile (args !? 0) ?? IO.getLine
+        output = fmap IO.writeFile (args !? 1) ?? IO.putStrLn
 
 main :: IO ()
 main = Env.getArgs >>= compile
