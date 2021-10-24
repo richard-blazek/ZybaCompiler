@@ -56,6 +56,10 @@ test-suite Compiler-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      FunctionsSpec
+      LexerSpec
+      ParserSpec
+      SemanticsSpec
       Paths_Compiler
   hs-source-dirs:
       test
