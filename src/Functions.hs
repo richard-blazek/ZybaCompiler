@@ -1,4 +1,4 @@
-module Functions (pair, apply, (!?), (??), fill) where
+module Functions where
 
 pair :: a -> b -> (a, b)
 pair a b = (a, b)
@@ -19,3 +19,6 @@ Just x ?? _ = x
 
 fill :: b -> [a] -> [b]
 fill = map . const
+
+join :: [a] -> [[a]] -> [a]
+join element = foldr (\a b -> a ++ element ++ b) []

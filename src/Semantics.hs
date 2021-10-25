@@ -49,8 +49,8 @@ builtins = Map.fromList [("+", operator Add), ("-", operator Subtract), ("*", op
 conflict :: (Fallible f) => String -> b -> c -> f
 conflict name _ _ = invalid $ "Attempting to redefine " ++ name
 
-createGlobalScope :: [Parser.Declaration] -> Scope
-createGlobalScope declarations = Map.unionWithKey conflict declared builtins
+processDecarations :: [Parser.Declaration] -> Scope
+processDecarations declarations = Map.unionWithKey conflict declared builtins
     where
         process (Parser.Function name args result) = (name, Global (Projection (tuple $ fill Int args) Int) name)
         declared = Map.fromListWithKey conflict $ map process declarations
@@ -90,5 +90,5 @@ analyseDeclaration scope (Parser.Function name args expression) = (name, functio
 analyse :: [Parser.Declaration] -> Scope
 analyse declarations = Map.difference scope builtins
     where
-        scopeItems = map (analyseDeclaration $ createGlobalScope declarations) declarations
+        scopeItems = map (analyseDeclaration $ processDecarations declarations) declarations
         scope = Map.unionWithKey conflict builtins $ Map.fromListWithKey conflict scopeItems
