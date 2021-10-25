@@ -21,4 +21,5 @@ fill :: b -> [a] -> [b]
 fill = map . const
 
 join :: [a] -> [[a]] -> [a]
-join element = foldr (\a b -> a ++ element ++ b) []
+join element [] = []
+join element xs = foldr1 (\a b -> a ++ element ++ b) xs
