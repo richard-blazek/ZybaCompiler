@@ -1,4 +1,4 @@
-module Semantics (analyse, Type (..), Scope, Primitive (..), Value (..)) where
+module Semantics (analyse, builtins, Type (..), Scope, Primitive (..), Value (..)) where
 
 import Data.Map (Map)
 import Functions (pair, fill, (??))
@@ -7,7 +7,7 @@ import qualified Data.Map.Strict as Map
 import qualified Parser
 
 data Type = Int | Unit | Pair Type Type | Projection Type Type | InvalidType String deriving (Eq, Read, Show)
-data Primitive = Add | Subtract | Multiply | Divide | And | Or | Xor | Equal
+data Primitive = Add | Subtract | Multiply | Divide | Modulo | And | Or | Xor | Equal
     | NotEqual | LowerThan | GreaterThan | Power | Not | If | Abstract deriving (Eq, Read, Show)
 
 data Value
@@ -16,7 +16,7 @@ data Value
     | Primitive Type Primitive
     | Global Type String
     | Argument Type String
-    | Call Type Value [Value]
+    | Operation Type Value [Value]
     | InvalidValue String deriving (Eq, Read, Show)
 
 type Scope = Map String Value
@@ -36,14 +36,14 @@ typeOf (Function t _ _) = t
 typeOf (Primitive t _) = t
 typeOf (Argument t _) = t
 typeOf (Global t _) = t
-typeOf (Call t _ _) = t
+typeOf (Operation t _ _) = t
 typeOf (InvalidValue _) = Unit
 
 operator = Primitive $ Projection (tuple [Int, Int]) Int
 
 builtins :: Scope
 builtins = Map.fromList [("+", operator Add), ("-", operator Subtract), ("*", operator Multiply),
-    ("/", operator Divide), ("&", operator And), ("|", operator Or), ("~", operator Xor),
+    ("/", operator Divide), ("\\", operator Modulo), ("&", operator And), ("|", operator Or), ("~", operator Xor),
     ("=", operator Equal), ("/=", operator NotEqual), ("<", operator LowerThan),
     (">", operator GreaterThan), ("^", operator Power), ("not", Primitive (Projection (tuple [Int]) Int) Not)]
 
@@ -56,9 +56,9 @@ createGlobalScope declarations = Map.unionWithKey conflict declared builtins
         process (Parser.Function name args result) = (name, Global (Projection (tuple $ fill Int args) Int) name)
         declared = Map.fromListWithKey conflict $ map process declarations
 
-analyseCall :: Value -> [Value] -> Value
-analyseCall callee args = case typeOf callee of
-    Projection from to | from == types  -> Call to callee args
+analyseOperation :: Value -> [Value] -> Value
+analyseOperation callee args = case typeOf callee of
+    Projection from to | from == types  -> Operation to callee args
     Projection from to -> InvalidValue $ "Function " ++ show callee ++ " expected " ++ show from ++ " but got " ++ show types
     _ -> InvalidValue $ "Expected function but got " ++ show callee ++ " which is of a type " ++ show (typeOf callee)
     where types = tuple $ map typeOf args
@@ -69,10 +69,10 @@ analyseExpression scope (Parser.Rational _) = undefined
 analyseExpression scope (Parser.String _) = undefined
 analyseExpression scope (Parser.Name name) = Map.lookup name scope ?? InvalidValue ("Name " ++ name ++ " is unknown")
 
-analyseExpression scope (Parser.Operation fn params) = analyseCall (analyseExpression scope fn) args
+analyseExpression scope (Parser.Operation fn params) = analyseOperation (analyseExpression scope fn) args
     where args = map (analyseExpression scope) params
 
-analyseExpression scope (Parser.Condition condition ifTrue ifFalse) = analyseCall fn [cond, ift, iff]
+analyseExpression scope (Parser.Condition condition ifTrue ifFalse) = analyseOperation fn [cond, ift, iff]
     where
         [cond, ift, iff] = map (analyseExpression scope) [condition, ifTrue, ifFalse]
         typ = typeOf ift
