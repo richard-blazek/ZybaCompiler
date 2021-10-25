@@ -65,7 +65,7 @@ parseBrackets func (Separator '[' : tokens) = parseBrackets (Operation func args
 parseBrackets func tokens = (func, tokens)
 
 parseCall :: [Token] -> (Expression, [Token])
-parseCall tokens = apply (parseValue tokens) parseBrackets
+parseCall tokens = apply parseBrackets $ parseValue tokens
 
 parseOperation :: Expression -> [Token] -> (Expression, [Token])
 parseOperation first (Operator op : tokens) = parseOperation (Operation (Name op) [first, second]) restTokens
@@ -73,7 +73,7 @@ parseOperation first (Operator op : tokens) = parseOperation (Operation (Name op
 parseOperation first tokens = (first, tokens)
 
 parseExpression :: [Token] -> (Expression, [Token])
-parseExpression tokens = apply (parseCall tokens) parseOperation
+parseExpression tokens = apply parseOperation $ parseCall tokens
 
 parseFunction :: String -> [Token] -> (Declaration, [Token])
 parseFunction name tokens = (Function name args expression, restTokens)

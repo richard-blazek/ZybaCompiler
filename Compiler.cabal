@@ -58,7 +58,6 @@ test-suite Compiler-test
   main-is: Spec.hs
   other-modules:
       CodegenSpec
-      FunctionsSpec
       LexerSpec
       ParserSpec
       SemanticsSpec
