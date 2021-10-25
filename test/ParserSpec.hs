@@ -2,7 +2,7 @@ module ParserSpec (tests) where
 
 import Test.HUnit
 import Data.Ratio
-import Lexer
+import Lexer (tokenize)
 import Parser
 
 pt = parse . tokenize

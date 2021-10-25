@@ -1,13 +1,13 @@
 module SemanticsSpec (tests) where
 
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict (fromList)
 import Test.HUnit
-import Semantics
-import Parser (parse)
 import Lexer (tokenize)
+import Parser (parse)
+import Semantics
 
-process = (`Map.difference` builtins) . analyse . parse . tokenize
-testEqual t x y = TestCase $ assertEqual t (Map.fromList x) y
+process = analyse . parse . tokenize
+testEqual t x y = TestCase $ assertEqual t (fromList x) y
 
 naryProjection n = Projection (iterate (Pair Int) Unit !! n) Int
 a \- b = Operation Int (Primitive (naryProjection 2) Subtract) [a, b]
@@ -31,7 +31,7 @@ test1 = testEqual "Analysing the first code" [
 
 test2 = testEqual "Analysing the second code" [
     ("pow", Function (naryProjection 2) ["n", "e"] $ call "power" [arg "n", arg "e", int 1]),
-    ("power", Function (naryProjection 2) ["n", "exp", "acc"] $
+    ("power", Function (naryProjection 3) ["n", "exp", "acc"] $
         ifte (arg "exp" \= int 0) (arg "acc") $
         ifte (arg "exp" \\ int 2 \= int 1) (call "power" [arg "n", arg "exp" \- int 1, arg "acc" \* arg "n"]) $
         call "power" [arg "n", arg "exp" \/ int 2, arg "acc" \* arg "acc"])]
@@ -42,4 +42,4 @@ test2 = testEqual "Analysing the second code" [
 \   if exp \\ 2 = 1 p[n exp - 1 acc * n]\
 \   p[n exp / 2 acc * acc]"
 
-tests = [test1]
+tests = [test1, test2]

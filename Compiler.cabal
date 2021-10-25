@@ -25,6 +25,7 @@ source-repository head
 
 library
   exposed-modules:
+      Codegen
       Errors
       Functions
       Lexer
@@ -56,6 +57,7 @@ test-suite Compiler-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      CodegenSpec
       FunctionsSpec
       LexerSpec
       ParserSpec

@@ -1,6 +1,5 @@
-module Semantics (analyse, builtins, Type (..), Scope, Primitive (..), Value (..)) where
+module Semantics (analyse, Type (..), Scope, Primitive (..), Value (..)) where
 
-import Data.Map (Map)
 import Functions (pair, fill, (??))
 import Errors (Fallible, invalid)
 import qualified Data.Map.Strict as Map
@@ -19,7 +18,7 @@ data Value
     | Operation Type Value [Value]
     | InvalidValue String deriving (Eq, Read, Show)
 
-type Scope = Map String Value
+type Scope = Map.Map String Value
 
 instance Fallible Type where
     invalid = InvalidType
@@ -89,5 +88,7 @@ analyseDeclaration scope (Parser.Function name args expression) = (name, functio
         function = Function functionType args $ analyseExpression innerScope expression
 
 analyse :: [Parser.Declaration] -> Scope
-analyse declarations = Map.unionWithKey conflict builtins $ Map.fromListWithKey conflict scopeItems
-    where scopeItems = map (analyseDeclaration $ createGlobalScope declarations) declarations
+analyse declarations = Map.difference scope builtins
+    where
+        scopeItems = map (analyseDeclaration $ createGlobalScope declarations) declarations
+        scope = Map.unionWithKey conflict builtins $ Map.fromListWithKey conflict scopeItems
