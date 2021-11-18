@@ -13,8 +13,7 @@ data Value
     = Literal Type Integer
     | Function Type [String] Value
     | Primitive Type Primitive
-    | Global Type String
-    | Argument Type String
+    | Variable Type String
     | Operation Type Value [Value]
     | InvalidValue String deriving (Eq, Read, Show)
 
@@ -33,8 +32,7 @@ typeOf :: Value -> Type
 typeOf (Literal t _) = t
 typeOf (Function t _ _) = t
 typeOf (Primitive t _) = t
-typeOf (Argument t _) = t
-typeOf (Global t _) = t
+typeOf (Variable t _) = t
 typeOf (Operation t _ _) = t
 typeOf (InvalidValue _) = Unit
 
@@ -52,7 +50,7 @@ conflict name _ _ = invalid $ "Attempting to redefine " ++ name
 processDecarations :: [Parser.Declaration] -> Scope
 processDecarations declarations = Map.unionWithKey conflict declared builtins
     where
-        process (Parser.Function name args result) = (name, Global (Projection (tuple $ fill Int args) Int) name)
+        process (Parser.Function name args result) = (name, Variable (Projection (tuple $ fill Int args) Int) name)
         declared = Map.fromListWithKey conflict $ map process declarations
 
 analyseOperation :: Value -> [Value] -> Value
@@ -84,7 +82,7 @@ analyseDeclaration :: Scope -> Parser.Declaration -> (String, Value)
 analyseDeclaration scope (Parser.Function name args expression) = (name, function)
     where
         functionType = Projection (tuple $ fill Int args) Int
-        innerScope = Map.union (Map.fromListWithKey conflict $ map (\x -> (x, Argument Int x)) args) scope
+        innerScope = Map.union (Map.fromListWithKey conflict $ map (\x -> (x, Variable Int x)) args) scope
         function = Function functionType args $ analyseExpression innerScope expression
 
 analyse :: [Parser.Declaration] -> Scope

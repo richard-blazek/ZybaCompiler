@@ -3,9 +3,6 @@ module Functions where
 pair :: a -> b -> (a, b)
 pair a b = (a, b)
 
-apply :: (a -> b -> t) -> ((a, b) -> t)
-apply fn (a, b) = fn a b
-
 infixl 9 !?
 (!?) :: Integral i => [a] -> i -> Maybe a
 (x : _) !? 0 = Just x
@@ -20,6 +17,5 @@ Just x ?? _ = x
 fill :: b -> [a] -> [b]
 fill = map . const
 
-join :: [a] -> [[a]] -> [a]
-join element [] = []
-join element xs = foldr1 (\a b -> a ++ element ++ b) xs
+join :: Foldable t => [a] -> t [a] -> [a]
+join element xs = if null xs then [] else foldr1 (\a b -> a ++ element ++ b) xs
