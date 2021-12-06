@@ -3,49 +3,55 @@ module Codegen (generate) where
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Semantics
+import Errors (Fallible, failure)
 import Functions (join)
 
 requiredCaptures :: [String] -> Set.Set String -> [Value] -> [String]
 requiredCaptures skip captures [] = Set.toList $ Set.difference captures $ Set.fromList skip
-requiredCaptures skip captures (Variable _ name : rest) = requiredCaptures skip (Set.insert name captures) rest
-requiredCaptures skip captures (Function _ args result : rest) = requiredCaptures skip captures $ result : rest
-requiredCaptures skip captures (Operation _ fn args : rest) = requiredCaptures skip captures $ fn : (args ++ rest)
+requiredCaptures skip captures ((_, _, Variable name) : rest) = requiredCaptures skip (Set.insert name captures) rest
+requiredCaptures skip captures ((_, _, Function args result) : rest) = requiredCaptures skip captures $ result : rest
+requiredCaptures skip captures ((_, _, Operation fun args) : rest) = requiredCaptures skip captures $ fun : (args ++ rest)
 requiredCaptures skip captures (_ : rest) = requiredCaptures skip captures rest
 
-generatePrimitive :: Primitive -> [Value] -> String
-generatePrimitive cmd args = case (cmd, args) of
-    (Add, [a, b]) -> "(" ++ generateValue a ++ "+" ++ generateValue b ++ ")"
-    (Subtract, [a, b]) -> "(" ++ generateValue a ++ "-" ++ generateValue b ++ ")"
-    (Multiply, [a, b]) -> "(" ++ generateValue a ++ "*" ++ generateValue b ++ ")"
-    (Divide, [a, b]) -> "(" ++ generateValue a ++ "/" ++ generateValue b ++ ")"
-    (Modulo, [a, b]) -> "(" ++ generateValue a ++ "%" ++ generateValue b ++ ")"
-    (And, [a, b]) -> "(" ++ generateValue a ++ "&&" ++ generateValue b ++ ")"
-    (Or, [a, b]) -> "(" ++ generateValue a ++ "||" ++ generateValue b ++ ")"
-    (Xor, [a, b]) -> "(" ++ generateValue a ++ "^" ++ generateValue b ++ ")"
-    (Equal, [a, b]) -> "(" ++ generateValue a ++ "==" ++ generateValue b ++ ")"
-    (NotEqual, [a, b]) -> "(" ++ generateValue a ++ "!=" ++ generateValue b ++ ")"
-    (LowerThan, [a, b]) -> "(" ++ generateValue a ++ "<" ++ generateValue b ++ ")"
-    (GreaterThan, [a, b]) -> "(" ++ generateValue a ++ ">" ++ generateValue b ++ ")"
-    (Power, [a, b]) -> "(pow(" ++ generateValue a ++ "," ++ generateValue b ++ "))"
-    (Not, [a]) ->  "(!" ++ generateValue a ++ ")"
-    (If, [a, b, c]) -> "(" ++ generateValue a ++ "?" ++ generateValue b ++ ":" ++ generateValue c ++ ")"
-    x -> "(##Compile error - unknown operation " ++ show x ++ "##)"
+stringifyPrimitive :: Primitive -> [Value] -> Fallible String
+stringifyPrimitive cmd args = do
+    argStrings <- mapM stringifyValue args
+    return $ case (cmd, argStrings) of
+        (Add, [a, b]) -> "(" ++ a ++ "+" ++ b ++ ")"
+        (Subtract, [a, b]) -> "(" ++ a ++ "-" ++ b ++ ")"
+        (Multiply, [a, b]) -> "(" ++ a ++ "*" ++ b ++ ")"
+        (Divide, [a, b]) -> "(" ++ a ++ "/" ++ b ++ ")"
+        (Modulo, [a, b]) -> "(" ++ a ++ "%" ++ b ++ ")"
+        (And, [a, b]) -> "(" ++ a ++ "&&" ++ b ++ ")"
+        (Or, [a, b]) -> "(" ++ a ++ "||" ++ b ++ ")"
+        (Xor, [a, b]) -> "(" ++ a ++ "^" ++ b ++ ")"
+        (Equal, [a, b]) -> "(" ++ a ++ "==" ++ b ++ ")"
+        (NotEqual, [a, b]) -> "(" ++ a ++ "!=" ++ b ++ ")"
+        (LowerThan, [a, b]) -> "(" ++ a ++ "<" ++ b ++ ")"
+        (GreaterThan, [a, b]) -> "(" ++ a ++ ">" ++ b ++ ")"
+        (Power, [a, b]) -> "pow(" ++ a ++ "," ++ b ++ ")"
+        (Not, [a]) ->  "(!" ++ a ++ ")"
+        (If, [a, b, c]) -> "(" ++ a ++ "?" ++ b ++ ":" ++ c ++ ")"
 
-generateValue :: Value -> String
-generateValue (Literal _ num) = show num
-generateValue (Function _ args result) = header ++ "{return " ++ generateValue result ++ ";}"
-    where
-        header = "function(" ++ (join "," (map ('$':) args)) ++ ")use(" ++ captureString ++ ")"
-        captureString = join "," $ map ('&':'$':) $ requiredCaptures args Set.empty [result]
-generateValue (Variable _ name) = '$' : name
-generateValue (Operation _ fn args) = case fn of
-    Primitive _ cmd -> generatePrimitive cmd args
-    _ -> "(" ++ generateValue fn ++ "(" ++ join "," (map generateValue args) ++ "))"
-generateValue (InvalidValue msg) = "(##Compile error - invalid value " ++ msg ++ "##)"
-generateValue (Primitive _ cmd) = "(##Compile error - unexpected primitive " ++ show cmd ++ "##)"
+stringifyValue :: Value -> Fallible String
+stringifyValue (_, _, Literal num) = Right $ show num
+stringifyValue (_, _, Variable name) = Right $ '$' : name
+stringifyValue (_, _, Function args result) = do
+    captures <- return $ join "," $ map ("&$" ++) $ requiredCaptures args Set.empty [result]
+    header <- return $ "function(" ++ (join "," (map ('$':) args)) ++ ")use(" ++ captures ++ ")"
+    resultString <- stringifyValue result
+    Right $ header ++ "{return " ++ resultString ++ ";}"
+stringifyValue (_, _, Operation (_, _, Primitive cmd) args) = stringifyPrimitive cmd args
+stringifyValue (_, _, Operation fun args) = do
+    funString <- stringifyValue fun
+    argStrings <- mapM stringifyValue args
+    return $ "(" ++ funString ++ "(" ++ (join "," argStrings) ++ "))"
+stringifyValue (line, _, Primitive cmd) = failure line $ "Unexpected primitive: " ++ show cmd
 
-generateGlobalValue :: String -> Semantics.Value -> String
-generateGlobalValue name value = "$" ++ name ++ " = " ++ generateValue value ++ ";"
+stringifyAssignment :: String -> Value -> Fallible String
+stringifyAssignment name value = do
+    valueString <- stringifyValue value
+    Right $ "$" ++ name ++ " = " ++ valueString ++ ";"
 
-generate :: Semantics.Scope -> String
-generate scope = concat $ map (uncurry generateGlobalValue) $ Map.assocs scope
+generate :: Semantics.Scope -> Fallible String
+generate scope = fmap concat $ mapM (uncurry stringifyAssignment) $ Map.assocs scope

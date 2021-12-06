@@ -6,8 +6,8 @@ import Parser (parse)
 import Semantics (analyse)
 import Codegen
 
-compile :: String -> String
-compile = generate . analyse . parse . tokenize
+compile :: String -> Fallible String
+compile s = parse (tokenize s) >>= analyse >>= generate
 
 testEqual t x y = TestCase $ assertEqual t x y
 

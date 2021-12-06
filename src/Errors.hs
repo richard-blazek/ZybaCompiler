@@ -1,4 +1,5 @@
-module Errors where
+module Errors (Fallible, failure) where
 
-class Fallible t where
-    invalid :: String -> t
+type Fallible a = Either String a
+failure :: Integer -> String -> Fallible a
+failure line msg = Left $ "Line " ++ show line ++ ": " ++ msg

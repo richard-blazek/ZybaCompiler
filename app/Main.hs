@@ -9,11 +9,13 @@ import Semantics (analyse)
 import Codegen (generate)
 import Functions ((??), (!?))
 
-process :: Monad m => (a -> a) -> m a -> (a -> m b) -> m b
+process :: Monad m => (a -> c) -> m a -> (c -> m b) -> m b
 process transformation input output = fmap transformation input >>= output
 
 compile :: String -> String
-compile = generate . analyse . parse . tokenize
+compile s = case parse (tokenize s) >>= analyse >>= generate of
+  Left err -> "Compilation failed\n" ++ err
+  Right code -> code
 
 run :: [String] -> IO ()
 run args = process compile input output

@@ -2,10 +2,11 @@ module ParserSpec (tests) where
 
 import Test.HUnit
 import Data.Ratio
+import Data.Either.Utils;
 import Lexer (tokenize)
 import Parser
 
-pt = parse . tokenize
+pt = fromRight . parse . tokenize
 op = Operation . Name
 a \+ b = op "+" [a, b]
 a \- b = op "-" [a, b]
