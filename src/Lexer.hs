@@ -55,4 +55,4 @@ buildToken tokens char = case tokens of
     token@(line, _) : rest -> (line, startLexeme char) : token : rest
 
 tokenize :: String -> [Token]
-tokenize = reverse . dropWhile (\x -> snd x `elem` [Empty, Comment]) . foldl buildToken [(0, Empty)]
+tokenize = drop 1 . reverse . dropWhile (\x -> snd x `elem` [Empty, Comment]) . foldl buildToken [(0, Empty)]
