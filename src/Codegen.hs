@@ -43,7 +43,7 @@ stringifyStatement :: Statement -> String
 stringifyStatement (Expression value) = stringifyValue value ++ ";"
 stringifyStatement (Initialization name value) = "$" ++ name ++ "=" ++ stringifyValue value ++ ";"
 stringifyStatement (Assignment name value) = "$" ++ name ++ "=" ++ stringifyValue value ++ ";"
-stringifyStatement (While condition block) = "while(" ++ show condition ++ ")" ++ stringifyBlock False block
+stringifyStatement (While condition block) = "while(" ++ stringifyValue condition ++ ")" ++ stringifyBlock False block
 stringifyStatement (IfChain chain else') = join "else " (map (\(cond, block) -> "if(" ++ stringifyValue cond ++ ")" ++ stringifyBlock False block) chain) ++ "else" ++ stringifyBlock False else'
 
 stringifyBlock :: Bool -> [Statement] -> String
