@@ -1,7 +1,7 @@
 module Codegen (generate) where
 
 import qualified Data.Set as Set
-import qualified Scope
+import Scope (Type (..), primitives)
 import Semantics (Value, ValueData (..), Statement (..))
 import Errors (Fallible, failure)
 import Functions (join)
@@ -24,11 +24,16 @@ stringifyCall :: Value -> [String] -> String
 stringifyCall (_, Variable "+") [a, b] = "(" ++ a ++ "+" ++ b ++ ")"
 stringifyCall (_, Variable "-") [a, b] = "(" ++ a ++ "-" ++ b ++ ")"
 stringifyCall (_, Variable "*") [a, b] = "(" ++ a ++ "*" ++ b ++ ")"
-stringifyCall (_, Variable "/") [a, b] = "(" ++ a ++ "/" ++ b ++ ")"
-stringifyCall (_, Variable "%") [a, b] = "(" ++ a ++ "%" ++ b ++ ")"
+stringifyCall (_, Variable "/") [a, b] = "(" ++ a ++ "/(float)" ++ b ++ ")"
+stringifyCall (_, Variable "//") [a, b] = "((int)(" ++ a ++ "/" ++ b ++ "))"
+stringifyCall (Projection [Int, Int] Int, Variable "%") [a, b] = "(" ++ a ++ "%" ++ b ++ ")"
+stringifyCall (_, Variable "%") [a, b] = "fmod(" ++ a ++ "," ++ b ++ ")"
+stringifyCall (Projection [Int, Int] Int, Variable "&") [a, b] = "(" ++ a ++ "&" ++ b ++ ")"
 stringifyCall (_, Variable "&") [a, b] = "(" ++ a ++ "&&" ++ b ++ ")"
+stringifyCall (Projection [Int, Int] Int, Variable "|") [a, b] = "(" ++ a ++ "||" ++ b ++ ")"
 stringifyCall (_, Variable "|") [a, b] = "(" ++ a ++ "||" ++ b ++ ")"
-stringifyCall (_, Variable "^") [a, b] = "(" ++ a ++ "^" ++ b ++ ")"
+stringifyCall (Projection [Int, Int] Int, Variable "^") [a, b] = "(" ++ a ++ "^" ++ b ++ ")"
+stringifyCall (_, Variable "^") [a, b] = "(" ++ a ++ "!=" ++ b ++ ")"
 stringifyCall (_, Variable "=") [a, b] = "(" ++ a ++ "==" ++ b ++ ")"
 stringifyCall (_, Variable "!=") [a, b] = "(" ++ a ++ "!=" ++ b ++ ")"
 stringifyCall (_, Variable "<") [a, b] = "(" ++ a ++ "<" ++ b ++ ")"
@@ -36,6 +41,7 @@ stringifyCall (_, Variable ">") [a, b] = "(" ++ a ++ ">" ++ b ++ ")"
 stringifyCall (_, Variable "<=") [a, b] = "(" ++ a ++ "<=" ++ b ++ ")"
 stringifyCall (_, Variable ">=") [a, b] = "(" ++ a ++ ">=" ++ b ++ ")"
 stringifyCall (_, Variable "**") [a, b] = "(" ++ a ++ "**" ++ b ++ ")"
+stringifyCall (Projection [Int] _, Variable "not") [a] = "(~" ++ a ++ ")"
 stringifyCall (_, Variable "not") [a] = "(!" ++ a ++ ")"
 stringifyCall fun args = "(" ++ (stringifyValue fun) ++ "(" ++ (join "," args) ++ "))"
 
@@ -48,16 +54,18 @@ stringifyStatement (IfChain chain else') = join "else " (map (\(cond, block) -> 
 
 stringifyBlock :: Bool -> [Statement] -> String
 stringifyBlock _ [] = ""
-stringifyBlock True [statement@(Expression (type', _))] | type' /= Scope.Unit = "return " ++ stringifyStatement statement
+stringifyBlock True [statement@(Expression (type', _))] | type' /= Void = "return " ++ stringifyStatement statement
 stringifyBlock return (statement : statements) = stringifyStatement statement ++ stringifyBlock return statements
 
 stringifyValue :: Value -> String
-stringifyValue (_, Literal num) = show num
+stringifyValue (_, LiteralInt i) = show i
+stringifyValue (_, LiteralFloat f) = show f
+stringifyValue (_, LiteralString s) = show s
 stringifyValue (_, Variable name) = '$' : name
 stringifyValue (_, Call fun args) = stringifyCall fun $ map stringifyValue args
-stringifyValue (Scope.Projection _ returnType', Lambda args block) = header ++ "{" ++ stringifyBlock (returnType' /= Scope.Unit) block ++ "})"
+stringifyValue (Projection _ returnType', Lambda args block) = header ++ "{" ++ stringifyBlock (returnType' /= Void) block ++ "})"
   where argNames = map fst args
-        captures = join "," $ Set.map ("&$" ++) $ Set.difference (capturesOfBlock (Set.fromList argNames) block) Scope.primitives
+        captures = join "," $ Set.map ("&$" ++) $ Set.difference (capturesOfBlock (Set.fromList argNames) block) primitives
         header = "(function(" ++ join "," (map ('$':) argNames) ++ ")" ++ (if null captures then "" else "use(" ++ captures ++ ")")
 
 stringifyDeclaration :: String -> Value -> String

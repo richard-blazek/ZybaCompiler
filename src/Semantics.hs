@@ -15,7 +15,10 @@ data Statement
   | IfChain [(Value, [Statement])] [Statement] deriving (Eq, Read, Show)
 
 data ValueData
-  = Literal Integer
+  = LiteralInt Integer
+  | LiteralFloat Double
+  | LiteralString String
+  | LiteralBool Bool
   | Lambda [(String, Scope.Type)] [Statement]
   | Variable String
   | Call Value [Value] deriving (Eq, Read, Show)
@@ -26,8 +29,11 @@ typeOf :: Value -> Scope.Type
 typeOf = fst
 
 analyseType :: (Integer, Parser.Expression) -> Fallible Scope.Type
-analyseType (_, Parser.Name "Unit") = Right Scope.Unit
+analyseType (_, Parser.Name "Void") = Right Scope.Void
 analyseType (_, Parser.Name "Int") = Right Scope.Int
+analyseType (_, Parser.Name "Float") = Right Scope.Float
+analyseType (_, Parser.Name "Bool") = Right Scope.Bool
+analyseType (_, Parser.Name "String") = Right Scope.Bool
 analyseType (_, Parser.Call (_, Parser.Name "Fun") args) = do
   argTypes <- mapM analyseType args
   Right $ Scope.Projection (init argTypes) (last argTypes)
@@ -51,9 +57,10 @@ analyseCall line callee@(type', _) args = case type' of
   where types = map typeOf args
 
 analyseExpression :: Scope.Scope -> (Integer, Parser.Expression) -> Fallible Value
-analyseExpression scope (line, Parser.Integer i) = Right (Scope.Int, Literal i)
-analyseExpression scope (line, Parser.Rational _) = undefined
-analyseExpression scope (line, Parser.String _) = undefined
+analyseExpression scope (line, Parser.LiteralInt lit) = Right (Scope.Int, LiteralInt lit)
+analyseExpression scope (line, Parser.LiteralFloat lit) = Right (Scope.Float, LiteralFloat lit)
+analyseExpression scope (line, Parser.LiteralString lit) = Right (Scope.String, LiteralString lit)
+analyseExpression scope (line, Parser.LiteralBool lit) = Right (Scope.Bool, LiteralBool lit)
 analyseExpression scope (line, Parser.Name name) = fmap (`pair` Variable name) $ Scope.getType line name scope
 analyseExpression scope (line, Parser.Call (_, Parser.Name name) args) = do
   args' <- mapM (analyseExpression scope) args
@@ -73,7 +80,7 @@ analyseExpression scope (line, Parser.Lambda args returnType block) = do
   innerScope <- foldlM (\scope (name, type') -> Scope.addConstant line name type' scope) scope args'
   block' <- analyseBlock [] innerScope block
   case reverse block' of
-    Expression (type', _) : _ | returnType' `elem` [type', Scope.Unit] -> Right (Scope.Projection argTypes returnType', Lambda args' block')
+    Expression (type', _) : _ | returnType' `elem` [type', Scope.Void] -> Right (Scope.Projection argTypes returnType', Lambda args' block')
     _ -> failure line $ "Function must return a value of type " ++ show returnType'
 
 analyseStatement :: Scope.Scope -> (Integer, Parser.Statement) -> Fallible (Statement, Scope.Scope)
@@ -115,4 +122,4 @@ analyseDeclaration scope (line, Parser.Declaration name expression) = do
 analyse :: [(Integer, Parser.Declaration)] -> Fallible ([(String, Value)])
 analyse declarations = do
   globalScope <- collectGlobals declarations
-  fmap snd $ foldlMapM analyseDeclaration globalScope declarations
+  fmap (reverse . snd) $ foldlMapM analyseDeclaration globalScope declarations

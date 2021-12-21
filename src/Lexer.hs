@@ -5,9 +5,10 @@ import Data.Char (ord)
 data Token
   = Comment
   | Empty
-  | LiteralRational Integer Integer Integer
-  | LiteralInteger Integer Integer
+  | LiteralFloat Integer Integer Integer
+  | LiteralInt Integer Integer
   | LiteralString String
+  | LiteralBool Bool
   | Operator String
   | Separator Char
   | Word String
@@ -23,14 +24,14 @@ parseDigit c = inRange '0' '9' 0 $ inRange 'A' 'Z' 10 $ inRange 'a' 'z' 10 36
 isDigit = between '0' '9'
 isAlpha c = between 'A' 'Z' c || between 'a' 'z' c || c == '_'
 isAlnum c = isAlpha c || isDigit c
-isOperator = (`elem` "+-*/\\&|~^<>=!")
+isOperator = (`elem` "+-*/%&|~^<>=!")
 isSeparator = (`elem` "()[]:.")
 
 startToken :: Char -> Token
 startToken char
   | char == '"' = LiteralString ""
   | char == ';' = Comment
-  | isDigit char = LiteralInteger 10 $ parseDigit char
+  | isDigit char = LiteralInt 10 $ parseDigit char
   | isOperator char = Operator [char]
   | isSeparator char = Separator char
   | isAlpha char = Word [char]
@@ -43,10 +44,11 @@ buildToken tokens char = case tokens of
   (_, Empty) : (line, LiteralString s) : rest | char == '"' -> (line + inc, LiteralString $ '"' : reverse s) : rest
   (line, LiteralString s) : rest | char == '"' -> (line + inc, Empty) : (line, LiteralString $ reverse s) : rest
   (line, LiteralString s) : rest -> (line + inc, LiteralString $ char : s) : rest
-  (line, LiteralInteger radix n) : rest | parseDigit char < radix -> (line + inc, LiteralInteger radix $ n * radix + parseDigit char) : rest
-  (line, LiteralInteger radix n) : rest | char == '.' -> (line + inc, LiteralRational radix n 0) : rest
-  (line, LiteralInteger 10 n) : rest | (n /= 10) && (char == 'r') -> (line + inc, LiteralInteger n 0) : rest
-  (line, LiteralRational radix n exp) : rest | parseDigit char < radix -> (line + inc, LiteralRational radix (radix * n + parseDigit char) $ exp + 1) : rest
+  (line, LiteralInt radix n) : rest | parseDigit char < radix -> (line + inc, LiteralInt radix $ n * radix + parseDigit char) : rest
+  (line, LiteralInt radix n) : rest | char == '.' -> (line + inc, LiteralFloat radix n 0) : rest
+  (line, LiteralInt radix n) : rest | n `elem` [0, 1] && char == 'b' -> (line + inc, LiteralBool (n == 1)) : rest
+  (line, LiteralInt 10 n) : rest | (n /= 10) && (char == 'r') -> (line + inc, LiteralInt n 0) : rest
+  (line, LiteralFloat radix n exp) : rest | parseDigit char < radix -> (line + inc, LiteralFloat radix (radix * n + parseDigit char) $ exp + 1) : rest
   (line, Word name) : rest | isAlnum char -> (line + inc, Word $ name ++ [char]) : rest
   (line, Operator s) : rest | isOperator char -> (line + inc, Operator $ s ++ [char]) : rest
   (line, Empty) : rest | not (null rest) -> (line + inc, startToken char) : rest

@@ -9,13 +9,12 @@ import Semantics
 process = analyse . parse . tokenize
 testEqual t x y = TestCase $ assertEqual t (fromList x) y
 
-naryProjection n = Projection (iterate (Pair Int) Unit !! n) Int
+naryProjection n = Projection (iterate (Pair Int) Void !! n) Int
 a \- b = Operation Int (Primitive (naryProjection 2) Subtract) [a, b]
 a \+ b = Operation Int (Primitive (naryProjection 2) Add) [a, b]
 a \* b = Operation Int (Primitive (naryProjection 2) Multiply) [a, b]
 a \/ b = Operation Int (Primitive (naryProjection 2) Divide) [a, b]
 a \= b = Operation Int (Primitive (naryProjection 2) Equal) [a, b]
-a \\ b = Operation Int (Primitive (naryProjection 2) Modulo) [a, b]
 call name args = Operation Int (Global (naryProjection $ length args) name) args
 ifte a b c = Operation Int (Primitive (naryProjection 3) If) [a, b, c]
 arg = Argument Int

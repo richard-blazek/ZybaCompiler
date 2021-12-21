@@ -1,4 +1,4 @@
-module Functions (pair, (!?), (??), join, foldlMapM) where
+module Functions (pair, (!?), (??), join, joinShow, foldlMapM) where
 
 import qualified Data.Map.Strict as Map
 
@@ -16,10 +16,13 @@ infixl 3 ??
 Nothing ?? x = x
 Just x ?? _ = x
 
-join :: (Foldable f) => String -> f String -> String
+join :: (Foldable f) => [c] -> f [c] -> [c]
 join str xs
-  | null xs = ""
+  | null xs = []
   | otherwise = foldr1 (\a b -> a ++ str ++ b) xs
+
+joinShow :: (Show a) => String -> [a] -> String
+joinShow str xs = join str (map show xs)
 
 foldlMapM :: (Monad m, Foldable t) => (b -> a -> m (b, c)) -> b -> t a -> m (b, [c])
 foldlMapM f seed = foldl combine $ return (seed, [])

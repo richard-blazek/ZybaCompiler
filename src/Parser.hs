@@ -13,9 +13,10 @@ data Statement
   | IfChain [((Integer, Expression), [(Integer, Statement)])] [(Integer, Statement)] deriving (Show, Read, Eq)
 
 data Expression
-  = Integer Integer
-  | Rational Rational
-  | String String
+  = LiteralInt Integer
+  | LiteralFloat Double
+  | LiteralString String
+  | LiteralBool Bool
   | Name String
   | Call (Integer, Expression) [(Integer, Expression)]
   | Lambda [(String, (Integer, Expression))] (Integer, Expression) [(Integer, Statement)] deriving (Show, Read, Eq)
@@ -33,9 +34,10 @@ parseMany result parser end all@((_, lexeme) : tokens)
 parseMany _ _ _ [] = failure (-1) "Unexpected end of file"
 
 parseValue :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
-parseValue ((line, Lexer.LiteralInteger _ i) : tokens) = Right ((line, Integer i), tokens)
-parseValue ((line, Lexer.LiteralRational _ n exp) : tokens) = Right ((line, Rational $ n % (10 ^ exp)), tokens)
-parseValue ((line, Lexer.LiteralString s) : tokens) = Right ((line, String s), tokens)
+parseValue ((line, Lexer.LiteralInt _ lit) : tokens) = Right ((line, LiteralInt lit), tokens)
+parseValue ((line, Lexer.LiteralFloat _ n exp) : tokens) = Right ((line, LiteralFloat $ fromIntegral n / (10.0 ** fromIntegral exp)), tokens)
+parseValue ((line, Lexer.LiteralString lit) : tokens) = Right ((line, LiteralString lit), tokens)
+parseValue ((line, Lexer.LiteralBool lit) : tokens) = Right ((line, LiteralBool lit), tokens)
 parseValue ((line, Lexer.Word "fun") : tokens) = parseLambda line tokens
 parseValue ((line, Lexer.Word name) : tokens) = Right ((line, Name name), tokens)
 parseValue ((line, Lexer.Separator '(') : tokens) = do
