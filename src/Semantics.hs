@@ -1,140 +1,118 @@
-module Semantics (analyse, Type (..), Primitive (..), ValueData (..), Value, StatementData (..), Statement) where
+module Semantics (analyse, ValueData (..), Value, Statement (..)) where
 
-import Functions (pair, fill, (??), tryInsert, foldlMapM)
-import Errors (Fallible, failure, failures)
 import Data.Foldable (foldlM)
 import qualified Data.Map.Strict as Map
 import qualified Parser
+import qualified Scope
+import Functions (pair, (??), foldlMapM)
+import Errors (Fallible, failure, assert)
 
-data Type = Int | Unit | Projection [Type] Type deriving (Eq, Read, Show)
-data Primitive = Add | Subtract | Multiply | Divide | Modulo | And | Or | Xor | Equal
-  | NotEqual | LowerThan | GreaterThan | Power | Not deriving (Eq, Read, Show)
-
-data StatementData
-  = Evaluation Value
+data Statement
+  = Expression Value
   | Initialization String Value
   | Assignment String Value
-  | While Value Statement
-  | IfChain [(Value, Statement)] Statement
-  | Block [Statement] deriving (Eq, Read, Show)
+  | While Value [Statement]
+  | IfChain [(Value, [Statement])] [Statement] deriving (Eq, Read, Show)
 
 data ValueData
   = Literal Integer
-  | Function [(String, Type)] Statement
-  | Primitive Primitive
+  | Lambda [(String, Scope.Type)] [Statement]
   | Variable String
-  | Operation Value [Value] deriving (Eq, Read, Show)
+  | Call Value [Value] deriving (Eq, Read, Show)
 
-type Described t = (Integer, Type, t)
-type Statement = Described StatementData
-type Value = Described ValueData
-type Declaration = Described Bool
+type Value = (Scope.Type, ValueData)
 
-typeOf :: (Integer, Type, a) -> Type
-typeOf (_, t, _) = t
+typeOf :: Value -> Scope.Type
+typeOf = fst
 
-operatorS = (0, Projection [Int, Int] Int, False)
-operatorV primitive = (0, Projection [Int, Int] Int, Primitive primitive)
-
-builtinScope :: Map.Map String Declaration
-builtinScope = Map.fromList [("+", operatorS), ("-", operatorS), ("*", operatorS), ("/", operatorS), ("\\", operatorS),
-  ("&", operatorS), ("|", operatorS), ("^", operatorS), ("=", operatorS), ("!=", operatorS), ("<", operatorS),
-  (">", operatorS), ("**", operatorS), ("not", (0, Projection [Int] Int, False))]
-
-builtins :: Map.Map String Value
-builtins = Map.fromList [("+", operatorV Add), ("-", operatorV Subtract), ("*", operatorV Multiply),
-  ("/", operatorV Divide), ("%", operatorV Modulo), ("&", operatorV And), ("|", operatorV Or), ("^", operatorV Xor),
-  ("=", operatorV Equal), ("!=", operatorV NotEqual), ("<", operatorV LowerThan),
-  (">", operatorV GreaterThan), ("**", operatorV Power), ("not", (0, Projection [Int] Int, Primitive Not))]
-
-analyseType :: Parser.Lined Parser.Expression -> Fallible Type
-analyseType (_, Parser.Name "Unit") = Right Unit
-analyseType (_, Parser.Name "Int") = Right Int
-analyseType (_, Parser.Operation (_, Parser.Name "Fun") args) = do
+analyseType :: (Integer, Parser.Expression) -> Fallible Scope.Type
+analyseType (_, Parser.Name "Unit") = Right Scope.Unit
+analyseType (_, Parser.Name "Int") = Right Scope.Int
+analyseType (_, Parser.Call (_, Parser.Name "Fun") args) = do
   argTypes <- mapM analyseType args
-  Right $ Projection (init argTypes) (last argTypes)
+  Right $ Scope.Projection (init argTypes) (last argTypes)
 analyseType (line, expr) = failure line $ "Unknown type: " ++ show expr
 
-processGlobalFunction :: Map.Map String Declaration -> Parser.Lined Parser.Declaration -> Fallible (Map.Map String Declaration)
-processGlobalFunction scope (_, Parser.Declaration name (line, Parser.Function args returned body)) = do
+collectGlobal :: Scope.Scope -> (Integer, Parser.Declaration) -> Fallible Scope.Scope
+collectGlobal scope (_, Parser.Declaration name (line, Parser.Lambda args returned body)) = do
   argTypes <- mapM (analyseType . snd) args
   returnType <- analyseType returned
-  tryInsert (failure line $ "Redefinition of " ++ name) name (line, Projection argTypes returnType, False) scope
-processGlobalFunction scope _ = Right scope
+  Scope.addConstant line name (Scope.Projection argTypes returnType) scope
+collectGlobal scope _ = Right scope
 
-collectGlobalFunctions :: [Parser.Lined Parser.Declaration] -> Fallible (Map.Map String Declaration)
-collectGlobalFunctions = foldlM processGlobalFunction builtinScope
+collectGlobals :: [(Integer, Parser.Declaration)] -> Fallible Scope.Scope
+collectGlobals = foldlM collectGlobal Scope.empty
 
-analyseOperation :: Value -> [Value] -> Fallible Value
-analyseOperation callee@(line, type', _) args = case type' of
-  Projection from to | from == types -> Right (line, to, Operation callee args)
-  Projection from to -> failure line $ "Expected arguments' types " ++ show from ++ " but got " ++ show types
+analyseCall :: Integer -> Value -> [Value] -> Fallible Value
+analyseCall line callee@(type', _) args = case type' of
+  Scope.Projection from to | from == types -> Right (to, Call callee args)
+  Scope.Projection from to -> failure line $ "Expected arguments' types " ++ show from ++ " but got " ++ show types
   _ -> failure line $ "Expected a function but got " ++ show callee ++ " which is of a type " ++ show type'
   where types = map typeOf args
 
-analyseExpression :: Map.Map String Declaration -> Parser.Lined Parser.Expression -> Fallible Value
-analyseExpression scope (line, Parser.Integer int) = Right (line, Int, Literal int)
+analyseExpression :: Scope.Scope -> (Integer, Parser.Expression) -> Fallible Value
+analyseExpression scope (line, Parser.Integer i) = Right (Scope.Int, Literal i)
 analyseExpression scope (line, Parser.Rational _) = undefined
 analyseExpression scope (line, Parser.String _) = undefined
-analyseExpression scope (line, Parser.Name name) = case Map.lookup name scope of
-  Just (_, type', _) -> Right (line, type', Variable name)
-  Nothing -> failure line $ "Unknown variable: " ++ name
+analyseExpression scope (line, Parser.Name name) = fmap (`pair` Variable name) $ Scope.getType line name scope
+analyseExpression scope (line, Parser.Call (_, Parser.Name name) args) = do
+  args' <- mapM (analyseExpression scope) args
+  let argTypes = map typeOf args'
+  type' <- Scope.getResultType line name argTypes scope
+  Right (type', Call (Scope.Projection argTypes type', Variable name) args')
 
-analyseExpression scope (line, Parser.Operation fun params) = do
-  args <- mapM (analyseExpression scope) params
-  callee <- analyseExpression scope fun
-  analyseOperation callee args
+analyseExpression scope (line, Parser.Call callee args) = do
+  args' <- mapM (analyseExpression scope) args
+  callee' <- analyseExpression scope callee
+  analyseCall line callee' args'
 
-analyseExpression scope (line, Parser.Function args returned block) = do
+analyseExpression scope (line, Parser.Lambda args returnType block) = do
   argTypes <- mapM (analyseType . snd) args
-  argList <- return $ zip (map fst args) argTypes
-  returnType <- analyseType returned
-  innerScope <- foldlM (\scope (name, type') -> tryInsert (failure line "Duplicate arguments in a function definition") name (line, type', False) scope) scope argList
-  code@(_, type', _) <- analyseBlock [] innerScope block
-  if type' == returnType
-    then Right (line, Projection argTypes returnType, Function (zip (map fst args) argTypes) code)
-    else failure line $ "The function should return " ++ show returnType ++ " but returns " ++ show type'
+  let args' = zip (map fst args) argTypes
+  returnType' <- analyseType returnType
+  innerScope <- foldlM (\scope (name, type') -> Scope.addConstant line name type' scope) scope args'
+  block' <- analyseBlock [] innerScope block
+  case reverse block' of
+    Expression (type', _) : _ | returnType' `elem` [type', Scope.Unit] -> Right (Scope.Projection argTypes returnType', Lambda args' block')
+    _ -> failure line $ "Function must return a value of type " ++ show returnType'
 
-analyseStatement :: Map.Map String Declaration -> Parser.Lined Parser.Statement -> Fallible (Statement, Map.Map String Declaration)
-analyseStatement scope (line, Parser.Evaluation expr) = do
-  value@(_, type', _) <- analyseExpression scope expr
-  Right ((line, type', Evaluation value), scope)
+analyseStatement :: Scope.Scope -> (Integer, Parser.Statement) -> Fallible (Statement, Scope.Scope)
+analyseStatement scope (line, Parser.Expression expr) = do
+  value <- analyseExpression scope expr
+  Right (Expression value, scope)
 
 analyseStatement scope (line, Parser.Assignment name expr) = do
-  value@(_, type', _) <- analyseExpression scope expr
-  case Map.lookup name scope of
-    Nothing -> Right ((line, Unit, Initialization name value), Map.insert name (line, type', True) scope)
-    Just (_, previousType, True) | type' == previousType -> Right ((line, Unit, Assignment name value), scope)
-    Just (_, previousType, True) -> failure line $ "Assigning a value of a type " ++ show type' ++ " to the variable " ++ name ++ " which has a type " ++ show previousType
-    Just (_, _, False) -> failure line $ "Attempting to assign to a constant: " ++ show name
+  value@(type', _) <- analyseExpression scope expr
+  (newScope, added) <- Scope.addVariable line name type' scope
+  Right $ if added
+    then (Initialization name value, newScope)
+    else (Assignment name value, scope)
 
 analyseStatement scope (line, Parser.IfChain ifs else') = do
   ifChain <- mapM (\(cond, block) -> analyseExpression scope cond >>= (\cond' -> fmap (pair cond') $ analyseBlock [] scope block)) ifs
-  elseBlock@(_, type', _) <- analyseBlock [] scope else'
-  if all ((== Int) . typeOf . fst) ifChain
-    then Right ((line, Unit, IfChain ifChain elseBlock), scope)
-    else failure line $ "Condition must have an Int type"
+  elseBlock <- analyseBlock [] scope else'
+  assert (all ((== Scope.Int) . fst . fst) ifChain) line $ "Condition must have an Int type"
+  Right (IfChain ifChain elseBlock, scope)
 
 analyseStatement scope (line, Parser.While condition body) = do
   cond <- analyseExpression scope condition
   body <- analyseBlock [] scope body
-  Right ((line, Unit, While cond body), scope)
+  Right (While cond body, scope)
 
-analyseBlock :: [Statement] -> Map.Map String Declaration -> [Parser.Lined Parser.Statement] -> Fallible Statement
-analyseBlock [] _ [] = Right (-1, Unit, Block [])
-analyseBlock result@((line, type', _) : _) scope [] = Right (line, type', Block $ reverse result)
+analyseBlock :: [Statement] -> Scope.Scope -> [(Integer, Parser.Statement)] -> Fallible [Statement]
+analyseBlock result scope [] = Right $ reverse result
 analyseBlock result scope (statement : statements) = do
   (analysed, newScope) <- analyseStatement scope statement
   analyseBlock (analysed : result) newScope statements
 
-analyseDeclaration :: Map.Map String Declaration -> Parser.Lined Parser.Declaration -> Fallible (Map.Map String Declaration, (String, Value))
-analyseDeclaration scope (_, Parser.Declaration name expression@(_, Parser.Function _ _ _)) = fmap (pair scope . pair name) $ analyseExpression scope expression
+analyseDeclaration :: Scope.Scope -> (Integer, Parser.Declaration) -> Fallible (Scope.Scope, (String, Value))
+analyseDeclaration scope (_, Parser.Declaration name expression@(_, Parser.Lambda _ _ _)) = fmap (pair scope . pair name) $ analyseExpression scope expression
 analyseDeclaration scope (line, Parser.Declaration name expression) = do
-  expression@(_, type', _) <- analyseExpression scope expression
-  newScope <- tryInsert (failure line $ "Attempting to redefine " ++ name) name (line, type', False) scope
+  expression@(type', _) <- analyseExpression scope expression
+  newScope <- Scope.addConstant line name type' scope
   Right (newScope, (name, expression))
 
-analyse :: [Parser.Lined Parser.Declaration] -> Fallible ([(String, Value)])
+analyse :: [(Integer, Parser.Declaration)] -> Fallible ([(String, Value)])
 analyse declarations = do
-  globalScope <- collectGlobalFunctions declarations
+  globalScope <- collectGlobals declarations
   fmap snd $ foldlMapM analyseDeclaration globalScope declarations

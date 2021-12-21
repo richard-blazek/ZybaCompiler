@@ -1,8 +1,8 @@
-module Lexer (Lexeme (..), Token, tokenize) where
+module Lexer (Token (..), tokenize) where
 
 import Data.Char (ord)
 
-data Lexeme
+data Token
   = Comment
   | Empty
   | LiteralRational Integer Integer Integer
@@ -12,8 +12,6 @@ data Lexeme
   | Separator Char
   | Word String
   deriving (Show, Read, Eq)
-
-type Token = (Integer, Lexeme)
 
 between :: (Ord t) => t -> t -> t -> Bool
 between min max value = value <= max && value >= min
@@ -28,8 +26,8 @@ isAlnum c = isAlpha c || isDigit c
 isOperator = (`elem` "+-*/\\&|~^<>=!")
 isSeparator = (`elem` "()[]:.")
 
-startLexeme :: Char -> Lexeme
-startLexeme char
+startToken :: Char -> Token
+startToken char
   | char == '"' = LiteralString ""
   | char == ';' = Comment
   | isDigit char = LiteralInteger 10 $ parseDigit char
@@ -38,7 +36,7 @@ startLexeme char
   | isAlpha char = Word [char]
   | otherwise = Empty
 
-buildToken :: [Token] -> Char -> [Token]
+buildToken :: [(Integer, Token)] -> Char -> [(Integer, Token)]
 buildToken tokens char = case tokens of
   (line, Comment) : rest | char == '\n' -> (line + inc, Empty) : rest
   (line, Comment) : rest -> (line + inc, Comment) : rest
@@ -51,9 +49,9 @@ buildToken tokens char = case tokens of
   (line, LiteralRational radix n exp) : rest | parseDigit char < radix -> (line + inc, LiteralRational radix (radix * n + parseDigit char) $ exp + 1) : rest
   (line, Word name) : rest | isAlnum char -> (line + inc, Word $ name ++ [char]) : rest
   (line, Operator s) : rest | isOperator char -> (line + inc, Operator $ s ++ [char]) : rest
-  (line, Empty) : rest | not (null rest) -> (line + inc, startLexeme char) : rest
-  token@(line, _) : rest -> (line + inc, startLexeme char) : token : rest
+  (line, Empty) : rest | not (null rest) -> (line + inc, startToken char) : rest
+  token@(line, _) : rest -> (line + inc, startToken char) : token : rest
   where inc = if char == '\n' then 1 else 0
 
-tokenize :: String -> [Token]
+tokenize :: String -> [(Integer, Token)]
 tokenize = drop 1 . reverse . dropWhile (\x -> snd x `elem` [Empty, Comment]) . foldl buildToken [(0, Empty)]

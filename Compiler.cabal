@@ -30,6 +30,7 @@ library
       Functions
       Lexer
       Parser
+      Scope
       Semantics
   other-modules:
       Paths_Compiler
