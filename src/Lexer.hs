@@ -25,7 +25,7 @@ isDigit = between '0' '9'
 isAlpha c = between 'A' 'Z' c || between 'a' 'z' c || c == '_'
 isAlnum c = isAlpha c || isDigit c
 isOperator = (`elem` "+-*/%&|~^<>=!")
-isSeparator = (`elem` "()[]:.")
+isSeparator = (`elem` "()[]{}:.")
 
 startToken :: Char -> Token
 startToken char
@@ -56,4 +56,4 @@ buildToken tokens char = case tokens of
   where inc = if char == '\n' then 1 else 0
 
 tokenize :: String -> [(Integer, Token)]
-tokenize = drop 1 . reverse . dropWhile (\x -> snd x `elem` [Empty, Comment]) . foldl buildToken [(0, Empty)]
+tokenize = tail . reverse . dropWhile (\x -> snd x `elem` [Empty, Comment]) . foldl buildToken [(0, Empty)]

@@ -2,8 +2,8 @@ module Parser (Expression (..), Statement (..), Declaration (..), parse) where
 
 import Data.Ratio ((%))
 import qualified Lexer
-import Functions (pair, join)
-import Errors (Fallible, failure)
+import Functions (pair, join, tailRecM, tailRec2M, fmapFst)
+import Errors (Fallible, failure, assert)
 
 data Declaration = Declaration String (Integer, Expression) deriving (Show, Read, Eq)
 data Statement
@@ -25,13 +25,10 @@ expect :: Lexer.Token -> [(Integer, Lexer.Token)] -> Fallible [(Integer, Lexer.T
 expect e [] = failure (-1) $ "Expected " ++ show e ++ ", reached the EOF"
 expect e ((line, l) : ts) = if l == e then return ts else failure line $ "Expected " ++ show e ++ ", got " ++ show l
 
-parseMany :: [a] -> ([(Integer, Lexer.Token)] -> Fallible (a, [(Integer, Lexer.Token)])) -> Lexer.Token -> [(Integer, Lexer.Token)] -> Fallible ([a], [(Integer, Lexer.Token)])
-parseMany result parser end all@((_, lexeme) : tokens)
-  | lexeme == end = Right (reverse result, tokens)
-  | otherwise = do
-    (parsed, restTokens) <- parser all
-    parseMany (parsed : result) parser end restTokens
-parseMany _ _ _ [] = failure (-1) "Unexpected end of file"
+parseMany :: ([(Integer, Lexer.Token)] -> Fallible (a, [(Integer, Lexer.Token)])) -> Lexer.Token -> [(Integer, Lexer.Token)] -> Fallible ([a], [(Integer, Lexer.Token)])
+parseMany parser end tokens = tailRec2M if' reverse tail else' [] tokens
+  where if' result tokens = assert (not $ null tokens) (-1) "Unexpected end of file" >> Right (snd (head tokens) == end)
+        else' result tokens = fmapFst (: result) $ parser tokens
 
 parseValue :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
 parseValue ((line, Lexer.LiteralInt _ lit) : tokens) = Right ((line, LiteralInt lit), tokens)
@@ -44,44 +41,35 @@ parseValue ((line, Lexer.Separator '(') : tokens) = do
   (expression, tokensAfterExpression) <- parseExpression tokens
   tokensAfterParenthesis <- expect (Lexer.Separator ')') tokensAfterExpression
   Right (expression, tokensAfterParenthesis)
-parseValue ((line, lexeme) : _) = failure line $ "Expected a value but got " ++ show lexeme
+parseValue ((line, token) : _) = failure line $ "Expected a value but got " ++ show token
 
-parseArguments :: [String] -> [(String, (Integer, Expression))] -> [(Integer, Lexer.Token)] -> Fallible ([(String, (Integer, Expression))], [(Integer, Lexer.Token)])
-parseArguments names args ((_, Lexer.Word name) : tokens) = parseArguments (name : names) args tokens
-parseArguments [] args ((_, Lexer.Separator ']') : tokens) = Right (reverse args, tokens)
-parseArguments names args ((line, Lexer.Separator ']') : tokens) = failure line $ "Argument list closed without any type specified for arguments " ++ join "," names
-parseArguments names args ((line, Lexer.Separator ':') : tokens) = do
-  (argType, tokensAfterType) <- parseExpression tokens
-  parseArguments [] (map (`pair` argType) names ++ args) tokensAfterType
-
-parseArguments _ _ ((line, lexeme) : _) = failure line $ "Expected an argument name, got " ++ show lexeme
-parseArguments _ _ [] = failure (-1) "Unexpected end of file"
+parseArguments :: [(Integer, Lexer.Token)] -> Fallible ([(String, (Integer, Expression))], [(Integer, Lexer.Token)])
+parseArguments tokens = tailRecM if' then' else' ([], [], tokens)
+  where if' (_, _, tokens) = assert (not $ null tokens) (-1) "Unexpected end of file" >> Right (snd (head tokens) == Lexer.Separator ']')
+        then' (names, args, (line, _) : tokens) = assert (null names) line ("Missing type for " ++ join ", " names) >> Right (reverse args, tokens)
+        else' (names, args, (_, Lexer.Word name) : tokens) = Right (name : names, args, tokens)
+        else' (names, args, (_, Lexer.Separator ':') : tokens) = do
+          (type', restTokens) <- parseExpression tokens
+          Right ([], map (`pair` type') names ++ args, restTokens)
+        else' (names, args, (line, token) : _) = failure line $ "Unexpected " ++ show token ++ " in the argument list"
 
 parseLambda :: Integer -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
 parseLambda line tokens = do
   tokensAfterBracket <- expect (Lexer.Separator '[') tokens
-  (args, tokensAfterArgs) <- parseArguments [] [] tokensAfterBracket
+  (args, tokensAfterArgs) <- parseArguments tokensAfterBracket
   (returnType, tokensAfterReturnType) <- parseExpression tokensAfterArgs
   (block, tokensAfterBlock) <- parseBlock tokensAfterReturnType
   Right ((line, Lambda args returnType block), tokensAfterBlock)
 
-parseBrackets :: (Integer, Expression) -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
-parseBrackets fun ((line, Lexer.Separator '[') : tokens) = do
-  (args, restTokens) <- parseMany [] parseExpression (Lexer.Separator ']') tokens
-  parseBrackets (line, Call fun args) restTokens
-parseBrackets fun tokens = Right (fun, tokens)
-
 parseCall :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
-parseCall tokens = parseValue tokens >>= uncurry parseBrackets
-
-parseOperation :: (Integer, Expression) -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
-parseOperation first ((line, Lexer.Operator op) : tokens) = do
-  (second, restTokens) <- parseCall tokens
-  parseOperation (line, Call (line, Name op) [first, second]) restTokens
-parseOperation first tokens = Right (first, tokens)
+parseCall tokens = parseValue tokens >>= uncurry (tailRec2M if' id id else')
+  where if' fun tokens = Right $ null tokens || snd (head tokens) /= Lexer.Separator '['
+        else' fun tokens@((line, _) : _) = fmapFst (pair line . Call fun) $ parseMany parseExpression (Lexer.Separator ']') tokens
 
 parseExpression :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
-parseExpression tokens = parseCall tokens >>= uncurry parseOperation
+parseExpression tokens = parseCall tokens >>= uncurry (tailRec2M if' id id else')
+  where if' first tokens = Right (case tokens of (_, Lexer.Operator _) : _ -> False; _ -> True)
+        else' first ((line, Lexer.Operator op) : tokens) = fmapFst (\second -> (line, Call (line, Name op) [first, second])) $ parseCall tokens
 
 parseIf :: Integer -> [((Integer, Expression), [(Integer, Statement)])] -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Statement), [(Integer, Lexer.Token)])
 parseIf line chain tokens = do
@@ -109,18 +97,14 @@ parseStatement ((line, Lexer.Word name) : (_, Lexer.Operator "=") : tokens) = do
 parseStatement tokens@((line, _):_) = fmap (\(expression, restTokens) -> ((line, Expression expression), restTokens)) $ parseExpression tokens
 
 parseBlock :: [(Integer, Lexer.Token)] -> Fallible ([(Integer, Statement)], [(Integer, Lexer.Token)])
-parseBlock tokens = expect (Lexer.Separator '(') tokens >>= parseMany [] parseStatement (Lexer.Separator ')')
+parseBlock tokens = expect (Lexer.Separator '{') tokens >>= parseMany parseStatement (Lexer.Separator '}')
 
 parseDeclaration :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Declaration), [(Integer, Lexer.Token)])
 parseDeclaration ((line, Lexer.Word name) : tokens) = do
   (expression, restTokens) <- parseExpression tokens
   Right ((line, Declaration name expression), restTokens)
-parseDeclaration ((line, lexeme) : _) = failure line $ "Expected a name of declared function but got " ++ show lexeme
+parseDeclaration ((line, token) : _) = failure line $ "Expected a name of declared function but got " ++ show token
 
-parseDeclarations :: [(Integer, Declaration)] -> [(Integer, Lexer.Token)] -> Fallible [(Integer, Declaration)]
-parseDeclarations result [] = Right $ reverse result
-parseDeclarations result tokens = do
-  (decl, restTokens) <- parseDeclaration tokens
-  parseDeclarations (decl : result) restTokens
-
-parse = parseDeclarations []
+parse :: [(Integer, Lexer.Token)] -> Fallible [(Integer, Declaration)]
+parse = tailRecM (Right . null . snd) (Right . reverse . fst) else' . pair []
+  where else' (result, tokens) = fmapFst (: result) $ parseDeclaration tokens

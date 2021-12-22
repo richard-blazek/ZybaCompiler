@@ -4,7 +4,7 @@ import Data.Foldable (foldlM)
 import qualified Data.Map.Strict as Map
 import qualified Parser
 import qualified Scope
-import Functions (pair, (??), foldlMapM)
+import Functions (pair, (??), foldlMapM, tailRecM)
 import Errors (Fallible, failure, assert)
 
 data Statement
@@ -78,7 +78,7 @@ analyseExpression scope (line, Parser.Lambda args returnType block) = do
   let args' = zip (map fst args) argTypes
   returnType' <- analyseType returnType
   innerScope <- foldlM (\scope (name, type') -> Scope.addConstant line name type' scope) scope args'
-  block' <- analyseBlock [] innerScope block
+  block' <- analyseBlock innerScope block
   case reverse block' of
     Expression (type', _) : _ | returnType' `elem` [type', Scope.Void] -> Right (Scope.Projection argTypes returnType', Lambda args' block')
     _ -> failure line $ "Function must return a value of type " ++ show returnType'
@@ -96,21 +96,21 @@ analyseStatement scope (line, Parser.Assignment name expr) = do
     else (Assignment name value, scope)
 
 analyseStatement scope (line, Parser.IfChain ifs else') = do
-  ifChain <- mapM (\(cond, block) -> analyseExpression scope cond >>= (\cond' -> fmap (pair cond') $ analyseBlock [] scope block)) ifs
-  elseBlock <- analyseBlock [] scope else'
+  ifChain <- mapM (\(cond, block) -> analyseExpression scope cond >>= (\cond' -> fmap (pair cond') $ analyseBlock scope block)) ifs
+  elseBlock <- analyseBlock scope else'
   assert (all ((== Scope.Int) . fst . fst) ifChain) line $ "Condition must have an Int type"
   Right (IfChain ifChain elseBlock, scope)
 
 analyseStatement scope (line, Parser.While condition body) = do
   cond <- analyseExpression scope condition
-  body <- analyseBlock [] scope body
+  body <- analyseBlock scope body
   Right (While cond body, scope)
 
-analyseBlock :: [Statement] -> Scope.Scope -> [(Integer, Parser.Statement)] -> Fallible [Statement]
-analyseBlock result scope [] = Right $ reverse result
-analyseBlock result scope (statement : statements) = do
-  (analysed, newScope) <- analyseStatement scope statement
-  analyseBlock (analysed : result) newScope statements
+analyseBlock :: Scope.Scope -> [(Integer, Parser.Statement)] -> Fallible [Statement]
+analyseBlock scope statements = tailRecM if' then' else' ([], scope, statements)
+  where if' (_, _, statements) = Right $ null statements
+        then' (result, _, _) = Right $ reverse result
+        else' (result, scope, statement : statements) = fmap (\(analysed, sc) -> (analysed : result, sc, statements)) $ analyseStatement scope statement
 
 analyseDeclaration :: Scope.Scope -> (Integer, Parser.Declaration) -> Fallible (Scope.Scope, (String, Value))
 analyseDeclaration scope (_, Parser.Declaration name expression@(_, Parser.Lambda _ _ _)) = fmap (pair scope . pair name) $ analyseExpression scope expression

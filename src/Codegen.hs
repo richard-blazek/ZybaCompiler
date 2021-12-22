@@ -21,15 +21,15 @@ capturesOfValue skip (_, Call fun args) = Set.unions $ map (capturesOfValue skip
 capturesOfValue skip _ = Set.empty
 
 stringifyCall :: Value -> [String] -> String
-stringifyCall (Projection [Int, Int] Int, Variable "+") [a, b] = "((int)(" ++ a ++ "+" ++ b ++ "))"
+stringifyCall (Projection [Int, Int] Int, Variable "+") [a, b] = "(int)(" ++ a ++ "+" ++ b ++ ")"
 stringifyCall (Projection [String, String] String, Variable "+") [a, b] = "(" ++ a ++ "." ++ b ++ ")"
 stringifyCall (_, Variable "+") [a, b] = "(" ++ a ++ "+" ++ b ++ ")"
-stringifyCall (Projection [Int, Int] Int, Variable "-") [a, b] = "((int)(" ++ a ++ "-" ++ b ++ "))"
+stringifyCall (Projection [Int, Int] Int, Variable "-") [a, b] = "(int)(" ++ a ++ "-" ++ b ++ ")"
 stringifyCall (_, Variable "-") [a, b] = "(" ++ a ++ "-" ++ b ++ ")"
-stringifyCall (Projection [Int, Int] Int, Variable "*") [a, b] = "((int)(" ++ a ++ "*" ++ b ++ "))"
+stringifyCall (Projection [Int, Int] Int, Variable "*") [a, b] = "(int)(" ++ a ++ "*" ++ b ++ ")"
 stringifyCall (_, Variable "*") [a, b] = "(" ++ a ++ "*" ++ b ++ ")"
 stringifyCall (_, Variable "/") [a, b] = "(" ++ a ++ "/(float)" ++ b ++ ")"
-stringifyCall (_, Variable "//") [a, b] = "((int)(" ++ a ++ "/" ++ b ++ "))"
+stringifyCall (_, Variable "//") [a, b] = "(int)(" ++ a ++ "/" ++ b ++ ")"
 stringifyCall (Projection [Int, Int] Int, Variable "%") [a, b] = "(" ++ a ++ "%" ++ b ++ ")"
 stringifyCall (_, Variable "%") [a, b] = "fmod(" ++ a ++ "," ++ b ++ ")"
 stringifyCall (Projection [Int, Int] Int, Variable "&") [a, b] = "(" ++ a ++ "&" ++ b ++ ")"
@@ -44,16 +44,16 @@ stringifyCall (_, Variable "<") [a, b] = "(" ++ a ++ "<" ++ b ++ ")"
 stringifyCall (_, Variable ">") [a, b] = "(" ++ a ++ ">" ++ b ++ ")"
 stringifyCall (_, Variable "<=") [a, b] = "(" ++ a ++ "<=" ++ b ++ ")"
 stringifyCall (_, Variable ">=") [a, b] = "(" ++ a ++ ">=" ++ b ++ ")"
-stringifyCall (Projection [Int, Int] Int, Variable "**") [a, b] = "((int)(" ++ a ++ "**" ++ b ++ "))"
-stringifyCall (_, Variable "**") [a, b] = "(" ++ a ++ "**" ++ b ++ ")"
+stringifyCall (Projection [Int, Int] Int, Variable "**") [a, b] = "(int)pow(" ++ a ++ "**" ++ b ++ ")"
+stringifyCall (_, Variable "**") [a, b] = "pow(" ++ a ++ "," ++ b ++ ")"
 stringifyCall (Projection [Int] Int, Variable "not") [a] = "(~" ++ a ++ ")"
 stringifyCall (_, Variable "not") [a] = "(!" ++ a ++ ")"
-stringifyCall (_, Variable "Int") [a] = "((int)" ++ a ++ ")"
+stringifyCall (_, Variable "Int") [a] = "(int)" ++ a
 stringifyCall (Projection [String] Bool, Variable "Bool") [a] = "(" ++ a ++ "!==\"\")"
-stringifyCall (_, Variable "Bool") [a] = "((bool)" ++ a ++ ")"
-stringifyCall (_, Variable "Float") [a] = "((float)" ++ a ++ ")"
-stringifyCall (_, Variable "String") [a] = "((string)" ++ a ++ ")"
-stringifyCall fun args = "(" ++ (stringifyValue fun) ++ "(" ++ (join "," args) ++ "))"
+stringifyCall (_, Variable "Bool") [a] = "(bool)" ++ a
+stringifyCall (_, Variable "Float") [a] = "(float)" ++ a
+stringifyCall (_, Variable "String") [a] = "(string)" ++ a
+stringifyCall fun args = stringifyValue fun ++ "(" ++ (join "," args) ++ ")"
 
 stringifyStatement :: Statement -> String
 stringifyStatement (Expression value) = stringifyValue value ++ ";"
