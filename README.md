@@ -4,10 +4,11 @@ This is the source code of my compiler of my Zyba language. The language transpi
 Code example:
 ```
 factorial fun[n: Int] Int (
-    i: 1
-    result: 1
+    i = 1
+    result = 1
     while i <= n (
-        result: result * n
+        result = result * n
+        i = i + 1
     )
     result
 )

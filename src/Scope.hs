@@ -9,7 +9,7 @@ data Type = Int | Bool | Float | String | Void | Projection [Type] Type deriving
 data Scope = Scope (Map.Map String (Type, Bool))
 
 primitives :: Set.Set String
-primitives = Set.fromList ["+", "-", "*", "/", "%", "&", "|", "^", "=", "!=", "<", ">", "<=", ">=", "**", "not"]
+primitives = Set.fromList ["+", "-", "*", "/", "%", "&", "|", "^", "==", "!=", "<", ">", "<=", ">=", "**", "not"]
 
 empty :: Scope
 empty = Scope Map.empty
@@ -37,6 +37,7 @@ getResultType line name args (Scope scope)
   | Set.member name primitives = case (name, args) of
     ("+", [Int, Int]) -> Right Int
     ("+", [a, b]) | all (`elem` [Int, Float]) [a, b] -> Right Float
+    ("+", [String, String]) -> Right String
     ("-", [Int, Int]) -> Right Int
     ("-", [a, b]) | all (`elem` [Int, Float]) [a, b] -> Right Float
     ("*", [Int, Int]) -> Right Int
@@ -51,16 +52,22 @@ getResultType line name args (Scope scope)
     ("|", [Bool, Bool]) -> Right Bool
     ("^", [Int, Int]) -> Right Int
     ("^", [Bool, Bool]) -> Right Bool
-    ("=", [Int, Int]) -> Right Bool
-    ("=", [Bool, Bool]) -> Right Bool
-    ("=", [a, b]) | all (`elem` [Int, Float]) [a, b] -> failure line "Do not compare floats for equality. Learn more: https://stackoverflow.com/questions/1088216/whats-wrong-with-using-to-compare-floats-in-java"
+    ("==", [Int, Int]) -> Right Bool
+    ("==", [Bool, Bool]) -> Right Bool
+    ("==", [String, String]) -> Right Bool
+    ("==", [a, b]) | all (`elem` [Int, Float]) [a, b] -> failure line "Do not compare floats for equality. Learn more: https://stackoverflow.com/questions/1088216/whats-wrong-with-using-to-compare-floats-in-java"
     ("!=", [Int, Int]) -> Right Bool
     ("!=", [Bool, Bool]) -> Right Bool
+    ("!=", [String, String]) -> Right Bool
     ("!=", [a, b]) | all (`elem` [Int, Float]) [a, b] -> failure line "Do not compare floats for equality. Learn more: https://stackoverflow.com/questions/1088216/whats-wrong-with-using-to-compare-floats-in-java"
     ("<", [a, b]) | all (`elem` [Int, Float]) [a, b] -> Right Bool
+    ("<", [String, String]) -> Right Bool
     (">", [a, b]) | all (`elem` [Int, Float]) [a, b] -> Right Bool
+    (">", [String, String]) -> Right Bool
     ("<=", [a, b]) | all (`elem` [Int, Float]) [a, b] -> Right Bool
+    ("<=", [String, String]) -> Right Bool
     (">=", [a, b]) | all (`elem` [Int, Float]) [a, b] -> Right Bool
+    (">=", [String, String]) -> Right Bool
     ("**", [Int, Int]) -> Right Int
     ("**", [a, b]) | all (`elem` [Int, Float]) [a, b] -> Right Float
     ("not", [Int]) -> Right Int

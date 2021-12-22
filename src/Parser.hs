@@ -102,7 +102,7 @@ parseStatement ((line, Lexer.Word "while") : tokens) = do
   (block, tokensAfterBlock) <- parseBlock tokensAfterCondition
   Right ((line, While condition block), tokensAfterBlock)
 
-parseStatement ((line, Lexer.Word name) : (_, Lexer.Separator ':') : tokens) = do
+parseStatement ((line, Lexer.Word name) : (_, Lexer.Operator "=") : tokens) = do
   (expression, restTokens) <- parseExpression tokens
   Right ((line, Assignment name expression), restTokens)
 
