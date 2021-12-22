@@ -1,0 +1,120 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[margin=25mm]{geometry}
+\usepackage[czech]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage[backend=bibtex,sorting=none]{biblatex}
+\usepackage{tikz}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{hyperref}
+
+\definecolor{keyword}{RGB}{0, 64, 255}
+
+\usetikzlibrary{shapes.geometric, arrows}
+\tikzstyle{block} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=gray!25]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\addbibresource{SOC.bib}
+
+\def\max #1{\textrm{max}\left\{#1\right\}}
+\def\keyword #1{\color{keyword}#1\color{black}}
+\renewcommand{\labelitemii}{$\circ$}
+\renewcommand{\labelitemiii}{$-$}
+\makeatletter
+\newcount\my@repeat@count
+\newcommand{\repeatchar}[2]{%
+  \begingroup
+  \my@repeat@count=\z@
+  \@whilenum\my@repeat@count<#1\do{#2\advance\my@repeat@count\@ne}%
+  \endgroup
+}
+\makeatother
+
+\author{Richard Blažek}
+\setlength{\headheight}{15pt}
+\pagestyle{fancy}
+\fancyhead{}
+\fancyhead[R]{Překladač jazyka Zyba}
+\fancyhead[L]{Richard Blažek}
+\fancyfoot{}
+\fancyfoot[R]{\thepage}
+\fancyfoot[L]{Kapitola \thesection}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.8em}
+
+\begin{document}
+\begin{titlepage}
+    \begin{center}
+
+	\vspace*{3.5cm}            
+	\Huge
+	\textbf{Překladač jazyka Zyba}
+            
+	\vspace{0.5cm}
+	\LARGE
+	Staticky typovaný jazyk kompilovaný do PHP
+        
+	\vspace*{1.5cm}
+	\Huge
+	\textbf{Zyba language compiler}
+            
+	\vspace{0.5cm}
+	\LARGE
+	Language with static typing transpiled into PHP
+            
+	\vfill
+            
+	\large
+        Středoškolská odborná činnost, rok 2022\\
+	Richard Blažek\\
+	Gymnázium Brno, třída Kapitána Jaroše 14
+    \end{center}
+\end{titlepage}
+\thispagestyle{empty}
+\Large\textbf{Prohlášení}\normalsize
+
+Prohlašuji, že jsem svou závěrečnou maturitní práci vypracoval samostatně a použil jsem pouze prameny a literaturu uvedené v~seznamu bibliografických záznamů.
+
+Prohlašuji, že tištěná verze a elektronická verze závěrečné maturitní práce jsou shodné.
+
+Nemám závažný důvod proti zpřístupňování této práce v~souladu se zákonem č. 121/2000 Sb., o~právu autorském, o~právech souvisejících s~právem autorským a o~změně některých zákonů (autorský zákon) ve~znění pozdějších předpisů. 
+
+V~Brně dne \today{} \repeatchar{40}{.}
+\newpage
+\thispagestyle{empty}
+\Large\textbf{Poděkování}\normalsize
+
+Tímto bych chtěl poděkovat Matěji Žáčkovi za odborné vedení práce.
+\newpage
+\thispagestyle{empty}
+\Large\textbf{Anotace}\normalsize
+
+Práce se zabývá navržením jazyka Zyba a implementací překladače tohoto jazyka do PHP, což by mělo umožnit používání tohoto jazyka na všech webhostinzích, které podporují PHP skripty. Rovněž bude možné vyvíjet část projektu v Zybě a část v PHP.
+
+\Large\textbf{Klíčová slova}\normalsize
+
+programovací jazyk; překladač; transpiling; webová aplikace; PHP; Zyba
+
+\Large\textbf{Annotation}\normalsize
+
+The thesis is concerned with the design of the Zyba language and implementing its compiler. The compiler generates PHP code, making it possible for the language to be used on all webhostings where PHP is supported. Also, it will be possible to combine Zyba and PHP when developing web applications.
+
+\Large\textbf{Keywords}\normalsize
+
+programming lanugage; compiler; transpiling; web application; PHP; Zyba
+\newpage
+\thispagestyle{empty}
+\tableofcontents
+\newpage
+\section{Úvod}
+Cílem této práce je navrhnout programovací jazyk Zyba, který by měl umožnit psaní přehlednějšího kódu než PHP, a překladač, který by přeložil kód ze Zyby do PHP, aby bylo možné programy v Zybě používat na všech na všech serverech s podporou PHP skriptů. Navrhl jsem Zybu jako staticky typovaný jazyk, protože překlad z jednoho dynamicky typovaného jazyka do druhého by umožnil provádět pouze minimální kontrolu při překladu a Zyba by představovala jen alternativní syntaxi pro PHP. Překladač jsem se rozhodl napsat v jazyce Haskell, protože umožňuje psát velmi stručné a přehledné programy. Haskell totiž vyžaduje, aby funkce byly referenčně transparentní (tzn. bez vedlejších efektů), a jeho typový systém umožňuje zápis rekurzivních typů, což se u překladače hodí například na zápis syntaktického stromu. Naopak není nutné používat oddělovače, struktura programu se vyjadřuje odřádkováním a odsazením, což dále přispívá k čitelnosti výsledných programů.
+
+\section{Závěr}
+
+\newpage
+\printbibliography[heading=bibintoc, title={Použitá literatura}]
+\newpage
+\end{document}
