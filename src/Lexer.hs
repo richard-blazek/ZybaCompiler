@@ -7,12 +7,12 @@ data Token
   | Empty
   | LiteralFloat Integer Integer Integer
   | LiteralInt Integer Integer
-  | LiteralString String
+  | LiteralText String
   | LiteralBool Bool
   | Operator String
   | Separator Char
   | Word String
-  deriving (Show, Read, Eq)
+  deriving (Show, Eq)
 
 between :: (Ord t) => t -> t -> t -> Bool
 between min max value = value <= max && value >= min
@@ -29,7 +29,7 @@ isSeparator = (`elem` "()[]{}:.")
 
 startToken :: Char -> Token
 startToken char
-  | char == '"' = LiteralString ""
+  | char == '"' = LiteralText ""
   | char == ';' = Comment
   | isDigit char = LiteralInt 10 $ parseDigit char
   | isOperator char = Operator [char]
@@ -41,9 +41,9 @@ buildToken :: [(Integer, Token)] -> Char -> [(Integer, Token)]
 buildToken tokens char = case tokens of
   (line, Comment) : rest | char == '\n' -> (line + inc, Empty) : rest
   (line, Comment) : rest -> (line + inc, Comment) : rest
-  (_, Empty) : (line, LiteralString s) : rest | char == '"' -> (line + inc, LiteralString $ '"' : reverse s) : rest
-  (line, LiteralString s) : rest | char == '"' -> (line + inc, Empty) : (line, LiteralString $ reverse s) : rest
-  (line, LiteralString s) : rest -> (line + inc, LiteralString $ char : s) : rest
+  (_, Empty) : (line, LiteralText s) : rest | char == '"' -> (line + inc, LiteralText $ '"' : reverse s) : rest
+  (line, LiteralText s) : rest | char == '"' -> (line + inc, Empty) : (line, LiteralText $ reverse s) : rest
+  (line, LiteralText s) : rest -> (line + inc, LiteralText $ char : s) : rest
   (line, LiteralInt radix n) : rest | parseDigit char < radix -> (line + inc, LiteralInt radix $ n * radix + parseDigit char) : rest
   (line, LiteralInt radix n) : rest | char == '.' -> (line + inc, LiteralFloat radix n 0) : rest
   (line, LiteralInt radix n) : rest | n `elem` [0, 1] && char == 'b' -> (line + inc, LiteralBool (n == 1)) : rest

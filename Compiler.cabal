@@ -28,6 +28,7 @@ library
       Codegen
       Errors
       Functions
+      Language
       Lexer
       Parser
       Scope

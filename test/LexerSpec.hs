@@ -6,7 +6,7 @@ import Lexer
 testEqual t x y = TestCase $ assertEqual t x y
 test1 = testEqual "Tokenization of the first code"
   [(0, LiteralInt 10 1), (0, Operator "+"), (0, LiteralInt 10 2), (1, LiteralInt 10 222),
-  (1, LiteralString "a+%74漢語if^\nelse1e"), (2, Operator "*"), (2, LiteralInt 9 8), (2, Operator "+"),
+  (1, LiteralText "a+%74漢語if^\nelse1e"), (2, Operator "*"), (2, LiteralInt 9 8), (2, Operator "+"),
   (2, LiteralFloat 9 5 0), (2, Operator "-"), (2, LiteralFloat 10 4404 3), (2, Operator "/"), (2, Word "abh_hc")]
   $ tokenize "1+2\n222\"a+%74漢語if^\nelse1e\"*9r8+9r5.-4.404/abh_hc"
 
@@ -20,7 +20,7 @@ test2 = testEqual "Tokenization of the second code"
   $ tokenize "[16rFF--9r5 0\n7:5->var  ^4~5&7>=4<=2r0.11!=7< - <<fu[16r10];\n:"
 
 test3 = testEqual "Tokenization of the third code"
-  [(0, LiteralString "I said: \"Ho, ho\" and ;it\n worked!"), (3, LiteralInt 10 7)]
+  [(0, LiteralText "I said: \"Ho, ho\" and ;it\n worked!"), (3, LiteralInt 10 7)]
   $ tokenize ";Just a comment which i\"s ignored\n\"I said: \"\"Ho, ho\"\" and ;it\n worked!\";\n7"
 
 test4 = testEqual "Tokenization of the fourth code"
@@ -33,7 +33,7 @@ test4 = testEqual "Tokenization of the fourth code"
   $ tokenize "fun\n\npower [n exp] if f[exp] = 0 1 else f[n] * power[f[n] f[exp] - 1]\nis is"
 
 test5 = testEqual "Tokenization of an incorrent code"
-  [(0, Word "stri"), (7, LiteralInt 10 2), (7, LiteralString "###\"```"), (7, LiteralInt 10 987), (7, Operator "<=="),
+  [(0, Word "stri"), (7, LiteralInt 10 2), (7, LiteralText "###\"```"), (7, LiteralInt 10 987), (7, Operator "<=="),
   (7, Operator ">"), (8, LiteralFloat 8 25 0)]
   $ tokenize "stri#\n\n\n\n\n\n\n2\"###\"\"```\"987<== >\n`.8r31."
 

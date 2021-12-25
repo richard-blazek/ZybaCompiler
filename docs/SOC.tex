@@ -11,6 +11,8 @@
 \usepackage{xcolor}
 \usepackage{float}
 \usepackage{hyperref}
+\usepackage[nounderscore]{syntax}
+\usepackage[T1]{fontenc}
 
 \definecolor{keyword}{RGB}{0, 64, 255}
 
@@ -21,6 +23,7 @@
 
 \def\max #1{\textrm{max}\left\{#1\right\}}
 \def\keyword #1{\color{keyword}#1\color{black}}
+\def\emphasis #1{\textbf{"#1"}}
 \renewcommand{\labelitemii}{$\circ$}
 \renewcommand{\labelitemiii}{$-$}
 \makeatletter
@@ -111,6 +114,42 @@ programming lanugage; compiler; transpiling; web application; PHP; Zyba
 \newpage
 \section{Úvod}
 Cílem této práce je navrhnout programovací jazyk Zyba, který by měl umožnit psaní přehlednějšího kódu než PHP, a překladač, který by přeložil kód ze Zyby do PHP, aby bylo možné programy v Zybě používat na všech na všech serverech s podporou PHP skriptů. Navrhl jsem Zybu jako staticky typovaný jazyk, protože překlad z jednoho dynamicky typovaného jazyka do druhého by umožnil provádět pouze minimální kontrolu při překladu a Zyba by představovala jen alternativní syntaxi pro PHP. Překladač jsem se rozhodl napsat v jazyce Haskell, protože umožňuje psát velmi stručné a přehledné programy. Haskell totiž vyžaduje, aby funkce byly referenčně transparentní (tzn. bez vedlejších efektů), a jeho typový systém umožňuje zápis rekurzivních typů, což se u překladače hodí například na zápis syntaktického stromu. Naopak není nutné používat oddělovače, struktura programu se vyjadřuje odřádkováním a odsazením, což dále přispívá k čitelnosti výsledných programů.
+
+\section{Návrh jazyka}
+\subsection{Syntaxe}
+\begin{grammar}
+<program> ::= <declaration>*
+
+<declaration> ::= <name> <expression>
+
+<expression> ::= <call-expression> (<operator> <call-expression>)*
+
+<call-expression> ::= <value-expression> (<function-call> | <field-access> | <primitive-call>)*
+
+<function-call> ::= \emphasis{[} <expression>* \emphasis{]}
+
+<field-access> ::= \emphasis{:} <name>
+
+<primitive-call> ::= \emphasis{.} <name> \emphasis{[} <expression>* \emphasis{]}
+
+<value-expression> ::= <literal-int> | <literal-bool> | <literal-float> | <literal-string>
+
+<value-expression> ::= \emphasis{(} <expression> \emphasis{)}
+
+<value-expression> ::= \emphasis{fun} \emphasis{[} (<name>+ \emphasis{:} <expression>)* \emphasis{]} <block>
+
+<block> ::= \emphasis{\{} <statement>* \emphasis{\}}
+
+<statement> ::= <expression> | <assignment> | <if-statement> | <while-statement>
+
+<assignment> ::= <name> \emphasis{=} <expression>
+
+<if-statement> ::= <if-block> (\emphasis{else} <if-block>)* (\emphasis{else} <block>)*
+
+<if-block> ::= \emphasis{if} <expression> <block>
+
+<while-statement> ::= \emphasis{while} <expression> <block>
+\end{grammar} 
 
 \section{Závěr}
 

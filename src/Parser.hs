@@ -5,21 +5,23 @@ import qualified Lexer
 import Functions (pair, join, tailRecM, tailRec2M, fmapFst)
 import Errors (Fallible, failure, assert)
 
-data Declaration = Declaration String (Integer, Expression) deriving (Show, Read, Eq)
+data Declaration = Declaration String (Integer, Expression) deriving (Show, Eq)
 data Statement
   = Expression (Integer, Expression)
   | Assignment String (Integer, Expression)
   | While (Integer, Expression) [(Integer, Statement)]
-  | IfChain [((Integer, Expression), [(Integer, Statement)])] [(Integer, Statement)] deriving (Show, Read, Eq)
+  | IfChain [((Integer, Expression), [(Integer, Statement)])] [(Integer, Statement)] deriving (Show, Eq)
 
 data Expression
   = LiteralInt Integer
   | LiteralFloat Double
-  | LiteralString String
+  | LiteralText String
   | LiteralBool Bool
   | Name String
   | Call (Integer, Expression) [(Integer, Expression)]
-  | Lambda [(String, (Integer, Expression))] (Integer, Expression) [(Integer, Statement)] deriving (Show, Read, Eq)
+  | Primitive String [(Integer, Expression)]
+  | Field (Integer, Expression) String
+  | Lambda [(String, (Integer, Expression))] (Integer, Expression) [(Integer, Statement)] deriving (Show, Eq)
 
 expect :: Lexer.Token -> [(Integer, Lexer.Token)] -> Fallible [(Integer, Lexer.Token)]
 expect e [] = failure (-1) $ "Expected " ++ show e ++ ", reached the EOF"
@@ -33,7 +35,7 @@ parseMany parser end tokens = tailRec2M if' reverse tail else' [] tokens
 parseValue :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
 parseValue ((line, Lexer.LiteralInt _ lit) : tokens) = Right ((line, LiteralInt lit), tokens)
 parseValue ((line, Lexer.LiteralFloat _ n exp) : tokens) = Right ((line, LiteralFloat $ fromIntegral n / (10.0 ** fromIntegral exp)), tokens)
-parseValue ((line, Lexer.LiteralString lit) : tokens) = Right ((line, LiteralString lit), tokens)
+parseValue ((line, Lexer.LiteralText lit) : tokens) = Right ((line, LiteralText lit), tokens)
 parseValue ((line, Lexer.LiteralBool lit) : tokens) = Right ((line, LiteralBool lit), tokens)
 parseValue ((line, Lexer.Word "fun") : tokens) = parseLambda line tokens
 parseValue ((line, Lexer.Word name) : tokens) = Right ((line, Name name), tokens)
@@ -63,13 +65,19 @@ parseLambda line tokens = do
 
 parseCall :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
 parseCall tokens = parseValue tokens >>= uncurry (tailRec2M if' id id else')
-  where if' fun tokens = Right $ null tokens || snd (head tokens) /= Lexer.Separator '['
-        else' fun tokens@((line, _) : _) = fmapFst (pair line . Call fun) $ parseMany parseExpression (Lexer.Separator ']') tokens
+  where if' fun tokens = Right $ null tokens || snd (head tokens) `notElem` [Lexer.Separator '[', Lexer.Separator '.', Lexer.Separator ':']
+        else' fun ((line, Lexer.Separator '[') : tokens) = fmapFst (pair line . Call fun) $ parseMany parseExpression (Lexer.Separator ']') tokens
+        else' obj ((line, Lexer.Separator '.') : tokens) = case tokens of
+          (_, Lexer.Word name) : (_, Lexer.Separator '[') : restTokens -> fmapFst (pair line . Primitive name . (obj :)) $ parseMany parseExpression (Lexer.Separator ']') restTokens
+          _ -> failure line $ "Expected a primitive name followed by ["
+        else' obj ((line, Lexer.Separator ':') : tokens) = case tokens of
+          (_, Lexer.Word name) : restTokens -> Right ((line, Field obj name), restTokens)
+          _ -> failure line $ "Expected a field name"
 
 parseExpression :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
 parseExpression tokens = parseCall tokens >>= uncurry (tailRec2M if' id id else')
   where if' first tokens = Right (case tokens of (_, Lexer.Operator _) : _ -> False; _ -> True)
-        else' first ((line, Lexer.Operator op) : tokens) = fmapFst (\second -> (line, Call (line, Name op) [first, second])) $ parseCall tokens
+        else' first ((line, Lexer.Operator op) : tokens) = fmapFst (\second -> (line, Primitive op [first, second])) $ parseCall tokens
 
 parseIf :: Integer -> [((Integer, Expression), [(Integer, Statement)])] -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Statement), [(Integer, Lexer.Token)])
 parseIf line chain tokens = do
