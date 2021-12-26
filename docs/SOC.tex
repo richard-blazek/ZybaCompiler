@@ -7,7 +7,6 @@
 \usepackage{graphicx}
 \usepackage{fancyhdr}
 \usepackage[backend=bibtex,sorting=none]{biblatex}
-\usepackage{tikz}
 \usepackage{xcolor}
 \usepackage{float}
 \usepackage{hyperref}
@@ -16,12 +15,8 @@
 
 \definecolor{keyword}{RGB}{0, 64, 255}
 
-\usetikzlibrary{shapes.geometric, arrows}
-\tikzstyle{block} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=gray!25]
-\tikzstyle{arrow} = [thick,->,>=stealth]
 \addbibresource{SOC.bib}
 
-\def\max #1{\textrm{max}\left\{#1\right\}}
 \def\keyword #1{\color{keyword}#1\color{black}}
 \def\emphasis #1{\textbf{"#1"}}
 \renewcommand{\labelitemii}{$\circ$}
@@ -130,7 +125,7 @@ Cílem této práce je navrhnout programovací jazyk Zyba, který by měl umožn
 
 <field-access> ::= \emphasis{:} <name>
 
-<primitive-call> ::= \emphasis{.} <name> \emphasis{[} <expression>* \emphasis{]}
+<primitive-call> ::= \emphasis{.} <name> (\emphasis{[} <expression>* \emphasis{]})?
 
 <value-expression> ::= <literal-int> | <literal-bool> | <literal-float> | <literal-string>
 
@@ -144,9 +139,7 @@ Cílem této práce je navrhnout programovací jazyk Zyba, který by měl umožn
 
 <assignment> ::= <name> \emphasis{=} <expression>
 
-<if-statement> ::= <if-block> (\emphasis{else} <if-block>)* (\emphasis{else} <block>)*
-
-<if-block> ::= \emphasis{if} <expression> <block>
+<if-statement> ::= \emphasis{if} <expression> <block> (\emphasis{else} <block> | \emphasis{else} <if-statement>)?
 
 <while-statement> ::= \emphasis{while} <expression> <block>
 \end{grammar} 

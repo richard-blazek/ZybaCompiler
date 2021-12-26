@@ -66,13 +66,12 @@ parseLambda line tokens = do
 parseCall :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
 parseCall tokens = parseValue tokens >>= uncurry (tailRec2M if' id id else')
   where if' fun tokens = Right $ null tokens || snd (head tokens) `notElem` [Lexer.Separator '[', Lexer.Separator '.', Lexer.Separator ':']
-        else' fun ((line, Lexer.Separator '[') : tokens) = fmapFst (pair line . Call fun) $ parseMany parseExpression (Lexer.Separator ']') tokens
-        else' obj ((line, Lexer.Separator '.') : tokens) = case tokens of
-          (_, Lexer.Word name) : (_, Lexer.Separator '[') : restTokens -> fmapFst (pair line . Primitive name . (obj :)) $ parseMany parseExpression (Lexer.Separator ']') restTokens
-          _ -> failure line $ "Expected a primitive name followed by ["
-        else' obj ((line, Lexer.Separator ':') : tokens) = case tokens of
-          (_, Lexer.Word name) : restTokens -> Right ((line, Field obj name), restTokens)
-          _ -> failure line $ "Expected a field name"
+        else' fun ((line, Lexer.Separator '[') : tokens) = fmapFst (pair line . Call fun) $ parseExpressions tokens
+        else' obj ((line, Lexer.Separator '.') : (_, Lexer.Word name) : (_, Lexer.Separator '[') : tokens) = fmapFst (pair line . Primitive name . (obj :)) $ parseExpressions tokens
+        else' obj ((line, Lexer.Separator '.') : (_, Lexer.Word name) : tokens) = Right ((line, Primitive name [obj]), tokens)
+        else' obj ((line, Lexer.Separator ':') : (_, Lexer.Word name) : tokens) = Right ((line, Field obj name), tokens)
+        else' obj ((line, Lexer.Separator c) : _) = failure line $ "Expected field or primitive name after " ++ [c]
+        parseExpressions = parseMany parseExpression $ Lexer.Separator ']'
 
 parseExpression :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
 parseExpression tokens = parseCall tokens >>= uncurry (tailRec2M if' id id else')
