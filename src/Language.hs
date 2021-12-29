@@ -1,53 +1,37 @@
-module Language (Type (..), Primitive (..), getType, isPrimitive, getPrimitive, removePrimitives, getResultType) where
+module Language (Type (..), Primitive (..), isPrimitive, getPrimitive, removePrimitives, getResultType, constants) where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Errors (Fallible, failure, assert)
-import Functions (joinShow)
+import Functions (joinShow, split, (??))
 
-data Type = Int | Bool | Float | Text | Void | Fun [Type] Type deriving (Eq)
-data Primitive = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge
-  | Pow | Not | ToInt | ToFloat | ToBool | ToText deriving (Eq, Ord)
+data Type = Void | Int | Bool | Float | Text | Function [Type] Type | MapArray Type Type | IntArray Type | Record (Map.Map String Type) deriving (Eq, Show)
+data Primitive = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not
+  | AsInt | AsFloat | AsBool | AsText | Fun | Map | Array deriving (Eq, Ord)
 
 instance Show Primitive where
   show primitive = primitivesReversed Map.! primitive
     where primitivesReversed = Map.fromList $ map (\(k, v) -> (v, k)) $ Map.toList primitives
 
-instance Show Type where
-  show Int = "Int"
-  show Bool = "Bool"
-  show Float = "Float"
-  show Text = "Text"
-  show Void = "Void"
-  show (Fun args result) = "Fun[" ++ joinShow "," (args ++ [result]) ++ "]"
-
 primitives :: Map.Map String Primitive
-primitives = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("/", Div), ("//", IntDiv), ("%", Rem), ("&", And), ("|", Or), ("^", Xor), ("==", Eq),
-  ("!=", Neq), ("<", Lt), (">", Gt), ("<=", Le), (">=", Ge), ("**", Pow), ("not", Not), ("Int", ToInt), ("Float", ToFloat), ("Bool", ToBool), ("Text", ToText)]
+primitives = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("/", Div), ("//", IntDiv), ("%", Rem), ("&", And), ("|", Or), ("^", Xor), ("==", Eq), ("!=", Neq),
+  ("<", Lt), (">", Gt), ("<=", Le), (">=", Ge), ("**", Pow), ("not", Not), ("asInt", AsInt), ("asFloat", AsFloat), ("asBool", AsBool), ("asText", AsText),
+  ("fun", Fun), ("map", Map), ("array", Array)]
 
 primitivesSet :: Set.Set String
 primitivesSet = Map.keysSet primitives
 
-getType :: Integer -> String -> [Type] -> Fallible Type
-getType _ "Int" [] = Right Int
-getType _ "Float" [] = Right Float
-getType _ "Bool" [] = Right Bool
-getType _ "Text" [] = Right Text
-getType _ "Void" [] = Right Void
-getType _ "Fun" types@(_ : _) = Right $ Fun (init types) (last types)
-getType line name [] = failure line $ "Invalid type: " ++ name
-getType line name types = failure line $ "Invalid type: " ++ name ++ "[" ++ joinShow "," types ++ "]"
+constants :: Map.Map String Type
+constants = Map.fromList [("int", Int), ("bool", Bool), ("float", Float), ("text", Text), ("void", Void)]
 
 isPrimitive :: String -> Bool
 isPrimitive = flip Map.member primitives
 
-getPrimitive :: Integer -> String -> Fallible Primitive
-getPrimitive line name = case Map.lookup name primitives of
-  Just primitive -> Right primitive
-  Nothing -> failure line $ "Identifier " ++ name ++ " does not denote anyting in this context"
-
 removePrimitives :: Set.Set String -> Set.Set String
 removePrimitives = flip Set.difference primitivesSet
+
+getPrimitive :: Integer -> String -> Fallible Primitive
+getPrimitive line name = fmap Right (Map.lookup name primitives) ?? failure line ("Identifier " ++ name ++ " does not denote anyting in this context")
 
 getResultType :: Integer -> Primitive -> [Type] -> Fallible Type
 getResultType line primitive args = case (primitive, args) of
@@ -71,6 +55,10 @@ getResultType line primitive args = case (primitive, args) of
   (Eq, [Int, Int]) -> Right Bool
   (Eq, [Bool, Bool]) -> Right Bool
   (Eq, [Text, Text]) -> Right Bool
+  (Eq, [MapArray k1 v1, MapArray k2 v2]) -> do
+    getResultType line Eq [k1, k2]
+    getResultType line Eq [v1, v2]
+    Right Bool
   (Eq, [a, b]) | any (== Float) [a, b] -> failure line "Do not compare floats for equality. Learn more: https://stackoverflow.com/questions/1088216/whats-wrong-with-using-to-compare-floats-in-java"
   (Neq, [Int, Int]) -> Right Bool
   (Neq, [Bool, Bool]) -> Right Bool
@@ -88,8 +76,18 @@ getResultType line primitive args = case (primitive, args) of
   (Pow, [a, b]) | all (`elem` [Int, Float]) [a, b] -> Right Float
   (Not, [Int]) -> Right Int
   (Not, [Bool]) -> Right Bool
-  (ToInt, [a]) | a `elem` [Int, Float, Bool, Text] -> Right Int
-  (ToFloat, [a]) | a `elem` [Int, Float, Bool, Text] -> Right Float
-  (ToBool, [a]) | a `elem` [Int, Float, Bool, Text] -> Right Bool
-  (ToText, [a]) | a `elem` [Int, Float, Bool, Text] -> Right Text
+  (AsInt, [a]) | a `elem` [Int, Float, Bool, Text] -> Right Int
+  (AsFloat, [a]) | a `elem` [Int, Float, Bool, Text] -> Right Float
+  (AsBool, [a]) | a `elem` [Int, Float, Bool, Text] -> Right Bool
+  (AsText, [a]) | a `elem` [Int, Float, Bool, Text] -> Right Text
+  (Fun, returned : args) -> Right $ Function args returned
+  (Map, key : value : args) -> do
+    assert (key `elem` [Int, Text]) line "Map keys must be either int or text"
+    let (odd, even) = split args
+    assert (length odd == length even) line "Missing value for the last key"
+    assert (all (== key) odd && all (== value) even) line "All keys and values must have the specified type"
+    Right $ MapArray key value
+  (Array, value : args) -> do
+    assert (all (== value) args) line "All values must have the specified type"
+    Right $ IntArray value
   _ -> failure line $ "Primitive " ++ show primitive ++ " does not accept arguments of types " ++ joinShow ", " args

@@ -1,6 +1,4 @@
-module Functions (pair, (!?), (??), join, joinShow, foldlMapM, tailRecM, tailRec2M, fmapFst) where
-
-import qualified Data.Map.Strict as Map
+module Functions (pair, (!?), (??), join, joinShow, foldlMapM, tailRecM, tailRec2M, fmapFst, split, follow) where
 
 pair :: a -> b -> (a, b)
 pair a b = (a, b)
@@ -40,3 +38,15 @@ fmapFst f = fmap (\(a, c) -> (f a, c))
 
 tailRec2M :: (Monad m) => (a -> b -> m Bool) -> (a -> c) -> (b -> d) -> (a -> b -> m (a, b)) -> a -> b -> m (c, d)
 tailRec2M if' thenA thenB else' a b = tailRecM (uncurry if') (\(a', b') -> return (thenA a', thenB b')) (uncurry else') (a, b)
+
+split :: [a] -> ([a], [a])
+split [] = ([], [])
+split [x] = ([x], [])
+split (x1 : x2 : xs) = (x1 : even, x2 : odd)
+  where (even, odd) = split xs
+
+follow :: Monad m => (a -> m (b, a)) -> (a -> m (c, a)) -> a -> m ((b, c), a)
+follow f g x = do
+  (a, y) <- f x
+  (b, z) <- g y
+  return ((a, b), z)

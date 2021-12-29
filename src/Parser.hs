@@ -2,7 +2,8 @@ module Parser (Expression (..), Statement (..), Declaration (..), parse) where
 
 import Data.Ratio ((%))
 import qualified Lexer
-import Functions (pair, join, tailRecM, tailRec2M, fmapFst)
+import qualified Data.Map.Strict as Map
+import Functions (pair, join, tailRecM, tailRec2M, fmapFst, follow)
 import Errors (Fallible, failure, assert)
 
 data Declaration = Declaration String (Integer, Expression) deriving (Show, Eq)
@@ -19,9 +20,9 @@ data Expression
   | LiteralBool Bool
   | Name String
   | Call (Integer, Expression) [(Integer, Expression)]
-  | Primitive String [(Integer, Expression)]
-  | Field (Integer, Expression) String
-  | Lambda [(String, (Integer, Expression))] (Integer, Expression) [(Integer, Statement)] deriving (Show, Eq)
+  | Access String [(Integer, Expression)]
+  | Lambda [(String, (Integer, Expression))] (Integer, Expression) [(Integer, Statement)]
+  | Record (Map.Map String (Integer, Expression)) deriving (Show, Eq)
 
 expect :: Lexer.Token -> [(Integer, Lexer.Token)] -> Fallible [(Integer, Lexer.Token)]
 expect e [] = failure (-1) $ "Expected " ++ show e ++ ", reached the EOF"
@@ -43,7 +44,16 @@ parseValue ((line, Lexer.Separator '(') : tokens) = do
   (expression, tokensAfterExpression) <- parseExpression tokens
   tokensAfterParenthesis <- expect (Lexer.Separator ')') tokensAfterExpression
   Right (expression, tokensAfterParenthesis)
+parseValue ((line, Lexer.Separator '{') : tokens) = parseRecord Map.empty tokens
 parseValue ((line, token) : _) = failure line $ "Expected a value but got " ++ show token
+
+parseRecord :: Map.Map String (Integer, Expression) -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
+parseRecord fields ((line, Lexer.Word name) : tokens) = do
+  assert (not $ Map.member name fields) line $ "Duplicate field " ++ name
+  (expression, restTokens) <- parseExpression tokens
+  parseRecord (Map.insert name expression fields) restTokens
+parseRecord fields ((line, Lexer.Separator '}') : tokens) = Right ((line, Record fields), tokens)
+parseRecord fields ((line, token) : _) = failure line $ "Expected a field name but got " ++ show token
 
 parseArguments :: [(Integer, Lexer.Token)] -> Fallible ([(String, (Integer, Expression))], [(Integer, Lexer.Token)])
 parseArguments tokens = tailRecM if' then' else' ([], [], tokens)
@@ -58,32 +68,28 @@ parseArguments tokens = tailRecM if' then' else' ([], [], tokens)
 parseLambda :: Integer -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
 parseLambda line tokens = do
   tokensAfterBracket <- expect (Lexer.Separator '[') tokens
-  (args, tokensAfterArgs) <- parseArguments tokensAfterBracket
-  (returnType, tokensAfterReturnType) <- parseExpression tokensAfterArgs
-  (block, tokensAfterBlock) <- parseBlock tokensAfterReturnType
-  Right ((line, Lambda args returnType block), tokensAfterBlock)
+  ((args, (returnType, block)), restTokens) <- follow parseArguments (follow parseExpression parseBlock) tokensAfterBracket
+  Right ((line, Lambda args returnType block), restTokens)
 
 parseCall :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
 parseCall tokens = parseValue tokens >>= uncurry (tailRec2M if' id id else')
   where if' fun tokens = Right $ null tokens || snd (head tokens) `notElem` [Lexer.Separator '[', Lexer.Separator '.', Lexer.Separator ':']
         else' fun ((line, Lexer.Separator '[') : tokens) = fmapFst (pair line . Call fun) $ parseExpressions tokens
-        else' obj ((line, Lexer.Separator '.') : (_, Lexer.Word name) : (_, Lexer.Separator '[') : tokens) = fmapFst (pair line . Primitive name . (obj :)) $ parseExpressions tokens
-        else' obj ((line, Lexer.Separator '.') : (_, Lexer.Word name) : tokens) = Right ((line, Primitive name [obj]), tokens)
-        else' obj ((line, Lexer.Separator ':') : (_, Lexer.Word name) : tokens) = Right ((line, Field obj name), tokens)
+        else' obj ((line, Lexer.Separator '.') : (_, Lexer.Word name) : (_, Lexer.Separator '[') : tokens) = fmapFst (pair line . Access name . (obj :)) $ parseExpressions tokens
+        else' obj ((line, Lexer.Separator '.') : (_, Lexer.Word name) : tokens) = Right ((line, Access name [obj]), tokens)
         else' obj ((line, Lexer.Separator c) : _) = failure line $ "Expected field or primitive name after " ++ [c]
         parseExpressions = parseMany parseExpression $ Lexer.Separator ']'
 
 parseExpression :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
 parseExpression tokens = parseCall tokens >>= uncurry (tailRec2M if' id id else')
   where if' first tokens = Right (case tokens of (_, Lexer.Operator _) : _ -> False; _ -> True)
-        else' first ((line, Lexer.Operator op) : tokens) = fmapFst (\second -> (line, Primitive op [first, second])) $ parseCall tokens
+        else' first ((line, Lexer.Operator op) : tokens) = fmapFst (\second -> (line, Access op [first, second])) $ parseCall tokens
 
 parseIf :: Integer -> [((Integer, Expression), [(Integer, Statement)])] -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Statement), [(Integer, Lexer.Token)])
 parseIf line chain tokens = do
-  (condition, tokensAfterCondition) <- parseExpression tokens
-  (thenBlock, tokensAfterThen) <- parseBlock tokensAfterCondition
-  let newChain = (condition, thenBlock) : chain
-  case tokensAfterThen of
+  (pair, tokensAfterBlock) <- follow parseExpression parseBlock tokens
+  let newChain = pair : chain
+  case tokensAfterBlock of
     (_, Lexer.Word "else") : (_, Lexer.Word "if") : restTokens -> parseIf line newChain restTokens
     (_, Lexer.Word "else") : restTokens -> do
       (elseBlock, tokensAfterElse) <- parseBlock restTokens
@@ -93,9 +99,8 @@ parseIf line chain tokens = do
 parseStatement :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Statement), [(Integer, Lexer.Token)])
 parseStatement ((line, Lexer.Word "if") : tokens) = parseIf line [] tokens
 parseStatement ((line, Lexer.Word "while") : tokens) = do
-  (condition, tokensAfterCondition) <- parseExpression tokens
-  (block, tokensAfterBlock) <- parseBlock tokensAfterCondition
-  Right ((line, While condition block), tokensAfterBlock)
+  ((condition, block), restTokens) <- follow parseExpression parseBlock tokens
+  Right ((line, While condition block), restTokens)
 
 parseStatement ((line, Lexer.Word name) : (_, Lexer.Operator "=") : tokens) = do
   (expression, restTokens) <- parseExpression tokens

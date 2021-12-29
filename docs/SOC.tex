@@ -119,13 +119,7 @@ Cílem této práce je navrhnout programovací jazyk Zyba, který by měl umožn
 
 <expression> ::= <call-expression> (<operator> <call-expression>)*
 
-<call-expression> ::= <value-expression> (<function-call> | <field-access> | <primitive-call>)*
-
-<function-call> ::= \emphasis{[} <expression>* \emphasis{]}
-
-<field-access> ::= \emphasis{:} <name>
-
-<primitive-call> ::= \emphasis{.} <name> (\emphasis{[} <expression>* \emphasis{]})?
+<call-expression> ::= <value-expression> (\emphasis{.} <name> | \emphasis{[} <expression>* \emphasis{]})*
 
 <value-expression> ::= <literal-int> | <literal-bool> | <literal-float> | <literal-string>
 
