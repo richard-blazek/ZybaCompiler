@@ -3,7 +3,7 @@ module Parser (Expression (..), Statement (..), Declaration (..), parse) where
 import Data.Ratio ((%))
 import qualified Lexer
 import qualified Data.Map.Strict as Map
-import Functions (pair, join, tailRecM, tailRec2M, fmapFst, follow)
+import Functions (intercalate, pair, tailRecM, tailRec2M, fmapFst, follow)
 import Errors (Fallible, failure, assert)
 
 data Declaration = Declaration String (Integer, Expression) deriving (Show, Eq)
@@ -20,7 +20,7 @@ data Expression
   | LiteralBool Bool
   | Name String
   | Call (Integer, Expression) [(Integer, Expression)]
-  | Access String [(Integer, Expression)]
+  | Access (Integer, Expression) String (Maybe [(Integer, Expression)])
   | Lambda [(String, (Integer, Expression))] (Integer, Expression) [(Integer, Statement)]
   | Record (Map.Map String (Integer, Expression)) deriving (Show, Eq)
 
@@ -58,7 +58,7 @@ parseRecord fields ((line, token) : _) = failure line $ "Expected a field name b
 parseArguments :: [(Integer, Lexer.Token)] -> Fallible ([(String, (Integer, Expression))], [(Integer, Lexer.Token)])
 parseArguments tokens = tailRecM if' then' else' ([], [], tokens)
   where if' (_, _, tokens) = assert (not $ null tokens) (-1) "Unexpected end of file" >> Right (snd (head tokens) == Lexer.Separator ']')
-        then' (names, args, (line, _) : tokens) = assert (null names) line ("Missing type for " ++ join ", " names) >> Right (reverse args, tokens)
+        then' (names, args, (line, _) : tokens) = assert (null names) line ("Missing type for " ++ intercalate ", " names) >> Right (reverse args, tokens)
         else' (names, args, (_, Lexer.Word name) : tokens) = Right (name : names, args, tokens)
         else' (names, args, (_, Lexer.Separator ':') : tokens) = do
           (type', restTokens) <- parseExpression tokens
@@ -75,15 +75,15 @@ parseCall :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Inte
 parseCall tokens = parseValue tokens >>= uncurry (tailRec2M if' id id else')
   where if' fun tokens = Right $ null tokens || snd (head tokens) `notElem` [Lexer.Separator '[', Lexer.Separator '.', Lexer.Separator ':']
         else' fun ((line, Lexer.Separator '[') : tokens) = fmapFst (pair line . Call fun) $ parseExpressions tokens
-        else' obj ((line, Lexer.Separator '.') : (_, Lexer.Word name) : (_, Lexer.Separator '[') : tokens) = fmapFst (pair line . Access name . (obj :)) $ parseExpressions tokens
-        else' obj ((line, Lexer.Separator '.') : (_, Lexer.Word name) : tokens) = Right ((line, Access name [obj]), tokens)
+        else' obj ((line, Lexer.Separator '.') : (_, Lexer.Word name) : (_, Lexer.Separator '[') : tokens) = fmapFst (pair line . Access obj name . Just) $ parseExpressions tokens
+        else' obj ((line, Lexer.Separator '.') : (_, Lexer.Word name) : tokens) = Right ((line, Access obj name Nothing), tokens)
         else' obj ((line, Lexer.Separator c) : _) = failure line $ "Expected field or primitive name after " ++ [c]
         parseExpressions = parseMany parseExpression $ Lexer.Separator ']'
 
 parseExpression :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
 parseExpression tokens = parseCall tokens >>= uncurry (tailRec2M if' id id else')
   where if' first tokens = Right (case tokens of (_, Lexer.Operator _) : _ -> False; _ -> True)
-        else' first ((line, Lexer.Operator op) : tokens) = fmapFst (\second -> (line, Access op [first, second])) $ parseCall tokens
+        else' first ((line, Lexer.Operator op) : tokens) = fmapFst (\second -> (line, Access first op $ Just [second])) $ parseCall tokens
 
 parseIf :: Integer -> [((Integer, Expression), [(Integer, Statement)])] -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Statement), [(Integer, Lexer.Token)])
 parseIf line chain tokens = do

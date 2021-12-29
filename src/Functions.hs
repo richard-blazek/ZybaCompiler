@@ -1,4 +1,4 @@
-module Functions (pair, (!?), (??), join, joinShow, foldlMapM, tailRecM, tailRec2M, fmapFst, split, follow) where
+module Functions (pair, (!?), (??), intercalate, join, foldlMapM, tailRecM, tailRec2M, fmapFst, split, follow) where
 
 pair :: a -> b -> (a, b)
 pair a b = (a, b)
@@ -14,13 +14,13 @@ infixl 3 ??
 Nothing ?? x = x
 Just x ?? _ = x
 
-join :: (Foldable f) => [c] -> f [c] -> [c]
-join str xs
-  | null xs = []
-  | otherwise = foldr1 (\a b -> a ++ str ++ b) xs
+intercalate :: (Foldable f, Monoid m) => m -> f m -> m
+intercalate x xs
+  | null xs = mempty
+  | otherwise = foldr1 (\a b -> a <> x <> b) xs
 
-joinShow :: (Show a) => String -> [a] -> String
-joinShow str xs = join str (map show xs)
+join :: (Show a) => String -> [a] -> String
+join str xs = intercalate str (map show xs)
 
 foldlMapM :: (Monad m, Foldable t) => (b -> a -> m (b, c)) -> b -> t a -> m (b, [c])
 foldlMapM f seed = foldl combine $ return (seed, [])
@@ -39,11 +39,10 @@ fmapFst f = fmap (\(a, c) -> (f a, c))
 tailRec2M :: (Monad m) => (a -> b -> m Bool) -> (a -> c) -> (b -> d) -> (a -> b -> m (a, b)) -> a -> b -> m (c, d)
 tailRec2M if' thenA thenB else' a b = tailRecM (uncurry if') (\(a', b') -> return (thenA a', thenB b')) (uncurry else') (a, b)
 
-split :: [a] -> ([a], [a])
-split [] = ([], [])
-split [x] = ([x], [])
-split (x1 : x2 : xs) = (x1 : even, x2 : odd)
-  where (even, odd) = split xs
+split :: [a] -> Maybe [(a, a)]
+split [] = Just []
+split [x] = Nothing
+split (x1 : x2 : xs) = fmap ((x1, x2) :) $ split xs
 
 follow :: Monad m => (a -> m (b, a)) -> (a -> m (c, a)) -> a -> m ((b, c), a)
 follow f g x = do

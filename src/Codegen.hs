@@ -3,23 +3,24 @@ module Codegen (generate) where
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
 import Language (Type (..), Primitive (..), removePrimitives)
-import Semantics (Value (..), Statement (..))
+import Semantics (Expression (..), Statement (..))
 import Errors (Fallible, failure)
-import Functions (join)
+import Functions (intercalate, split)
+import Data.Maybe (fromJust)
 
 capturesOfBlock :: Set.Set String -> [Statement] -> Set.Set String
 capturesOfBlock skip [] = Set.empty
-capturesOfBlock skip (Expression value : rest) = capturesOfValue skip value
-capturesOfBlock skip (Initialization name value : rest) = Set.union (capturesOfValue skip value) $ capturesOfBlock (Set.insert name skip) rest
-capturesOfBlock skip (Assignment _ value : rest) = Set.union (capturesOfValue skip value) $ capturesOfBlock skip rest
-capturesOfBlock skip (While condition block : rest) = Set.unions [capturesOfValue skip condition, capturesOfBlock skip block, capturesOfBlock skip rest]
-capturesOfBlock skip (IfChain chains else' : rest) = Set.unions [Set.unions $ map (\(cond, block) -> Set.union (capturesOfValue skip cond) $ capturesOfBlock skip block) chains, capturesOfBlock skip else', capturesOfBlock skip rest]
+capturesOfBlock skip (Expression value : rest) = capturesOfExpression skip value
+capturesOfBlock skip (Initialization name value : rest) = Set.union (capturesOfExpression skip value) $ capturesOfBlock (Set.insert name skip) rest
+capturesOfBlock skip (Assignment _ value : rest) = Set.union (capturesOfExpression skip value) $ capturesOfBlock skip rest
+capturesOfBlock skip (While condition block : rest) = Set.unions [capturesOfExpression skip condition, capturesOfBlock skip block, capturesOfBlock skip rest]
+capturesOfBlock skip (IfChain chains else' : rest) = Set.unions [Set.unions $ map (\(cond, block) -> Set.union (capturesOfExpression skip cond) $ capturesOfBlock skip block) chains, capturesOfBlock skip else', capturesOfBlock skip rest]
 
-capturesOfValue :: Set.Set String -> (Type, Value) -> Set.Set String
-capturesOfValue skip (_, Name name) = if Set.member name skip then Set.empty else Set.singleton name
-capturesOfValue skip (_, Lambda args body) = capturesOfBlock (Set.union skip $ Set.fromList $ map fst args) body
-capturesOfValue skip (_, Call fun args) = Set.unions $ map (capturesOfValue skip) $ fun : args
-capturesOfValue skip _ = Set.empty
+capturesOfExpression :: Set.Set String -> (Type, Expression) -> Set.Set String
+capturesOfExpression skip (_, Name name) = if Set.member name skip then Set.empty else Set.singleton name
+capturesOfExpression skip (_, Lambda args body) = capturesOfBlock (Set.union skip $ Set.fromList $ map fst args) body
+capturesOfExpression skip (_, Call fun args) = Set.unions $ map (capturesOfExpression skip) $ fun : args
+capturesOfExpression skip _ = Set.empty
 
 stringifyPrimitive :: Primitive -> [String] -> [Type] -> String
 stringifyPrimitive Add [a, b] [Int, Int] = "(int)(" ++ a ++ "+" ++ b ++ ")"
@@ -55,36 +56,39 @@ stringifyPrimitive AsBool [a] [Text] = "(" ++ a ++ "!==\"\")"
 stringifyPrimitive AsBool [a] [_] = "(bool)" ++ a
 stringifyPrimitive AsFloat [a] [_] = "(float)" ++ a
 stringifyPrimitive AsText [a] [_] = "(string)" ++ a
+stringifyPrimitive Map (_ : _ : args) _ = "array(" ++ intercalate "," (map (\(k, v) -> k ++ "=>" ++ v) $ fromJust $ split args) ++ ")"
+stringifyPrimitive Array (_ : args) _ = "array(" ++ intercalate "," args ++ ")"
 
 stringifyStatement :: Statement -> String
-stringifyStatement (Expression value) = stringifyValue value ++ ";"
-stringifyStatement (Initialization name value) = "$" ++ name ++ "=" ++ stringifyValue value ++ ";"
-stringifyStatement (Assignment name value) = "$" ++ name ++ "=" ++ stringifyValue value ++ ";"
-stringifyStatement (While condition block) = "while(" ++ stringifyValue condition ++ ")" ++ stringifyBlock False block
-stringifyStatement (IfChain chain else') = join "else " (map (\(cond, block) -> "if(" ++ stringifyValue cond ++ ")" ++ stringifyBlock False block) chain) ++ "else" ++ stringifyBlock False else'
+stringifyStatement (Expression value) = stringifyExpression value ++ ";"
+stringifyStatement (Initialization name value) = "$" ++ name ++ "=" ++ stringifyExpression value ++ ";"
+stringifyStatement (Assignment name value) = "$" ++ name ++ "=" ++ stringifyExpression value ++ ";"
+stringifyStatement (While condition block) = "while(" ++ stringifyExpression condition ++ ")" ++ stringifyBlock False block
+stringifyStatement (IfChain chain else') = intercalate "else " (map (\(cond, block) -> "if(" ++ stringifyExpression cond ++ ")" ++ stringifyBlock False block) chain) ++ "else" ++ stringifyBlock False else'
 
 stringifyBlock :: Bool -> [Statement] -> String
 stringifyBlock _ [] = ""
 stringifyBlock True [statement@(Expression (type', _))] | type' /= Void = "return " ++ stringifyStatement statement
 stringifyBlock return (statement : statements) = stringifyStatement statement ++ stringifyBlock return statements
 
-stringifyValue :: (Type, Value) -> String
-stringifyValue (_, LiteralBool b) = if b then "TRUE" else "FALSE"
-stringifyValue (_, LiteralInt i) = show i
-stringifyValue (_, LiteralFloat f) = show f
-stringifyValue (_, LiteralText s) = show s
-stringifyValue (_, Name name) = "$zyba" ++ name
-stringifyValue (_, Call fun args) = stringifyValue fun ++ "(" ++ (join "," $ map stringifyValue args) ++ ")"
-stringifyValue (_, Primitive primitive args) = stringifyPrimitive primitive (map stringifyValue args) (map fst args)
-stringifyValue (Function _ returnType', Lambda args block) = header ++ "{" ++ stringifyBlock (returnType' /= Void) block ++ "})"
+stringifyExpression :: (Type, Expression) -> String
+stringifyExpression (_, LiteralBool b) = if b then "TRUE" else "FALSE"
+stringifyExpression (_, LiteralInt i) = show i
+stringifyExpression (_, LiteralFloat f) = show f
+stringifyExpression (_, LiteralText s) = show s
+stringifyExpression (_, Name name) = "$zyba" ++ name
+stringifyExpression (_, Call fun args) = stringifyExpression fun ++ "(" ++ (intercalate "," $ map stringifyExpression args) ++ ")"
+stringifyExpression (_, Primitive primitive args) = stringifyPrimitive primitive (map stringifyExpression args) (map fst args)
+stringifyExpression (Function _ returnType', Lambda args block) = header ++ "{" ++ stringifyBlock (returnType' /= Void) block ++ "})"
   where argNames = map fst args
-        captures = join "," $ Set.map ("&$zyba" ++) $ removePrimitives $ capturesOfBlock (Set.fromList argNames) block
-        header = "(function(" ++ join "," (map ("$zyba" ++) argNames) ++ ")" ++ (if null captures then "" else "use(" ++ captures ++ ")")
-stringifyValue (_, Semantics.Record fields) = "array(" ++ join "," (map stringify $ Map.toList fields) ++ ")"
-  where stringify (name, value) = "\"" ++ name ++ "\"=>" ++ stringifyValue value
+        captures = intercalate "," $ Set.map ("&$zyba" ++) $ removePrimitives $ capturesOfBlock (Set.fromList argNames) block
+        header = "(function(" ++ intercalate "," (map ("$zyba" ++) argNames) ++ ")" ++ (if null captures then "" else "use(" ++ captures ++ ")")
+stringifyExpression (_, Semantics.Record fields) = "array(" ++ intercalate "," (map stringifyItem $ Map.assocs fields) ++ ")"
+  where stringifyItem (name, value) = "\"" ++ name ++ "\"=>" ++ stringifyExpression value
+stringifyExpression (_, Access obj field) = stringifyExpression obj ++ "[\"" ++ field ++ "\"]"
 
-stringifyDeclaration :: String -> (Type, Value) -> String
-stringifyDeclaration name value = "$zyba" ++ name ++ "=" ++ (stringifyValue value) ++ ";"
+stringifyDeclaration :: String -> (Type, Expression) -> String
+stringifyDeclaration name value = "$zyba" ++ name ++ "=" ++ (stringifyExpression value) ++ ";"
 
 preamble :: String
 preamble = "function zyba0arrayEQ($a, $b) {\
@@ -109,5 +113,5 @@ preamble = "function zyba0arrayEQ($a, $b) {\
 \}\
 \$zybaint=0;$zybafloat=0.0;$zybabool=FALSE;$zybatext='';$zybavoid=NULL;"
 
-generate :: [(String, (Type, Value))] -> String
+generate :: [(String, (Type, Expression))] -> String
 generate globals = preamble ++ concat (map (uncurry stringifyDeclaration) globals)

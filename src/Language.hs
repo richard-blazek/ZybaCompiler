@@ -3,7 +3,7 @@ module Language (Type (..), Primitive (..), isPrimitive, getPrimitive, removePri
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Errors (Fallible, failure, assert)
-import Functions (joinShow, split, (??))
+import Functions (join, split, (??))
 
 data Type = Void | Int | Bool | Float | Text | Function [Type] Type | MapArray Type Type | IntArray Type | Record (Map.Map String Type) deriving (Eq, Show)
 data Primitive = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not
@@ -83,11 +83,11 @@ getResultType line primitive args = case (primitive, args) of
   (Fun, returned : args) -> Right $ Function args returned
   (Map, key : value : args) -> do
     assert (key `elem` [Int, Text]) line "Map keys must be either int or text"
-    let (odd, even) = split args
-    assert (length odd == length even) line "Missing value for the last key"
-    assert (all (== key) odd && all (== value) even) line "All keys and values must have the specified type"
+    let pairs = split args
+    assert (pairs /= Nothing) line "Missing value for the last key"
+    assert (fmap (all (== (key, value))) pairs == Just True) line "All keys and values must have the specified type"
     Right $ MapArray key value
   (Array, value : args) -> do
     assert (all (== value) args) line "All values must have the specified type"
     Right $ IntArray value
-  _ -> failure line $ "Primitive " ++ show primitive ++ " does not accept arguments of types " ++ joinShow ", " args
+  _ -> failure line $ "Primitive " ++ show primitive ++ " does not accept arguments of types " ++ join ", " args
