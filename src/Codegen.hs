@@ -42,6 +42,7 @@ stringifyPrimitive Xor [a, b] [Bool, Bool] = "(" ++ a ++ "!==" ++ b ++ ")"
 stringifyPrimitive Xor [a, b] [_, _] = "(" ++ a ++ "^" ++ b ++ ")"
 stringifyPrimitive Eq [a, b] [MapArray _ _, MapArray _ _] = "zyba0arrayEQ(" ++ a ++ "," ++ b ++ ")"
 stringifyPrimitive Eq [a, b] [_, _] = "(" ++ a ++ "===" ++ b ++ ")"
+stringifyPrimitive Neq [a, b] [MapArray _ _, MapArray _ _] = "!zyba0arrayEQ(" ++ a ++ "," ++ b ++ ")"
 stringifyPrimitive Neq [a, b] [_, _] = "(" ++ a ++ "!==" ++ b ++ ")"
 stringifyPrimitive Lt [a, b] [_, _] = "(" ++ a ++ "<" ++ b ++ ")"
 stringifyPrimitive Gt [a, b] [_, _] = "(" ++ a ++ ">" ++ b ++ ")"
@@ -57,12 +58,16 @@ stringifyPrimitive AsBool [a] [_] = "(bool)" ++ a
 stringifyPrimitive AsFloat [a] [_] = "(float)" ++ a
 stringifyPrimitive AsText [a] [_] = "(string)" ++ a
 stringifyPrimitive Map (_ : _ : args) _ = "array(" ++ intercalate "," (map (\(k, v) -> k ++ "=>" ++ v) $ fromJust $ split args) ++ ")"
-stringifyPrimitive Array (_ : args) _ = "array(" ++ intercalate "," args ++ ")"
+stringifyPrimitive Array (_ : args) _ = "(new zybaarray(" ++ intercalate "," args ++ "))"
+stringifyPrimitive Get [array, key] (MapArray _ _ : _) = "(" ++ array ++ "[" ++ key ++ "] or die('Map does not contain the key: ' . (" ++ key ++ ")))"
+stringifyPrimitive Set [array, key, value] (MapArray _ _ : _) = "(unset)(" ++ array ++ "[" ++ key ++ "]=" ++ value ++ ")"
+stringifyPrimitive Get [array, key] (IntArray _ : _) = array ++ "->get(" ++ key ++ ")"
+stringifyPrimitive Set [array, key, value] (IntArray _ : _) = array ++ "->set(" ++ key ++ "," ++ value ++ ")"
 
 stringifyStatement :: Statement -> String
 stringifyStatement (Expression value) = stringifyExpression value ++ ";"
-stringifyStatement (Initialization name value) = "$" ++ name ++ "=" ++ stringifyExpression value ++ ";"
-stringifyStatement (Assignment name value) = "$" ++ name ++ "=" ++ stringifyExpression value ++ ";"
+stringifyStatement (Initialization name value) = "$zyba" ++ name ++ "=" ++ stringifyExpression value ++ ";"
+stringifyStatement (Assignment name value) = "$zyba" ++ name ++ "=" ++ stringifyExpression value ++ ";"
 stringifyStatement (While condition block) = "while(" ++ stringifyExpression condition ++ ")" ++ stringifyBlock False block
 stringifyStatement (IfChain chain else') = intercalate "else " (map (\(cond, block) -> "if(" ++ stringifyExpression cond ++ ")" ++ stringifyBlock False block) chain) ++ "else" ++ stringifyBlock False else'
 
@@ -76,6 +81,8 @@ stringifyExpression (_, LiteralBool b) = if b then "TRUE" else "FALSE"
 stringifyExpression (_, LiteralInt i) = show i
 stringifyExpression (_, LiteralFloat f) = show f
 stringifyExpression (_, LiteralText s) = show s
+stringifyExpression (_, LiteralRecord fields) = "array(" ++ intercalate "," (map stringifyItem $ Map.assocs fields) ++ ")"
+  where stringifyItem (name, value) = "\"" ++ name ++ "\"=>" ++ stringifyExpression value
 stringifyExpression (_, Name name) = "$zyba" ++ name
 stringifyExpression (_, Call fun args) = stringifyExpression fun ++ "(" ++ (intercalate "," $ map stringifyExpression args) ++ ")"
 stringifyExpression (_, Primitive primitive args) = stringifyPrimitive primitive (map stringifyExpression args) (map fst args)
@@ -83,35 +90,53 @@ stringifyExpression (Function _ returnType', Lambda args block) = header ++ "{" 
   where argNames = map fst args
         captures = intercalate "," $ Set.map ("&$zyba" ++) $ removePrimitives $ capturesOfBlock (Set.fromList argNames) block
         header = "(function(" ++ intercalate "," (map ("$zyba" ++) argNames) ++ ")" ++ (if null captures then "" else "use(" ++ captures ++ ")")
-stringifyExpression (_, Semantics.Record fields) = "array(" ++ intercalate "," (map stringifyItem $ Map.assocs fields) ++ ")"
-  where stringifyItem (name, value) = "\"" ++ name ++ "\"=>" ++ stringifyExpression value
 stringifyExpression (_, Access obj field) = stringifyExpression obj ++ "[\"" ++ field ++ "\"]"
 
 stringifyDeclaration :: String -> (Type, Expression) -> String
 stringifyDeclaration name value = "$zyba" ++ name ++ "=" ++ (stringifyExpression value) ++ ";"
 
 preamble :: String
-preamble = "function zyba0arrayEQ($a, $b) {\
-    \if(!is_array($a)||!is_array($b)||count($a)!==count($b)){\
-        \return FALSE;\
+preamble = "function zyba0arrayEQ($a,$b){\
+  \if(!is_array($a)||!is_array($b)||count($a)!==count($b)){\
+    \return FALSE;\
+  \}\
+  \$a_keys=array_keys($a);\
+  \$b_keys=array_keys($b);\
+  \array_multisort($a_keys);\
+  \array_multisort($b_keys);\
+  \if($a_keys!==$b_keys) {\
+    \return FALSE;\
+  \}\
+  \foreach($a_keys as $key){\
+    \$a_value=$a[$key];\
+    \$b_value=$b[$key];\
+    \if($a_value!==$b_value&&!array_eq($a_value,$b_value)){\
+      \return FALSE;\
     \}\
-    \$a_keys=array_keys($a);\
-    \$b_keys=array_keys($b);\
-    \array_multisort($a_keys);\
-    \array_multisort($b_keys);\
-    \if($a_keys!==$b_keys) {\
-        \return FALSE;\
-    \}\
-    \foreach($a_keys as $key){\
-        \$a_value=$a[$key];\
-        \$b_value=$b[$key];\
-        \if($a_value!==$b_value&&!array_eq($a_value,$b_value)){\
-            \return FALSE;\
-        \}\
-    \}\
-    \return TRUE;\
+  \}\
+  \return TRUE;\
 \}\
-\$zybaint=0;$zybafloat=0.0;$zybabool=FALSE;$zybatext='';$zybavoid=NULL;"
+\$zybaint=0;$zybafloat=0.0;$zybabool=FALSE;$zybatext='';$zybavoid=NULL;\
+\class zybaarray{\
+  \public $a;\
+  \function __construct(...$e) {\
+    \$this->a = $e;\
+  \}\
+  \public get($i){\
+    \$c=count($this->a);\
+    \if($c===0){\
+      \die('Array is empty, no element at '.$i);\
+    \}\
+    \return $this->a[($i%$c+$c)%$c];\
+  \}\
+  \public set($i,$v){\
+    \$c=count($this->a);\
+    \if($c===0){\
+      \die('Array is empty, no element at '.$i);\
+    \}\
+    \$this->a[($i%$c+$c)%$c]=$v;\
+  \}\
+\}"
 
 generate :: [(String, (Type, Expression))] -> String
 generate globals = preamble ++ concat (map (uncurry stringifyDeclaration) globals)

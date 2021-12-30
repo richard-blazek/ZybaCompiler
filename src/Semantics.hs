@@ -5,7 +5,7 @@ import qualified Parser
 import qualified Scope
 import qualified Language as Lang
 import Data.Foldable (foldlM)
-import Functions (pair, (??), foldlMapM, tailRecM)
+import Functions (pair, (??), foldlMapM, tailRecM, fmap2)
 import Errors (Fallible, failure, assert)
 
 data Statement
@@ -20,11 +20,11 @@ data Expression
   | LiteralFloat Double
   | LiteralText String
   | LiteralBool Bool
+  | LiteralRecord (Map.Map String (Lang.Type, Expression))
   | Lambda [(String, Lang.Type)] [Statement]
   | Name String
   | Call (Lang.Type, Expression) [(Lang.Type, Expression)]
   | Primitive Lang.Primitive [(Lang.Type, Expression)]
-  | Record (Map.Map String (Lang.Type, Expression))
   | Access (Lang.Type, Expression) String deriving (Eq, Show)
 
 analyseType :: Scope.Scope -> (Integer, Parser.Expression) -> Fallible Lang.Type
@@ -47,6 +47,12 @@ analyseCall line callee@(type', _) args = case type' of
   _ -> failure line $ "Expected a function but got " ++ show callee ++ " which is of a type " ++ show type'
   where types = map fst args
 
+analyseAccess :: Integer -> Scope.Scope -> String -> [(Lang.Type, Expression)] -> Bool -> Fallible (Lang.Type, Expression)
+analyseAccess line scope name args@(obj : rest) called = case Lang.fieldAccess line name (fst obj) of
+  Right type' | called -> analyseCall line (type', Access obj name) rest
+  Right type' -> Right (type', Access obj name)
+  Left _ -> fmap2 id (flip Primitive args) $ Lang.primitiveCall line name $ map fst args
+
 analyseExpression :: Scope.Scope -> (Integer, Parser.Expression) -> Fallible (Lang.Type, Expression)
 analyseExpression scope (line, Parser.LiteralInt lit) = Right (Lang.Int, LiteralInt lit)
 analyseExpression scope (line, Parser.LiteralFloat lit) = Right (Lang.Float, LiteralFloat lit)
@@ -59,19 +65,9 @@ analyseExpression scope (line, Parser.Call callee args) = do
   callee' <- analyseExpression scope callee
   analyseCall line callee' args'
 
-analyseExpression scope (line, Parser.Access obj name args)
-  | Lang.isPrimitive name = do
-    args' <- mapM (analyseExpression scope) (obj : (args ?? []))
-    primitive <- Lang.getPrimitive line name
-    resultType <- Lang.getResultType line primitive $ map fst args'
-    Right $ (resultType, Primitive primitive args')
-  | otherwise = do
-    obj'@(type', _) <- analyseExpression scope obj
-    args' <- mapM (analyseExpression scope) (args ?? [])
-    case (type', args) of
-      (Lang.Record fields, Nothing) | Map.member name fields -> Right (fields Map.! name, Access obj' name)
-      (Lang.Record fields, Just _) | Map.member name fields -> analyseCall line (fields Map.! name, Access obj' name) args'
-      _ -> failure line $ "There is not any field or primitive " ++ name
+analyseExpression scope (line, Parser.Access obj name args) = do
+  args' <- mapM (analyseExpression scope) (obj : (args ?? []))
+  analyseAccess line scope name args' (args /= Nothing)
 
 analyseExpression scope (line, Parser.Lambda args returnType block) = do
   argTypes <- mapM (analyseType scope . snd) args
@@ -83,9 +79,9 @@ analyseExpression scope (line, Parser.Lambda args returnType block) = do
     Expression (type', _) : _ | returnType' `elem` [type', Lang.Void] -> Right (Lang.Function argTypes returnType', Lambda args' block')
     _ -> failure line $ "Function must return a value of type " ++ show returnType'
 
-analyseExpression scope (line, Parser.Record fields) = do
+analyseExpression scope (line, Parser.LiteralRecord fields) = do
   fields' <- mapM (analyseExpression scope) fields
-  Right (Lang.Record $ Map.map fst fields', Record $ fields')
+  Right (Lang.Record $ Map.map fst fields', LiteralRecord $ fields')
 
 analyseStatement :: Scope.Scope -> (Integer, Parser.Statement) -> Fallible (Statement, Scope.Scope)
 analyseStatement scope (line, Parser.Expression expr) = do

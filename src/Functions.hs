@@ -1,7 +1,10 @@
-module Functions (pair, (!?), (??), intercalate, join, foldlMapM, tailRecM, tailRec2M, fmapFst, split, follow) where
+module Functions (pair, (!?), (??), intercalate, join, foldlMapM, tailRecM, tailRec2M, fmap2, split, follow) where
 
 pair :: a -> b -> (a, b)
 pair a b = (a, b)
+
+map2 :: (a -> c) -> (b -> d) -> (a, b) -> (c, d)
+map2 f g (a, b) = (f a, g b)
 
 infixl 9 !?
 (!?) :: Integral i => [a] -> i -> Maybe a
@@ -33,8 +36,8 @@ tailRecM if' then' else' arg = do
     then then' arg
     else else' arg >>= tailRecM if' then' else'
 
-fmapFst :: Functor f => (a -> b) -> f (a, c) -> f (b, c)
-fmapFst f = fmap (\(a, c) -> (f a, c))
+fmap2 :: Functor f => (a -> c) -> (b -> d) -> f (a, b) -> f (c, d)
+fmap2 f g = fmap (map2 f g)
 
 tailRec2M :: (Monad m) => (a -> b -> m Bool) -> (a -> c) -> (b -> d) -> (a -> b -> m (a, b)) -> a -> b -> m (c, d)
 tailRec2M if' thenA thenB else' a b = tailRecM (uncurry if') (\(a', b') -> return (thenA a', thenB b')) (uncurry else') (a, b)

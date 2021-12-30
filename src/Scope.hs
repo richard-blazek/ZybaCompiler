@@ -13,7 +13,7 @@ empty = Scope $ Map.map (`pair` False) Lang.constants
 getType :: Integer -> String -> Scope -> Fallible Lang.Type
 getType line name (Scope scope) = case Map.lookup name scope of
   Just (t, _) -> Right t
-  Nothing -> failure line $ "Identifier " ++ name ++ " does not denote anything in this context"
+  Nothing -> failure line $ "Identifier " ++ name ++ " does not denote anything"
 
 addIdentifier :: Bool -> Bool -> Integer -> String -> Lang.Type -> Scope -> Fallible (Scope, Bool)
 addIdentifier isVariable redefine line name t (Scope scope) = case Map.lookup name scope of
