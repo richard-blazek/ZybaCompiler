@@ -25,6 +25,7 @@ capturesOfExpression skip _ = Set.empty
 stringifyPrimitive :: Primitive -> [String] -> [Type] -> String
 stringifyPrimitive Add [a, b] [Int, Int] = "(int)(" ++ a ++ "+" ++ b ++ ")"
 stringifyPrimitive Add [a, b] [Text, Text] = "(" ++ a ++ "." ++ b ++ ")"
+stringifyPrimitive Add [a, b] [IntArray _, IntArray _] = a ++ "->add(" ++ b ++ ")"
 stringifyPrimitive Add [a, b] [_, _] = "(" ++ a ++ "+" ++ b ++ ")"
 stringifyPrimitive Sub [a, b] [Int, Int] = "(int)(" ++ a ++ "-" ++ b ++ ")"
 stringifyPrimitive Sub [a, b] [_, _] = "(" ++ a ++ "-" ++ b ++ ")"
@@ -37,12 +38,16 @@ stringifyPrimitive Rem [a, b] [_, _] = "fmod(" ++ a ++ "," ++ b ++ ")"
 stringifyPrimitive And [a, b] [Int, Int] = "(" ++ a ++ "&" ++ b ++ ")"
 stringifyPrimitive And [a, b] [_, _] = "(" ++ a ++ "&&" ++ b ++ ")"
 stringifyPrimitive Or [a, b] [Int, Int] = "(" ++ a ++ "||" ++ b ++ ")"
+stringifyPrimitive Or [a, b] [IntArray _, IntArray _] = a ++ "->union(" ++ b ++ ")"
+stringifyPrimitive Or [a, b] [MapArray _ _, MapArray _ _] = a ++ "->union(" ++ b ++ ")"
 stringifyPrimitive Or [a, b] [_, _] = "(" ++ a ++ "||" ++ b ++ ")"
 stringifyPrimitive Xor [a, b] [Bool, Bool] = "(" ++ a ++ "!==" ++ b ++ ")"
 stringifyPrimitive Xor [a, b] [_, _] = "(" ++ a ++ "^" ++ b ++ ")"
-stringifyPrimitive Eq [a, b] [MapArray _ _, MapArray _ _] = "zyba0arrayEQ(" ++ a ++ "," ++ b ++ ")"
+stringifyPrimitive Eq [a, b] [IntArray _, IntArray _] = a ++ "->eq(" ++ b ++ ")"
+stringifyPrimitive Eq [a, b] [MapArray _ _, MapArray _ _] = a ++ "->eq(" ++ b ++ ")"
 stringifyPrimitive Eq [a, b] [_, _] = "(" ++ a ++ "===" ++ b ++ ")"
-stringifyPrimitive Neq [a, b] [MapArray _ _, MapArray _ _] = "!zyba0arrayEQ(" ++ a ++ "," ++ b ++ ")"
+stringifyPrimitive Neq [a, b] [IntArray _, IntArray _] = "!" ++ a ++ "->eq(" ++ b ++ ")"
+stringifyPrimitive Neq [a, b] [MapArray _ _, MapArray _ _] = "!" ++ a ++ "->eq(" ++ b ++ ")"
 stringifyPrimitive Neq [a, b] [_, _] = "(" ++ a ++ "!==" ++ b ++ ")"
 stringifyPrimitive Lt [a, b] [_, _] = "(" ++ a ++ "<" ++ b ++ ")"
 stringifyPrimitive Gt [a, b] [_, _] = "(" ++ a ++ ">" ++ b ++ ")"
@@ -57,17 +62,22 @@ stringifyPrimitive AsBool [a] [Text] = "(" ++ a ++ "!==\"\")"
 stringifyPrimitive AsBool [a] [_] = "(bool)" ++ a
 stringifyPrimitive AsFloat [a] [_] = "(float)" ++ a
 stringifyPrimitive AsText [a] [_] = "(string)" ++ a
-stringifyPrimitive Map (_ : _ : args) _ = "array(" ++ intercalate "," (map (\(k, v) -> k ++ "=>" ++ v) $ fromJust $ split args) ++ ")"
-stringifyPrimitive Array (_ : args) _ = "(new zybaarray(" ++ intercalate "," args ++ "))"
-stringifyPrimitive Get [array, key] (MapArray _ _ : _) = "(" ++ array ++ "[" ++ key ++ "] or die('Map does not contain the key: ' . (" ++ key ++ ")))"
-stringifyPrimitive Set [array, key, value] (MapArray _ _ : _) = "(unset)(" ++ array ++ "[" ++ key ++ "]=" ++ value ++ ")"
-stringifyPrimitive Get [array, key] (IntArray _ : _) = array ++ "->get(" ++ key ++ ")"
-stringifyPrimitive Set [array, key, value] (IntArray _ : _) = array ++ "->set(" ++ key ++ "," ++ value ++ ")"
+stringifyPrimitive Map (_ : _ : args) _ = "(new z0array(array(" ++ intercalate "," (map (\(k, v) -> k ++ "=>" ++ v) $ fromJust $ split args) ++ ")))"
+stringifyPrimitive Array (_ : args) _ = "(new z0array(array(" ++ intercalate "," args ++ ")))"
+stringifyPrimitive Get [array, key] [IntArray _, _] = array ++ "->get(" ++ key ++ ")"
+stringifyPrimitive Get [array, key] [MapArray _ _, _] = array ++ "->getk(" ++ key ++ ")"
+stringifyPrimitive Set [array, key, value] [IntArray _, _, _] = array ++ "->set(" ++ key ++ "," ++ value ++ ")"
+stringifyPrimitive Set [array, key, value] [MapArray _ _, _, _] = array ++ "->setk(" ++ key ++ "," ++ value ++ ")"
+stringifyPrimitive Has [array, _] [IntArray _, _] = array ++ "->has()"
+stringifyPrimitive Has [array, key] [MapArray _ _, _] = array ++ "->hask(" ++ key ++ ")"
+stringifyPrimitive Size [text] [Text] = "mb_strlen(" ++ text ++ ")"
+stringifyPrimitive Size [array] [IntArray _] = "count(" ++ array ++ "->a)"
+stringifyPrimitive Size [array] [MapArray _ _] = "count(" ++ array ++ "->a)"
 
 stringifyStatement :: Statement -> String
 stringifyStatement (Expression value) = stringifyExpression value ++ ";"
-stringifyStatement (Initialization name value) = "$zyba" ++ name ++ "=" ++ stringifyExpression value ++ ";"
-stringifyStatement (Assignment name value) = "$zyba" ++ name ++ "=" ++ stringifyExpression value ++ ";"
+stringifyStatement (Initialization name value) = "$z0" ++ name ++ "=" ++ stringifyExpression value ++ ";"
+stringifyStatement (Assignment name value) = "$z0" ++ name ++ "=" ++ stringifyExpression value ++ ";"
 stringifyStatement (While condition block) = "while(" ++ stringifyExpression condition ++ ")" ++ stringifyBlock False block
 stringifyStatement (IfChain chain else') = intercalate "else " (map (\(cond, block) -> "if(" ++ stringifyExpression cond ++ ")" ++ stringifyBlock False block) chain) ++ "else" ++ stringifyBlock False else'
 
@@ -83,44 +93,24 @@ stringifyExpression (_, LiteralFloat f) = show f
 stringifyExpression (_, LiteralText s) = show s
 stringifyExpression (_, LiteralRecord fields) = "array(" ++ intercalate "," (map stringifyItem $ Map.assocs fields) ++ ")"
   where stringifyItem (name, value) = "\"" ++ name ++ "\"=>" ++ stringifyExpression value
-stringifyExpression (_, Name name) = "$zyba" ++ name
+stringifyExpression (_, Name name) = "$z0" ++ name
 stringifyExpression (_, Call fun args) = stringifyExpression fun ++ "(" ++ (intercalate "," $ map stringifyExpression args) ++ ")"
 stringifyExpression (_, Primitive primitive args) = stringifyPrimitive primitive (map stringifyExpression args) (map fst args)
 stringifyExpression (Function _ returnType', Lambda args block) = header ++ "{" ++ stringifyBlock (returnType' /= Void) block ++ "})"
   where argNames = map fst args
-        captures = intercalate "," $ Set.map ("&$zyba" ++) $ removePrimitives $ capturesOfBlock (Set.fromList argNames) block
-        header = "(function(" ++ intercalate "," (map ("$zyba" ++) argNames) ++ ")" ++ (if null captures then "" else "use(" ++ captures ++ ")")
+        captures = intercalate "," $ Set.map ("&$z0" ++) $ removePrimitives $ capturesOfBlock (Set.fromList argNames) block
+        header = "(function(" ++ intercalate "," (map ("$z0" ++) argNames) ++ ")" ++ (if null captures then "" else "use(" ++ captures ++ ")")
 stringifyExpression (_, Access obj field) = stringifyExpression obj ++ "[\"" ++ field ++ "\"]"
 
 stringifyDeclaration :: String -> (Type, Expression) -> String
-stringifyDeclaration name value = "$zyba" ++ name ++ "=" ++ (stringifyExpression value) ++ ";"
+stringifyDeclaration name value = "$z0" ++ name ++ "=" ++ (stringifyExpression value) ++ ";"
 
 preamble :: String
-preamble = "function zyba0arrayEQ($a,$b){\
-  \if(!is_array($a)||!is_array($b)||count($a)!==count($b)){\
-    \return FALSE;\
-  \}\
-  \$a_keys=array_keys($a);\
-  \$b_keys=array_keys($b);\
-  \array_multisort($a_keys);\
-  \array_multisort($b_keys);\
-  \if($a_keys!==$b_keys) {\
-    \return FALSE;\
-  \}\
-  \foreach($a_keys as $key){\
-    \$a_value=$a[$key];\
-    \$b_value=$b[$key];\
-    \if($a_value!==$b_value&&!array_eq($a_value,$b_value)){\
-      \return FALSE;\
-    \}\
-  \}\
-  \return TRUE;\
-\}\
-\$zybaint=0;$zybafloat=0.0;$zybabool=FALSE;$zybatext='';$zybavoid=NULL;\
-\class zybaarray{\
+preamble = "$z0int=0;$z0float=0.0;$z0bool=FALSE;$z0text='';$z0void=NULL;\
+\class z1array{\
   \public $a;\
-  \function __construct(...$e) {\
-    \$this->a = $e;\
+  \function __construct($a) {\
+    \$this->a = $a;\
   \}\
   \public get($i){\
     \$c=count($this->a);\
@@ -135,6 +125,49 @@ preamble = "function zyba0arrayEQ($a,$b){\
       \die('Array is empty, no element at '.$i);\
     \}\
     \$this->a[($i%$c+$c)%$c]=$v;\
+  \}\
+  \public getk($i){\
+    \if(!isset($this->a[$i])){\
+      \die('Map does not contain the key '.$i);\
+    \}\
+    \return $this->a[$i];\
+  \}\
+  \public setk($i,$v){\
+    \$this->a[$i]=$v;\
+  \}\
+  \public has(){\
+    \return count($this->a)!==0;\
+  \}\
+  \public hask($i){\
+    \return array_key_exists($i,$this->a);\
+  \}\
+  \public eq($x){\
+    \$a=$this->a;\
+    \$b=$x->a;\
+    \if(!is_array($a)||!is_array($b)||count($a)!==count($b)){\
+      \return FALSE;\
+    \}\
+    \$a_keys=array_keys($a);\
+    \$b_keys=array_keys($b);\
+    \array_multisort($a_keys);\
+    \array_multisort($b_keys);\
+    \if($a_keys!==$b_keys) {\
+      \return FALSE;\
+    \}\
+    \foreach($a_keys as $key){\
+      \$a_value=$a[$key];\
+      \$b_value=$b[$key];\
+      \if($a_value!==$b_value&&!array_eq($a_value,$b_value)){\
+        \return FALSE;\
+      \}\
+    \}\
+    \return TRUE;\
+  \}\
+  \public union($x){\
+    \return new z1array($x->a+$this->a);\
+  \}\
+  \public add($x){\
+    \return new z1array(array_merge($this->a,$x->a);\
   \}\
 \}"
 
