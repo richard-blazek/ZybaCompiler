@@ -28,4 +28,59 @@ maths {
 circleArea fun[radius: float] float {
     radius * radius * maths.pi
 }
+
+isPrime fun[n: int] bool {
+    prime = 1b
+    if n < 2 {
+        prime = 0b
+    } else {
+        i = 2
+        while i < n & prime {
+            prime = n % i != 0
+            i = i + 1
+        }
+    }
+    prime
+}
+
+sum fun[n: int.array] int {
+    total = 0
+    i = 0
+    while i < n.size {
+        total = total + n.get[i]
+        i = i + 1
+    }
+    total
+}
+
+range fun[n: int] int.array {
+    result = int.array
+    i = 0
+    while i < n {
+        result.append[i + 1]
+        i = i + 1
+    }
+    result
+}
+
+concat fun[a: int.array.array] int.array {
+    result = int.array
+    i = 0
+    while i < a.size {
+        result.append[a.get[i]]
+        i = i + 1
+    }
+    result
+}
+
+merge fun[a: int.array, b: int.array] int.array {
+    result = int.array
+    i = 0
+    while (i < a.size) & (i < b.size) {
+        result.append[a.get[i] b.get[i]]
+        i = i + 1
+    }
+    result
+}
+
 ```

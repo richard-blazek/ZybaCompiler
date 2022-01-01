@@ -61,6 +61,9 @@ stringifyPrimitive AsInt [a] [_] = "(int)" ++ a
 stringifyPrimitive AsBool [a] [Text] = "(" ++ a ++ "!==\"\")"
 stringifyPrimitive AsBool [a] [_] = "(bool)" ++ a
 stringifyPrimitive AsFloat [a] [_] = "(float)" ++ a
+stringifyPrimitive AsText [a] [IntArray _] = "json_encode(" ++ a ++ ")"
+stringifyPrimitive AsText [a] [MapArray _ _] = "json_encode(" ++ a ++ ")"
+stringifyPrimitive AsText [a] [Record _] = "json_encode(" ++ a ++ ")"
 stringifyPrimitive AsText [a] [_] = "(string)" ++ a
 stringifyPrimitive Map (_ : _ : args) _ = "(new z0array(array(" ++ intercalate "," (map (\(k, v) -> k ++ "=>" ++ v) $ fromJust $ split args) ++ ")))"
 stringifyPrimitive Array (_ : args) _ = "(new z0array(array(" ++ intercalate "," args ++ ")))"
@@ -68,18 +71,20 @@ stringifyPrimitive Get [array, key] [IntArray _, _] = array ++ "->get(" ++ key +
 stringifyPrimitive Get [array, key] [MapArray _ _, _] = array ++ "->getk(" ++ key ++ ")"
 stringifyPrimitive Set [array, key, value] [IntArray _, _, _] = array ++ "->set(" ++ key ++ "," ++ value ++ ")"
 stringifyPrimitive Set [array, key, value] [MapArray _ _, _, _] = array ++ "->setk(" ++ key ++ "," ++ value ++ ")"
-stringifyPrimitive Has [array, _] [IntArray _, _] = array ++ "->has()"
 stringifyPrimitive Has [array, key] [MapArray _ _, _] = array ++ "->hask(" ++ key ++ ")"
 stringifyPrimitive Size [text] [Text] = "mb_strlen(" ++ text ++ ")"
 stringifyPrimitive Size [array] [IntArray _] = "count(" ++ array ++ "->a)"
 stringifyPrimitive Size [array] [MapArray _ _] = "count(" ++ array ++ "->a)"
+stringifyPrimitive Append (array : args) (IntArray v : types) = array ++ "->append(" ++ intercalate "," (map mapping $ zip types args) ++ ")"
+  where mapping (IntArray type', arg) | type' == v = "array(" ++ arg ++ ")"
+        mapping (type', arg) = arg
 
 stringifyStatement :: Statement -> String
 stringifyStatement (Expression value) = stringifyExpression value ++ ";"
 stringifyStatement (Initialization name value) = "$z0" ++ name ++ "=" ++ stringifyExpression value ++ ";"
 stringifyStatement (Assignment name value) = "$z0" ++ name ++ "=" ++ stringifyExpression value ++ ";"
-stringifyStatement (While condition block) = "while(" ++ stringifyExpression condition ++ ")" ++ stringifyBlock False block
-stringifyStatement (IfChain chain else') = intercalate "else " (map (\(cond, block) -> "if(" ++ stringifyExpression cond ++ ")" ++ stringifyBlock False block) chain) ++ "else" ++ stringifyBlock False else'
+stringifyStatement (While condition block) = "while(" ++ stringifyExpression condition ++ "){" ++ stringifyBlock False block ++ "}"
+stringifyStatement (IfChain chain else') = intercalate "else " (map (\(cond, block) -> "if(" ++ stringifyExpression cond ++ "){" ++ stringifyBlock False block ++ "}") chain) ++ "else{" ++ stringifyBlock False else' ++ "}"
 
 stringifyBlock :: Bool -> [Statement] -> String
 stringifyBlock _ [] = ""
@@ -168,6 +173,9 @@ preamble = "$z0int=0;$z0float=0.0;$z0bool=FALSE;$z0text='';$z0void=NULL;\
   \}\
   \public add($x){\
     \return new z1array(array_merge($this->a,$x->a);\
+  \}\
+  \public append(...$a){\
+    \$this->a=array_merge($this->a, ...$a);\
   \}\
 \}"
 

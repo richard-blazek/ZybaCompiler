@@ -76,7 +76,7 @@ analyseExpression scope (line, Parser.Lambda args returnType block) = do
   innerScope <- foldlM (\scope (name, type') -> fmap fst $ Scope.addVariable False line name type' scope) scope args'
   block' <- analyseBlock innerScope block
   case reverse block' of
-    Expression (type', _) : _ | returnType' `elem` [type', Lang.Void] -> Right (Lang.Function argTypes returnType', Lambda args' block')
+    Expression (type', _) : _ | type' `Lang.isKindOf` returnType' -> Right (Lang.Function argTypes returnType', Lambda args' block')
     _ -> failure line $ "Function must return a value of type " ++ show returnType'
 
 analyseExpression scope (line, Parser.LiteralRecord fields) = do
@@ -98,7 +98,7 @@ analyseStatement scope (line, Parser.Assignment name expr) = do
 analyseStatement scope (line, Parser.IfChain ifs else') = do
   ifChain <- mapM (\(cond, block) -> analyseExpression scope cond >>= (\cond' -> fmap (pair cond') $ analyseBlock scope block)) ifs
   elseBlock <- analyseBlock scope else'
-  assert (all ((== Lang.Int) . fst . fst) ifChain) line $ "Condition must have an Int type"
+  assert (all ((== Lang.Bool) . fst . fst) ifChain) line $ "Condition must have a bool type"
   Right (IfChain ifChain elseBlock, scope)
 
 analyseStatement scope (line, Parser.While condition body) = do

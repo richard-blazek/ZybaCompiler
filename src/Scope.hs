@@ -18,7 +18,7 @@ getType line name (Scope scope) = case Map.lookup name scope of
 addIdentifier :: Bool -> Bool -> Integer -> String -> Lang.Type -> Scope -> Fallible (Scope, Bool)
 addIdentifier isVariable redefine line name t (Scope scope) = case Map.lookup name scope of
   Just (_, wasVariable) | not redefine || not wasVariable -> failure line $ "Redefinition of " ++ name
-  Just (previous, True) | t /= previous -> failure line $ "Assigning to " ++ name ++ " which is of type " ++ show previous ++ ", not " ++ show t
+  Just (previous, True) | not (t `Lang.isKindOf` previous) -> failure line $ "Assigning to " ++ name ++ " which is of type " ++ show previous ++ ", not " ++ show t
   Just (_, True) -> Right (Scope scope, False)
   Nothing -> Right (Scope $ Map.insert name (t, isVariable) scope, True)
 
