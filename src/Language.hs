@@ -7,7 +7,7 @@ import Functions (join, split, (??))
 
 data Type = Void | Int | Bool | Float | Text | Function [Type] Type | MapArray Type Type | IntArray Type | Record (Map.Map String Type) deriving (Eq, Show)
 data Primitive = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not
-  | AsInt | AsFloat | AsBool | AsText | Fun | Map | Array | Set | Get | Has | Size | Append deriving (Eq, Ord)
+  | AsInt | AsFloat | AsBool | AsText | Fun | Map | Array | Set | Get | Has | Size | Concat | Sized deriving (Eq, Ord)
 
 instance Show Primitive where
   show primitive = primitivesReversed Map.! primitive
@@ -16,7 +16,7 @@ instance Show Primitive where
 primitives :: Map.Map String Primitive
 primitives = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("/", Div), ("//", IntDiv), ("%", Rem), ("&", And), ("|", Or), ("^", Xor), ("==", Eq), ("!=", Neq),
   ("<", Lt), (">", Gt), ("<=", Le), (">=", Ge), ("**", Pow), ("not", Not), ("asInt", AsInt), ("asFloat", AsFloat), ("asBool", AsBool), ("asText", AsText),
-  ("fun", Fun), ("map", Map), ("array", Array), ("set", Set), ("get", Get), ("has", Has), ("size", Size), ("append", Append)]
+  ("fun", Fun), ("map", Map), ("array", Array), ("set", Set), ("get", Get), ("has", Has), ("size", Size), ("concat", Concat), ("sized", Sized)]
 
 primitivesSet :: Set.Set String
 primitivesSet = Map.keysSet primitives
@@ -97,7 +97,9 @@ getResultType line primitive args = case (primitive, args) of
   (Size, [Text]) -> Right Int
   (Size, [IntArray _]) -> Right Int
   (Size, [MapArray _ _]) -> Right Int
-  (Append, IntArray v : args) | all (`elem` [IntArray v, v]) args -> Right Void
+  (Concat, IntArray v : args) | all (`elem` [IntArray v, v]) args -> Right $ IntArray v
+  (Sized, [IntArray v, Int]) -> Right $ IntArray v
+  (Sized, [IntArray v, Int, v2]) | v2 `isKindOf` v -> Right $ IntArray v
   _ -> failure line $ "Primitive " ++ show primitive ++ " does not accept arguments of types " ++ join ", " args
 
 primitiveCall :: Integer -> String -> [Type] -> Fallible (Type, Primitive)

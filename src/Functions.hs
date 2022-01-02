@@ -1,4 +1,4 @@
-module Functions (pair, (!?), (??), intercalate, join, foldlMapM, tailRecM, tailRec2M, fmap2, split, follow) where
+module Functions (pair, map2, (!?), (??), intercalate, join, foldlMapM, tailRecM, tailRec2M, fmap2, split, follow, number) where
 
 pair :: a -> b -> (a, b)
 pair a b = (a, b)
@@ -52,3 +52,6 @@ follow f g x = do
   (a, y) <- f x
   (b, z) <- g y
   return ((a, b), z)
+
+number :: [a] -> [Integer]
+number = flip take [0..] . length
