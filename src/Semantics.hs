@@ -76,7 +76,7 @@ analyseExpression scope (line, Parser.Lambda args returnType block) = do
   innerScope <- foldlM (\scope (name, type') -> fmap fst $ Scope.addVariable False line name type' scope) scope args'
   block' <- analyseBlock innerScope block
   case reverse block' of
-    Expression (type', _) : _ | type' `Lang.isKindOf` returnType' -> Right (Lang.Function argTypes returnType', Lambda args' block')
+    Expression (type', _) : _ | returnType' `elem` [type', Lang.Void] -> Right (Lang.Function argTypes returnType', Lambda args' block')
     _ -> failure line $ "Function must return a value of type " ++ show returnType'
 
 analyseExpression scope (line, Parser.LiteralRecord fields) = do

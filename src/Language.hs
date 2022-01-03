@@ -1,13 +1,14 @@
-module Language (Type (..), Primitive (..), primitiveCall, fieldAccess, removePrimitives, constants, isKindOf) where
+module Language (Type (..), Primitive (..), primitiveCall, fieldAccess, removePrimitives, constants) where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Errors (Fallible, failure, assert)
-import Functions (join, split, (??))
+import Functions (join, split, (??), zipMaps)
 
-data Type = Void | Int | Bool | Float | Text | Function [Type] Type | MapArray Type Type | IntArray Type | Record (Map.Map String Type) deriving (Eq, Show)
+data Type = Void | Int | Bool | Float | Text | Function [Type] Type | Dictionary Type Type | Vector Type | Record (Map.Map String Type) deriving (Eq, Show)
 data Primitive = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not
-  | AsInt | AsFloat | AsBool | AsText | Fun | Map | Array | Set | Get | Has | Size | Concat | Sized deriving (Eq, Ord)
+  | AsInt | AsFloat | AsBool | AsText | Fun | Dict | List | Set | Get | Has | Size | Concat | Append | Sized | Sort
+  | Join deriving (Eq, Ord)
 
 instance Show Primitive where
   show primitive = primitivesReversed Map.! primitive
@@ -16,7 +17,8 @@ instance Show Primitive where
 primitives :: Map.Map String Primitive
 primitives = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("/", Div), ("//", IntDiv), ("%", Rem), ("&", And), ("|", Or), ("^", Xor), ("==", Eq), ("!=", Neq),
   ("<", Lt), (">", Gt), ("<=", Le), (">=", Ge), ("**", Pow), ("not", Not), ("asInt", AsInt), ("asFloat", AsFloat), ("asBool", AsBool), ("asText", AsText),
-  ("fun", Fun), ("map", Map), ("array", Array), ("set", Set), ("get", Get), ("has", Has), ("size", Size), ("concat", Concat), ("sized", Sized)]
+  ("fun", Fun), ("dict", Dict), ("list", List), ("set", Set), ("get", Get), ("has", Has), ("size", Size), ("concat", Concat), ("append", Append), ("sized", Sized),
+  ("sort", Sort), ("join", Join)]
 
 primitivesSet :: Set.Set String
 primitivesSet = Map.keysSet primitives
@@ -27,17 +29,12 @@ constants = Map.fromList [("int", Int), ("bool", Bool), ("float", Float), ("text
 removePrimitives :: Set.Set String -> Set.Set String
 removePrimitives = flip Set.difference primitivesSet
 
-isKindOf :: Type -> Type -> Bool
-isKindOf a Void = True
-isKindOf (Record f1) (Record f2) = null $ Map.filterWithKey (\k2 v2 -> Map.lookup k2 f1 /= Just v2) f2
-isKindOf a b = a == b
-
 getResultType :: Integer -> Primitive -> [Type] -> Fallible Type
 getResultType line primitive args = case (primitive, args) of
   (Add, [Int, Int]) -> Right Int
   (Add, [a, b]) | all (`elem` [Int, Float]) [a, b] -> Right Float
   (Add, [Text, Text]) -> Right Text
-  (Add, [IntArray v1, IntArray v2]) | v1 == v2 -> Right $ IntArray v1
+  (Add, [Vector v1, Vector v2]) | v1 == v2 -> Right $ Vector v1
   (Sub, [Int, Int]) -> Right Int
   (Sub, [a, b]) | all (`elem` [Int, Float]) [a, b] -> Right Float
   (Mul, [Int, Int]) -> Right Int
@@ -50,15 +47,18 @@ getResultType line primitive args = case (primitive, args) of
   (And, [Bool, Bool]) -> Right Bool
   (Or, [Int, Int]) -> Right Int
   (Or, [Bool, Bool]) -> Right Bool
-  (Or, [MapArray k1 v1, MapArray k2 v2]) | v1 == v2 && k1 == k2 -> Right $ MapArray k1 v1
+  (Or, [Dictionary k1 v1, Dictionary k2 v2]) | v1 == v2 && k1 == k2 -> Right $ Dictionary k1 v1
   (Or, [Record f1, Record f2]) -> Right $ Record $ Map.union f2 f1
   (Xor, [Int, Int]) -> Right Int
   (Xor, [Bool, Bool]) -> Right Bool
   (Eq, [Int, Int]) -> Right Bool
   (Eq, [Bool, Bool]) -> Right Bool
   (Eq, [Text, Text]) -> Right Bool
-  (Eq, [IntArray v1, IntArray v2]) -> getResultType line Eq [v1, v2]
-  (Eq, [MapArray k1 v1, MapArray k2 v2]) -> getResultType line Eq [k1, k2] >> getResultType line Eq [v1, v2]
+  (Eq, [Vector v1, Vector v2]) -> getResultType line Eq [v1, v2]
+  (Eq, [Dictionary k1 v1, Dictionary k2 v2]) -> getResultType line Eq [k1, k2] >> getResultType line Eq [v1, v2]
+  (Eq, [Record f1, Record f2]) -> do
+    mapM (getResultType line Eq) $ map (\(a, b) -> [a, b]) $ Map.elems $ zipMaps f1 f2
+    Right Bool
   (Eq, [a, b]) | any (== Float) [a, b] -> failure line "Do not compare floats for equality. Learn more: https://stackoverflow.com/questions/1088216/whats-wrong-with-using-to-compare-floats-in-java"
   (Neq, compared) -> getResultType line Eq compared
   (Lt, [a, b]) | all (`elem` [Int, Float]) [a, b] -> Right Bool
@@ -74,32 +74,35 @@ getResultType line primitive args = case (primitive, args) of
   (AsFloat, [a]) | a `elem` [Int, Float, Bool, Text] -> Right Float
   (AsBool, [a]) | a `elem` [Int, Float, Bool, Text] -> Right Bool
   (AsText, [a]) | a `elem` [Int, Float, Bool, Text] -> Right Text
-  (AsText, [IntArray v]) -> getResultType line AsText [v]
-  (AsText, [MapArray k v]) -> getResultType line AsText [v]
+  (AsText, [Vector v]) -> getResultType line AsText [v]
+  (AsText, [Dictionary k v]) -> getResultType line AsText [v]
   (AsText, [Record fields]) -> do
     mapM (getResultType line AsText . (:[])) $ Map.elems fields
     Right Text
   (Fun, returned : args) -> Right $ Function args returned
-  (Array, value : args) -> do
+  (List, value : args) -> do
     assert (all (== value) args) line "All values must have the specified type"
-    Right $ IntArray value
-  (Map, key : value : args) -> do
+    Right $ Vector value
+  (Dict, key : value : args) -> do
     assert (key `elem` [Int, Text]) line "Map keys must be either int or text"
     let pairs = split args
     assert (pairs /= Nothing) line "Missing value for the last key"
     assert (fmap (all (== (key, value))) pairs == Just True) line "All keys and values must have the specified type"
-    Right $ MapArray key value
-  (Get, [IntArray value, Int]) -> Right value
-  (Get, [MapArray key value, index]) | index == key -> Right value
-  (Set, [IntArray value, Int, assigned]) | assigned == value -> Right Void
-  (Set, [MapArray key value, index, assigned]) | index == key && assigned == value -> Right Void
-  (Has, [MapArray key value, index]) | index == key -> Right Bool
+    Right $ Dictionary key value
+  (Get, [Vector value, Int]) -> Right value
+  (Get, [Dictionary key value, index]) | index == key -> Right value
+  (Set, [Vector value, Int, assigned]) | assigned == value -> Right Void
+  (Set, [Dictionary key value, index, assigned]) | index == key && assigned == value -> Right Void
+  (Has, [Dictionary key value, index]) | index == key -> Right Bool
   (Size, [Text]) -> Right Int
-  (Size, [IntArray _]) -> Right Int
-  (Size, [MapArray _ _]) -> Right Int
-  (Concat, IntArray v : args) | all (`elem` [IntArray v, v]) args -> Right $ IntArray v
-  (Sized, [IntArray v, Int]) -> Right $ IntArray v
-  (Sized, [IntArray v, Int, v2]) | v2 `isKindOf` v -> Right $ IntArray v
+  (Size, [Vector _]) -> Right Int
+  (Size, [Dictionary _ _]) -> Right Int
+  (Concat, Vector v : args) | all (`elem` [Vector v, v]) args -> Right $ Vector v
+  (Append, Vector v : args) | all (`elem` [Vector v, v]) args -> Right Void
+  (Sized, [Vector v, Int]) -> Right $ Vector v
+  (Sized, [Vector v, Int, v2]) | v2 == v -> Right $ Vector v
+  (Sort, Vector v : args) | args `elem` [[], [Bool], [Function [v, v] Int]] -> Right Void
+  (Join, [Vector v, Text]) -> getResultType line AsText [v]
   _ -> failure line $ "Primitive " ++ show primitive ++ " does not accept arguments of types " ++ join ", " args
 
 primitiveCall :: Integer -> String -> [Type] -> Fallible (Type, Primitive)

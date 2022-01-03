@@ -43,7 +43,7 @@ isPrime fun[n: int] bool {
     prime
 }
 
-sum fun[n: int.array] int {
+sum fun[n: int.list] int {
     total = 0
     i = 0
     while i < n.size {
@@ -53,8 +53,8 @@ sum fun[n: int.array] int {
     total
 }
 
-range fun[n: int] int.array {
-    result = int.array
+range fun[n: int] int.list {
+    result = int.list
     i = 0
     while i < n {
         result.append[i + 1]
@@ -63,8 +63,8 @@ range fun[n: int] int.array {
     result
 }
 
-concat fun[a: int.array.array] int.array {
-    result = int.array
+concat fun[a: int.list.list] int.list {
+    result = int.list
     i = 0
     while i < a.size {
         result.append[a.get[i]]
@@ -73,8 +73,8 @@ concat fun[a: int.array.array] int.array {
     result
 }
 
-merge fun[a: int.array, b: int.array] int.array {
-    result = int.array
+merge fun[a: int.list, b: int.list] int.list {
+    result = int.list
     i = 0
     while (i < a.size) & (i < b.size) {
         result.append[a.get[i] b.get[i]]

@@ -1,4 +1,10 @@
-module Functions (pair, map2, (!?), (??), intercalate, join, foldlMapM, tailRecM, tailRec2M, fmap2, split, follow, number) where
+module Functions (zipMaps, pair, map2, (!?), (??), intercalate, join, foldlMapM, tailRecM, tailRec2M, fmap2, split, follow, number) where
+
+import qualified Data.Map.Strict as Map
+import qualified Data.Map.Merge.Strict as Merge
+
+zipMaps :: Ord k => Map.Map k v -> Map.Map k w -> Map.Map k (v, w)
+zipMaps = Merge.merge Merge.dropMissing Merge.dropMissing $ Merge.zipWithMatched $ const pair
 
 pair :: a -> b -> (a, b)
 pair a b = (a, b)

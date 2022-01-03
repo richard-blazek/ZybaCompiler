@@ -29,15 +29,19 @@ defaultValue Bool = "FALSE"
 defaultValue Float = "0.0"
 defaultValue Text = "''"
 defaultValue (Function args result) = "(function(" ++ intercalate "," (map (\n -> "$_" ++ show n) $ number args) ++ "){return " ++ defaultValue result ++ ";})"
-defaultValue (IntArray _) = "z0array::n(array())"
-defaultValue (MapArray _ _) = "z0array::n(array())"
-defaultValue (Record fields) = "z0array::n(array(" ++ intercalate "," (map stringifyAssoc $ Map.assocs fields) ++ "))"
+defaultValue (Vector _) = "z1array::n([])"
+defaultValue (Dictionary _ _) = "z1array::n([])"
+defaultValue (Record fields) = "z1array::n([" ++ intercalate "," (map stringifyAssoc $ Map.assocs fields) ++ "])"
   where stringifyAssoc (name, value) = "'" ++ name ++ "'=>" ++ defaultValue value
+
+asArrayArgument :: Type -> (Type, String) -> String
+asArrayArgument itemType (Vector type', arg) | type' == itemType = arg
+asArrayArgument itemType (type', arg) = "[" ++ arg ++ "]"
 
 stringifyPrimitive :: Primitive -> [String] -> [Type] -> String
 stringifyPrimitive Add [a, b] [Int, Int] = "(int)(" ++ a ++ "+" ++ b ++ ")"
 stringifyPrimitive Add [a, b] [Text, Text] = "(" ++ a ++ "." ++ b ++ ")"
-stringifyPrimitive Add [a, b] [IntArray _, IntArray _] = a ++ "->add(" ++ b ++ ")"
+stringifyPrimitive Add [a, b] [Vector _, Vector _] = a ++ "->concat(" ++ b ++ ")"
 stringifyPrimitive Add [a, b] [_, _] = "(" ++ a ++ "+" ++ b ++ ")"
 stringifyPrimitive Sub [a, b] [Int, Int] = "(int)(" ++ a ++ "-" ++ b ++ ")"
 stringifyPrimitive Sub [a, b] [_, _] = "(" ++ a ++ "-" ++ b ++ ")"
@@ -50,18 +54,15 @@ stringifyPrimitive Rem [a, b] [_, _] = "fmod(" ++ a ++ "," ++ b ++ ")"
 stringifyPrimitive And [a, b] [Int, Int] = "(" ++ a ++ "&" ++ b ++ ")"
 stringifyPrimitive And [a, b] [_, _] = "(" ++ a ++ "&&" ++ b ++ ")"
 stringifyPrimitive Or [a, b] [Int, Int] = "(" ++ a ++ "||" ++ b ++ ")"
-stringifyPrimitive Or [a, b] [IntArray _, IntArray _] = a ++ "->union(" ++ b ++ ")"
-stringifyPrimitive Or [a, b] [MapArray _ _, MapArray _ _] = a ++ "->union(" ++ b ++ ")"
-stringifyPrimitive Or [a, b] [Record _, Record f2] = a ++ "->unionk(" ++ b ++ ",array(" ++ intercalate "," (Map.keys f2) ++ "))"
+stringifyPrimitive Or [a, b] [Dictionary _ _, Dictionary _ _] = a ++ "->unionD(" ++ b ++ ")"
+stringifyPrimitive Or [a, b] [Record _, Record f2] = a ++ "->unionR(" ++ b ++ ",array(" ++ intercalate "," (Map.keys f2) ++ "))"
 stringifyPrimitive Or [a, b] [Bool, Bool] = "(" ++ a ++ "||" ++ b ++ ")"
 stringifyPrimitive Xor [a, b] [Bool, Bool] = "(" ++ a ++ "!==" ++ b ++ ")"
 stringifyPrimitive Xor [a, b] [Int, Int] = "(" ++ a ++ "^" ++ b ++ ")"
-stringifyPrimitive Eq [a, b] [IntArray _, IntArray _] = a ++ "->eq(" ++ b ++ ")"
-stringifyPrimitive Eq [a, b] [MapArray _ _, MapArray _ _] = a ++ "->eq(" ++ b ++ ")"
-stringifyPrimitive Eq [a, b] [_, _] = "(" ++ a ++ "===" ++ b ++ ")"
-stringifyPrimitive Neq [a, b] [IntArray _, IntArray _] = "!" ++ a ++ "->eq(" ++ b ++ ")"
-stringifyPrimitive Neq [a, b] [MapArray _ _, MapArray _ _] = "!" ++ a ++ "->eq(" ++ b ++ ")"
-stringifyPrimitive Neq [a, b] [_, _] = "(" ++ a ++ "!==" ++ b ++ ")"
+stringifyPrimitive Eq _ [a, b] | a /= b = "FALSE"
+stringifyPrimitive Eq [a, b] [_, _] = "(" ++ a ++ "==" ++ b ++ ")"
+stringifyPrimitive Neq _ [a, b] | a /= b = "FALSE"
+stringifyPrimitive Neq [a, b] [_, _] = "(" ++ a ++ "!=" ++ b ++ ")"
 stringifyPrimitive Lt [a, b] [_, _] = "(" ++ a ++ "<" ++ b ++ ")"
 stringifyPrimitive Gt [a, b] [_, _] = "(" ++ a ++ ">" ++ b ++ ")"
 stringifyPrimitive Le [a, b] [_, _] = "(" ++ a ++ "<=" ++ b ++ ")"
@@ -74,25 +75,27 @@ stringifyPrimitive AsInt [a] [_] = "(int)" ++ a
 stringifyPrimitive AsBool [a] [Text] = "(" ++ a ++ "!=='')"
 stringifyPrimitive AsBool [a] [_] = "(bool)" ++ a
 stringifyPrimitive AsFloat [a] [_] = "(float)" ++ a
-stringifyPrimitive AsText [a] [IntArray _] = "json_encode(" ++ a ++ ")"
-stringifyPrimitive AsText [a] [MapArray _ _] = "json_encode(" ++ a ++ ")"
-stringifyPrimitive AsText [a] [Record _] = "json_encode(" ++ a ++ ")"
-stringifyPrimitive AsText [a] [_] = "(string)" ++ a
-stringifyPrimitive Map (_ : _ : args) _ = "z0array::n(array(" ++ intercalate "," (map (\(k, v) -> k ++ "=>" ++ v) $ fromJust $ split args) ++ "))"
-stringifyPrimitive Array (_ : args) _ = "z0array::n(array(" ++ intercalate "," args ++ "))"
-stringifyPrimitive Get [array, key] [IntArray _, _] = array ++ "->get(" ++ key ++ ")"
-stringifyPrimitive Get [array, key] [MapArray _ _, _] = array ++ "->getk(" ++ key ++ ")"
-stringifyPrimitive Set [array, key, value] [IntArray _, _, _] = array ++ "->set(" ++ key ++ "," ++ value ++ ")"
-stringifyPrimitive Set [array, key, value] [MapArray _ _, _, _] = array ++ "->setk(" ++ key ++ "," ++ value ++ ")"
-stringifyPrimitive Has [array, key] [MapArray _ _, _] = array ++ "->hask(" ++ key ++ ")"
+stringifyPrimitive AsText [a] [Text] = a
+stringifyPrimitive AsText [a] [_] = "json_encode(" ++ a ++ ")"
+stringifyPrimitive Dict (_ : _ : args) _ = "z1array::n([" ++ intercalate "," (map (\(k, v) -> k ++ "=>" ++ v) $ fromJust $ split args) ++ "])"
+stringifyPrimitive List (_ : args) _ = "z1array::n([" ++ intercalate "," args ++ "])"
+stringifyPrimitive Get [array, key] [Vector _, _] = array ++ "->getV(" ++ key ++ ")"
+stringifyPrimitive Get [array, key] [Dictionary _ _, _] = array ++ "->getD(" ++ key ++ ")"
+stringifyPrimitive Set [array, key, value] [Vector _, _, _] = array ++ "->setV(" ++ key ++ "," ++ value ++ ")"
+stringifyPrimitive Set [array, key, value] [Dictionary _ _, _, _] = array ++ "->setD(" ++ key ++ "," ++ value ++ ")"
+stringifyPrimitive Has [array, key] [Dictionary _ _, _] = array ++ "->hasD(" ++ key ++ ")"
 stringifyPrimitive Size [text] [Text] = "mb_strlen(" ++ text ++ ")"
-stringifyPrimitive Size [array] [IntArray _] = "count(" ++ array ++ "->a)"
-stringifyPrimitive Size [array] [MapArray _ _] = "count(" ++ array ++ "->a)"
-stringifyPrimitive Concat (array : args) (IntArray v : types) = array ++ "->concat(" ++ intercalate "," (map mapping $ zip types args) ++ ")"
-  where mapping (IntArray type', arg) | type' == v = "array(" ++ arg ++ ")"
-        mapping (type', arg) = arg
-stringifyPrimitive Sized [array, size] [IntArray v, Int] = array ++ "->sized(" ++ size ++ "," ++ defaultValue v ++ ")"
-stringifyPrimitive Sized [array, size, value] [IntArray _, Int, _] = array ++ "->sized(" ++ size ++ "," ++ value ++ ")"
+stringifyPrimitive Size [array] [Vector _] = "count(" ++ array ++ "->a)"
+stringifyPrimitive Size [array] [Dictionary _ _] = "count(" ++ array ++ "->a)"
+stringifyPrimitive Concat (array : args) (Vector v : types) = array ++ "->concat(" ++ intercalate "," (map (asArrayArgument v) $ zip types args) ++ ")"
+stringifyPrimitive Append (array : args) (Vector v : types) = array ++ "->append(" ++ intercalate "," (map (asArrayArgument v) $ zip types args) ++ ")"
+stringifyPrimitive Sized [array, size] [Vector v, Int] = array ++ "->sized(" ++ size ++ "," ++ defaultValue v ++ ")"
+stringifyPrimitive Sized [array, size, value] [Vector _, Int, _] = array ++ "->sized(" ++ size ++ "," ++ value ++ ")"
+stringifyPrimitive Sort [array] _ = array ++ "->sort(FALSE)"
+stringifyPrimitive Sort [array, reversed] [Vector _, Bool] = array ++ "->sort(" ++ reversed ++ ")"
+stringifyPrimitive Sort [array, compare] _ = array ++ "->usort(" ++ compare ++ ")"
+stringifyPrimitive Join [array, separator] [Vector Text, Text] = "implode(" ++ separator ++ "," ++ array ++ "->a)"
+stringifyPrimitive Join [array, separator] [Vector v, Text] = "implode(" ++ separator ++ ",array_map(" ++ array ++ "->a,'json_encode'))"
 
 stringifyStatement :: Statement -> String
 stringifyStatement (Expression value) = stringifyExpression value ++ ";"
@@ -111,7 +114,7 @@ stringifyExpression (_, LiteralBool b) = if b then "TRUE" else "FALSE"
 stringifyExpression (_, LiteralInt i) = show i
 stringifyExpression (_, LiteralFloat f) = show f
 stringifyExpression (_, LiteralText s) = show s
-stringifyExpression (_, LiteralRecord fields) = "array(" ++ intercalate "," (map stringifyAssoc $ Map.assocs fields) ++ ")"
+stringifyExpression (_, LiteralRecord fields) = "z1array::n([" ++ intercalate "," (map stringifyAssoc $ Map.assocs fields) ++ "])"
   where stringifyAssoc (name, value) = "'" ++ name ++ "'=>" ++ stringifyExpression value
 stringifyExpression (_, Name name) = "$z0" ++ name
 stringifyExpression (_, Call fun args) = stringifyExpression fun ++ "(" ++ (intercalate "," $ map stringifyExpression args) ++ ")"
@@ -127,74 +130,49 @@ stringifyDeclaration name value = "$z0" ++ name ++ "=" ++ (stringifyExpression v
 
 preamble :: String
 preamble = "$z0int=0;$z0float=0.0;$z0bool=FALSE;$z0text='';$z0void=NULL;\
-\class z1array{\
+\class z1array implements JsonSerializable{\
   \public $a;\
   \function static n($a) {\
     \$z=new z1array();\
     \$z->a=$a;\
     \return $z;\
   \}\
-  \public get($i){\
+  \public getV($i){\
     \$c=count($this->a);\
     \if($c===0){\
       \die('Array is empty, no element at '.$i);\
     \}\
     \return $this->a[($i%$c+$c)%$c];\
   \}\
-  \public set($i,$v){\
+  \public setV($i,$v){\
     \$c=count($this->a);\
     \if($c===0){\
       \die('Array is empty, no element at '.$i);\
     \}\
     \$this->a[($i%$c+$c)%$c]=$v;\
   \}\
-  \public getk($i){\
+  \public getD($i){\
     \if(!isset($this->a[$i])){\
       \die('Map does not contain the key '.$i);\
     \}\
     \return $this->a[$i];\
   \}\
-  \public setk($i,$v){\
+  \public setD($i,$v){\
     \$this->a[$i]=$v;\
   \}\
-  \public has(){\
-    \return count($this->a)!==0;\
+  \public hasD($k){\
+    \return array_key_exists($k,$this->a);\
   \}\
-  \public hask($i){\
-    \return array_key_exists($i,$this->a);\
-  \}\
-  \public eq($x){\
-    \$a=$this->a;\
-    \$b=$x->a;\
-    \if(!is_array($a)||!is_array($b)||count($a)!==count($b)){\
-      \return FALSE;\
-    \}\
-    \$a_keys=array_keys($a);\
-    \$b_keys=array_keys($b);\
-    \array_multisort($a_keys);\
-    \array_multisort($b_keys);\
-    \if($a_keys!==$b_keys) {\
-      \return FALSE;\
-    \}\
-    \foreach($a_keys as $key){\
-      \$a_value=$a[$key];\
-      \$b_value=$b[$key];\
-      \if($a_value!==$b_value&&!array_eq($a_value,$b_value)){\
-        \return FALSE;\
-      \}\
-    \}\
-    \return TRUE;\
-  \}\
-  \public union($x){\
+  \public unionD($x){\
     \return z1array::n($x->a+$this->a);\
-  \}\
-  \public add($x){\
-    \return z1array::n(array_merge($this->a,$x->a);\
   \}\
   \public concat(...$a){\
     \return z1array::n(array_merge($this->a, ...$a));\
   \}\
-  \public unionk($x,$k){\
+  \public append(...$a){\
+    \$this->a=array_merge($this->a, ...$a);\
+  \}\
+  \public unionR($x,$k){\
     \return z1array::n(array_intersect_key($x->a,$k)+$this->a);\
   \}\
   \public sized($n,$v){\
@@ -205,6 +183,19 @@ preamble = "$z0int=0;$z0float=0.0;$z0bool=FALSE;$z0text='';$z0void=NULL;\
       \return z1array::n(array_slice($this->a,0,$n));\
     \}\
     \return z1array::n(array_pad($this->a,$n,$v));\
+  \}\
+  \public sort($r){\
+    \if($r){\
+      \rsort($this->a);\
+    \}else{\
+      \sort($this->a);\
+    \}\
+  \}\
+  \public usort($c){\
+    \usort($this->a,$c);\
+  \}\
+  \public jsonSerialize(){\
+    \return $this->a;\
   \}\
 \}"
 
