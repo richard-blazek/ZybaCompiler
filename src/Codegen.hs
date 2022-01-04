@@ -138,21 +138,24 @@ preamble = "<?php $z0int=0;$z0float=0.0;$z0bool=FALSE;$z0text='';$z0void=NULL;\
     \return $z;\
   \}\
   \public function getV($i){\
-    \$c=count($this->a);\
-    \if($c===0){\
-      \die('Array is empty, no element at '.$i);\
+    \if($i<0||$i>=count($this->a)){\
+      \die('There is no element at '.$i);\
     \}\
-    \return $this->a[($i%$c+$c)%$c];\
+    \return $this->a[$i];\
   \}\
   \public function setV($i,$v){\
     \$c=count($this->a);\
-    \if($c===0){\
-      \die('Array is empty, no element at '.$i);\
+    \if($i<0){\
+      \die('Assigning to a negative index '.$i);\
     \}\
-    \$this->a[($i%$c+$c)%$c]=$v;\
+    \if($i>=count($this->a)){\
+      \$this->a=array_pad($this->a,$i+1,$v);\
+    \}else{\
+      \$this->a[$i]=$v;\
+    \}\
   \}\
   \public function getD($i){\
-    \if(!isset($this->a[$i])){\
+    \if(!array_key_exists($i,$this->a)){\
       \die('Map does not contain the key '.$i);\
     \}\
     \return $this->a[$i];\
