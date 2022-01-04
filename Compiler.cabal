@@ -26,7 +26,7 @@ source-repository head
 library
   exposed-modules:
       Codegen
-      Errors
+      Fallible
       Functions
       Language
       Lexer
@@ -40,6 +40,7 @@ library
   build-depends:
       base >=4.7 && <5
     , containers >=0.6.2.1
+    , mtl >=2.2.2
   default-language: Haskell2010
 
 executable Compiler-exe
@@ -53,6 +54,7 @@ executable Compiler-exe
       Compiler
     , base >=4.7 && <5
     , containers >=0.6.2.1
+    , mtl >=2.2.2
   default-language: Haskell2010
 
 test-suite Compiler-test
@@ -72,4 +74,5 @@ test-suite Compiler-test
     , HUnit >=1.6 && <2.0
     , base >=4.7 && <5
     , containers >=0.6.2.1
+    , mtl >=2.2.2
   default-language: Haskell2010

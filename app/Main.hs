@@ -8,14 +8,15 @@ import Parser (parse)
 import Semantics (analyse)
 import Codegen (generate)
 import Functions ((??), (!?))
+import Fallible (Fallible (..))
 
 process :: Monad m => (a -> c) -> m a -> (c -> m b) -> m b
 process transformation input output = fmap transformation input >>= output
 
 compile :: String -> String
 compile s = case fmap generate $ parse (tokenize s) >>= analyse of
-  Left err -> "Compilation failed\n" ++ err
-  Right code -> code
+  Error err -> "Compilation failed\n" ++ err
+  Ok code -> code
 
 run :: [String] -> IO ()
 run args = process compile input output

@@ -11,10 +11,9 @@ data Token
   | LiteralBool Bool
   | Operator String
   | Separator Char
-  | Word String
-  deriving (Show, Eq)
+  | Word String deriving (Show, Eq)
 
-between :: (Ord t) => t -> t -> t -> Bool
+between :: Ord t => t -> t -> t -> Bool
 between min max value = value <= max && value >= min
 
 parseDigit :: Char -> Integer
@@ -46,7 +45,7 @@ buildToken tokens char = case tokens of
   (line, LiteralText s) : rest -> (line + inc, LiteralText $ char : s) : rest
   (line, LiteralInt radix n) : rest | parseDigit char < radix -> (line + inc, LiteralInt radix $ n * radix + parseDigit char) : rest
   (line, LiteralInt radix n) : rest | char == '.' -> (line + inc, LiteralFloat radix n 0) : rest
-  (line, LiteralInt radix n) : rest | n `elem` [0, 1] && char == 'b' -> (line + inc, LiteralBool (n == 1)) : rest
+  (line, LiteralInt radix n) : rest | char == 'b' && between 0 1 n -> (line + inc, LiteralBool (n == 1)) : rest
   (line, LiteralInt 10 n) : rest | (n /= 10) && (char == 'r') -> (line + inc, LiteralInt n 0) : rest
   (line, LiteralFloat radix n exp) : rest | parseDigit char < radix -> (line + inc, LiteralFloat radix (radix * n + parseDigit char) $ exp + 1) : rest
   (line, Word name) : rest | isAlnum char -> (line + inc, Word $ name ++ [char]) : rest

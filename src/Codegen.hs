@@ -4,7 +4,7 @@ import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
 import Language (Type (..), Primitive (..), removePrimitives)
 import Semantics (Expression (..), Statement (..))
-import Errors (Fallible, failure)
+import Fallible (Fallible, failure)
 import Functions (intercalate, split, number)
 import Data.Maybe (fromJust)
 
