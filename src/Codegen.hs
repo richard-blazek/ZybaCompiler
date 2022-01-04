@@ -129,53 +129,53 @@ stringifyDeclaration :: String -> (Type, Expression) -> String
 stringifyDeclaration name value = "$z0" ++ name ++ "=" ++ (stringifyExpression value) ++ ";"
 
 preamble :: String
-preamble = "$z0int=0;$z0float=0.0;$z0bool=FALSE;$z0text='';$z0void=NULL;\
+preamble = "<?php $z0int=0;$z0float=0.0;$z0bool=FALSE;$z0text='';$z0void=NULL;\
 \class z1array implements JsonSerializable{\
   \public $a;\
-  \function static n($a) {\
+  \public static function n($a) {\
     \$z=new z1array();\
     \$z->a=$a;\
     \return $z;\
   \}\
-  \public getV($i){\
+  \public function getV($i){\
     \$c=count($this->a);\
     \if($c===0){\
       \die('Array is empty, no element at '.$i);\
     \}\
     \return $this->a[($i%$c+$c)%$c];\
   \}\
-  \public setV($i,$v){\
+  \public function setV($i,$v){\
     \$c=count($this->a);\
     \if($c===0){\
       \die('Array is empty, no element at '.$i);\
     \}\
     \$this->a[($i%$c+$c)%$c]=$v;\
   \}\
-  \public getD($i){\
+  \public function getD($i){\
     \if(!isset($this->a[$i])){\
       \die('Map does not contain the key '.$i);\
     \}\
     \return $this->a[$i];\
   \}\
-  \public setD($i,$v){\
+  \public function setD($i,$v){\
     \$this->a[$i]=$v;\
   \}\
-  \public hasD($k){\
+  \public function hasD($k){\
     \return array_key_exists($k,$this->a);\
   \}\
-  \public unionD($x){\
+  \public function unionD($x){\
     \return z1array::n($x->a+$this->a);\
   \}\
-  \public concat(...$a){\
+  \public function concat(...$a){\
     \return z1array::n(array_merge($this->a, ...$a));\
   \}\
-  \public append(...$a){\
+  \public function append(...$a){\
     \$this->a=array_merge($this->a, ...$a);\
   \}\
-  \public unionR($x,$k){\
+  \public function unionR($x,$k){\
     \return z1array::n(array_intersect_key($x->a,$k)+$this->a);\
   \}\
-  \public sized($n,$v){\
+  \public function sized($n,$v){\
     \if($n<0){\
       \die('Array size must be non-negative, got '.$n);\
     \}\
@@ -184,17 +184,17 @@ preamble = "$z0int=0;$z0float=0.0;$z0bool=FALSE;$z0text='';$z0void=NULL;\
     \}\
     \return z1array::n(array_pad($this->a,$n,$v));\
   \}\
-  \public sort($r){\
+  \public function sort($r){\
     \if($r){\
       \rsort($this->a);\
     \}else{\
       \sort($this->a);\
     \}\
   \}\
-  \public usort($c){\
+  \public function usort($c){\
     \usort($this->a,$c);\
   \}\
-  \public jsonSerialize(){\
+  \public function jsonSerialize(){\
     \return $this->a;\
   \}\
 \}"
