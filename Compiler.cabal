@@ -30,6 +30,7 @@ library
       Functions
       Language
       Lexer
+      Loader
       Parser
       Scope
       Semantics

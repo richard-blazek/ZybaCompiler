@@ -119,7 +119,7 @@ analyseDeclaration scope (line, Parser.Declaration name expression) = do
   newScope <- Scope.addConstant line name type' scope
   Ok (newScope, (name, expression))
 
-analyse :: [(Integer, Parser.Declaration)] -> Fallible [(String, (Lang.Type, Expression))]
-analyse declarations = do
+analyse :: Parser.File -> Fallible [(String, (Lang.Type, Expression))]
+analyse (Parser.File declarations) = do
   globalScope <- collectGlobals declarations
   fmap (reverse . snd) $ foldlMapM analyseDeclaration globalScope declarations

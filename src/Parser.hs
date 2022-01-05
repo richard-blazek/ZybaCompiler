@@ -1,4 +1,4 @@
-module Parser (Expression (..), Statement (..), Declaration (..), parse) where
+module Parser (Expression (..), Statement (..), Declaration (..), File (..), parse) where
 
 import Data.Ratio ((%))
 import qualified Lexer
@@ -6,7 +6,12 @@ import qualified Data.Map.Strict as Map
 import Functions (intercalate, pair, tailRecM, tailRec2M, fmap2, follow)
 import Fallible (Fallible (..), failure, assert)
 
-data Declaration = Declaration String (Integer, Expression) deriving (Show, Eq)
+newtype File = File [(Integer, Declaration)] deriving (Show, Eq)
+
+data Declaration
+  = Declaration String (Integer, Expression)
+  | Import String String deriving (Show, Eq)
+
 data Statement
   = Expression (Integer, Expression)
   | Assignment String (Integer, Expression)
@@ -117,6 +122,6 @@ parseDeclaration ((line, Lexer.Word name) : tokens) = do
   Ok ((line, Declaration name expression), restTokens)
 parseDeclaration ((line, token) : _) = failure line $ "Expected a name of declared function but got " ++ show token
 
-parse :: [(Integer, Lexer.Token)] -> Fallible [(Integer, Declaration)]
-parse = tailRecM (Ok . null . snd) (Ok . reverse . fst) else' . pair []
+parse :: [(Integer, Lexer.Token)] -> Fallible File
+parse = tailRecM (Ok . null . snd) (Ok . File . reverse . fst) else' . pair []
   where else' (result, tokens) = fmap2 (: result) id $ parseDeclaration tokens
