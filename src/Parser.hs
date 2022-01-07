@@ -10,7 +10,8 @@ newtype File = File [(Integer, Declaration)] deriving (Show, Eq)
 
 data Declaration
   = Declaration String (Integer, Expression)
-  | Import String String deriving (Show, Eq)
+  | Import String String
+  | Php String (Map.Map String (Integer, Expression)) deriving (Show, Eq)
 
 data Statement
   = Expression (Integer, Expression)
@@ -49,16 +50,21 @@ parseValue ((line, Lexer.Separator '(') : tokens) = do
   (expression, tokensAfterExpression) <- parseExpression tokens
   tokensAfterParenthesis <- expect (Lexer.Separator ')') tokensAfterExpression
   Ok (expression, tokensAfterParenthesis)
-parseValue ((line, Lexer.Separator '{') : tokens) = parseRecord Map.empty tokens
+parseValue ((line, Lexer.Separator '{') : tokens) = parseRecord line tokens
 parseValue ((line, token) : _) = failure line $ "Expected a value but got " ++ show token
 
-parseRecord :: Map.Map String (Integer, Expression) -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
-parseRecord fields ((line, Lexer.Word name) : tokens) = do
+parseFields :: Map.Map String (Integer, Expression) -> [(Integer, Lexer.Token)] -> Fallible (Map.Map String (Integer, Expression), [(Integer, Lexer.Token)])
+parseFields fields ((line, Lexer.Word name) : tokens) = do
   assert (not $ Map.member name fields) line $ "Duplicate field " ++ name
   (expression, restTokens) <- parseExpression tokens
-  parseRecord (Map.insert name expression fields) restTokens
-parseRecord fields ((line, Lexer.Separator '}') : tokens) = Ok ((line, LiteralRecord fields), tokens)
-parseRecord fields ((line, token) : _) = failure line $ "Expected a field name but got " ++ show token
+  parseFields (Map.insert name expression fields) restTokens
+parseFields fields ((_, Lexer.Separator '}') : tokens) = Ok (fields, tokens)
+parseFields fields ((line, token) : _) = failure line $ "Expected a field name but got " ++ show token
+
+parseRecord :: Integer -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
+parseRecord line tokens = do
+  (fields, tokensAfterFields) <- parseFields Map.empty tokens
+  Ok ((line, LiteralRecord fields), tokensAfterFields)
 
 parseArguments :: [(Integer, Lexer.Token)] -> Fallible ([(String, (Integer, Expression))], [(Integer, Lexer.Token)])
 parseArguments tokens = tailRecM if' then' else' ([], [], tokens)
@@ -117,6 +123,13 @@ parseBlock :: [(Integer, Lexer.Token)] -> Fallible ([(Integer, Statement)], [(In
 parseBlock tokens = expect (Lexer.Separator '{') tokens >>= parseMany parseStatement (Lexer.Separator '}')
 
 parseDeclaration :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Declaration), [(Integer, Lexer.Token)])
+parseDeclaration ((line, Lexer.Word "import") : (_, Lexer.Word "php") : (_, Lexer.LiteralText path) : tokens) = do
+  tokensAfterBracket <- expect (Lexer.Separator '{') tokens
+  (imports, tokensAfterImports) <- parseFields Map.empty tokensAfterBracket
+  Ok ((line, Php path imports), tokensAfterImports)
+
+parseDeclaration ((line, Lexer.Word "import") : (_, Lexer.Word name) : (_, Lexer.LiteralText path) : tokens) = Ok ((line, Import name path), tokens)
+
 parseDeclaration ((line, Lexer.Word name) : tokens) = do
   (expression, restTokens) <- parseExpression tokens
   Ok ((line, Declaration name expression), restTokens)

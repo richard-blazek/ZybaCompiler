@@ -1,29 +1,25 @@
-module Scope (Scope, empty, addConstant, addVariable, getType) where
+module Scope (Scope, Entry (..), empty, add, get) where
 
 import qualified Data.Map.Strict as Map
 import qualified Language as Lang
 import Fallible (Fallible (..), failure)
 import Functions (pair)
 
-data Scope = Scope (Map.Map String (Lang.Type, Bool))
+data Entry = Constant Lang.Type | Variable Lang.Type | Namespace Scope deriving (Eq, Show)
+newtype Scope = Scope (Map.Map String Entry) deriving (Eq, Show)
 
 empty :: Scope
-empty = Scope $ Map.map (`pair` False) Lang.constants
+empty = Scope $ Map.map Constant Lang.constants
 
-getType :: Integer -> String -> Scope -> Fallible Lang.Type
-getType line name (Scope scope) = case Map.lookup name scope of
-  Just (t, _) -> Ok t
-  Nothing -> failure line $ "Identifier " ++ name ++ " does not denote anything"
+get :: Integer -> [String] -> Scope -> Fallible Lang.Type
+get line (name : names) (Scope scope) = case Map.lookup name scope of
+  Just (Constant t) -> Ok t
+  Just (Variable t) -> Ok t
+  Just (Namespace n) | not $ null names -> get line names n
+  _ -> failure line $ "Expected a variable or constant but " ++ name ++ " is a namespace"
 
-addIdentifier :: Bool -> Bool -> Integer -> String -> Lang.Type -> Scope -> Fallible (Scope, Bool)
-addIdentifier isVariable redefine line name t (Scope scope) = case Map.lookup name scope of
-  Just (_, wasVariable) | not redefine || not wasVariable -> failure line $ "Redefinition of " ++ name
-  Just (previous, True) | t /= previous -> failure line $ "Assigning to " ++ name ++ " which is of type " ++ show previous ++ ", not " ++ show t
-  Just (_, True) -> Ok (Scope scope, False)
-  Nothing -> Ok (Scope $ Map.insert name (t, isVariable) scope, True)
-
-addConstant :: Integer -> String -> Lang.Type -> Scope -> Fallible Scope
-addConstant line name t = fmap fst . addIdentifier False False line name t
-
-addVariable :: Bool -> Integer -> String -> Lang.Type -> Scope -> Fallible (Scope, Bool)
-addVariable = addIdentifier True
+add :: Bool -> Integer -> String -> Entry -> Scope -> Fallible (Scope, Bool)
+add assign line name entry (Scope scope) = case Map.lookup name scope of
+  Nothing -> Ok (Scope $ Map.insert name entry scope, True)
+  Just previous@(Variable _) | entry == previous && assign -> Ok (Scope scope, False)
+  Just _ -> failure line $ "Redefinition of " ++ name
