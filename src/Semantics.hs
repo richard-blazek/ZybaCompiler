@@ -34,7 +34,7 @@ collectGlobal :: Scope.Scope -> (Integer, Parser.Declaration) -> Fallible Scope.
 collectGlobal scope (_, Parser.Declaration name (line, Parser.Lambda args returned body)) = do
   argTypes <- mapM (analyseType scope . snd) args
   returnType <- analyseType scope returned
-  Scope.addConstant line name (Lang.Function argTypes returnType) scope
+  fmap fst $ Scope.add False line name (Scope.Constant $ Lang.Function argTypes returnType) scope
 collectGlobal scope _ = Ok scope
 
 collectGlobals :: [(Integer, Parser.Declaration)] -> Fallible Scope.Scope
@@ -58,7 +58,7 @@ analyseExpression scope (line, Parser.LiteralInt lit) = Ok (Lang.Int, LiteralInt
 analyseExpression scope (line, Parser.LiteralFloat lit) = Ok (Lang.Float, LiteralFloat lit)
 analyseExpression scope (line, Parser.LiteralText lit) = Ok (Lang.Text, LiteralText lit)
 analyseExpression scope (line, Parser.LiteralBool lit) = Ok (Lang.Bool, LiteralBool lit)
-analyseExpression scope (line, Parser.Name name) = fmap (`pair` Name name) $ Scope.getType line name scope
+analyseExpression scope (line, Parser.Name name) = fmap (`pair` Name name) $ Scope.get line [name] scope
 
 analyseExpression scope (line, Parser.Call callee args) = do
   args' <- mapM (analyseExpression scope) args
@@ -73,7 +73,7 @@ analyseExpression scope (line, Parser.Lambda args returnType block) = do
   argTypes <- mapM (analyseType scope . snd) args
   let args' = zip (map fst args) argTypes
   returnType' <- analyseType scope returnType
-  innerScope <- foldlM (\scope (name, type') -> fmap fst $ Scope.addVariable False line name type' scope) scope args'
+  innerScope <- foldlM (\scope (name, type') -> fmap fst $ Scope.add False line name (Scope.Variable type') scope) scope args'
   block' <- analyseBlock innerScope block
   case reverse block' of
     Expression (type', _) : _ | returnType' `elem` [type', Lang.Void] -> Ok (Lang.Function argTypes returnType', Lambda args' block')
@@ -90,7 +90,7 @@ analyseStatement scope (line, Parser.Expression expr) = do
 
 analyseStatement scope (line, Parser.Assignment name expr) = do
   value@(type', _) <- analyseExpression scope expr
-  (newScope, added) <- Scope.addVariable True line name type' scope
+  (newScope, added) <- Scope.add True line name (Scope.Variable type') scope
   Ok . (`pair` newScope) $ if added
     then Initialization name value
     else Assignment name value
@@ -116,7 +116,7 @@ analyseDeclaration :: Scope.Scope -> (Integer, Parser.Declaration) -> Fallible (
 analyseDeclaration scope (_, Parser.Declaration name expression@(_, Parser.Lambda _ _ _)) = fmap (pair scope . pair name) $ analyseExpression scope expression
 analyseDeclaration scope (line, Parser.Declaration name expression) = do
   expression@(type', _) <- analyseExpression scope expression
-  newScope <- Scope.addConstant line name type' scope
+  newScope <- fmap fst $ Scope.add False line name (Scope.Constant type') scope
   Ok (newScope, (name, expression))
 
 analyse :: Parser.File -> Fallible [(String, (Lang.Type, Expression))]
