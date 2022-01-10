@@ -1,7 +1,8 @@
-module Functions (zipMaps, pair, map2, (!?), (??), intercalate, join, foldlMapM, tailRecM, tailRec2M, fmap2, split, follow, number) where
+module Functions (zipMaps, pair, map2, (!?), (??), (??=), intercalate, join, mapCatFoldlM, tailRecM, tailRec2M, fmap2, split, follow, number, leaf) where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.Map.Merge.Strict as Merge
+import qualified Data.Tree as Tree
 
 zipMaps :: Ord k => Map.Map k v -> Map.Map k w -> Map.Map k (v, w)
 zipMaps = Merge.merge Merge.dropMissing Merge.dropMissing $ Merge.zipWithMatched $ const pair
@@ -23,6 +24,10 @@ infixl 3 ??
 Nothing ?? x = x
 Just x ?? _ = x
 
+infixl 3 ??=
+(??=) :: Monad m => Maybe a -> m a -> m a
+(??=) maybe m = fmap return maybe ?? m
+
 intercalate :: (Foldable f, Monoid m) => m -> f m -> m
 intercalate x xs
   | null xs = mempty
@@ -31,9 +36,9 @@ intercalate x xs
 join :: (Show a) => String -> [a] -> String
 join str xs = intercalate str (map show xs)
 
-foldlMapM :: (Monad m, Foldable t) => (b -> a -> m (b, c)) -> b -> t a -> m (b, [c])
-foldlMapM f seed = foldl combine $ return (seed, [])
-  where combine accM item = accM >>= (\(acc, list) -> fmap (\(acc', item') -> (acc', item' : list)) (f acc item))
+mapCatFoldlM :: (Monad m, Foldable t) => (b -> a -> m (b, [c])) -> b -> t a -> m (b, [c])
+mapCatFoldlM f seed = fmap2 id (concat . reverse) . foldl combine (return (seed, []))
+  where combine accM item = accM >>= (\(acc, list) -> fmap2 id (: list) $ f acc item)
 
 tailRecM :: (Monad m) => (a -> m Bool) -> (a -> m b) -> (a -> m a) -> a -> m b
 tailRecM if' then' else' arg = do
@@ -49,9 +54,10 @@ tailRec2M :: (Monad m) => (a -> b -> m Bool) -> (a -> c) -> (b -> d) -> (a -> b 
 tailRec2M if' thenA thenB else' a b = tailRecM (uncurry if') (\(a', b') -> return (thenA a', thenB b')) (uncurry else') (a, b)
 
 split :: [a] -> Maybe [(a, a)]
-split [] = Just []
-split [x] = Nothing
-split (x1 : x2 : xs) = fmap ((x1, x2) :) $ split xs
+split = splitTail []
+  where splitTail acc [] = Just acc
+        splitTail acc [x] = Nothing
+        splitTail acc (x1 : x2 : xs) = splitTail ((x1, x2) : acc) xs
 
 follow :: Monad m => (a -> m (b, a)) -> (a -> m (c, a)) -> a -> m ((b, c), a)
 follow f g x = do
@@ -60,4 +66,7 @@ follow f g x = do
   return ((a, b), z)
 
 number :: [a] -> [Integer]
-number = flip take [0..] . length
+number = (`take` [0..]) . length
+
+leaf :: a -> Tree.Tree a
+leaf = (`Tree.Node` [])

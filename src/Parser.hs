@@ -1,4 +1,4 @@
-module Parser (Expression (..), Statement (..), Declaration (..), File (..), parse) where
+module Parser (Expression (..), Statement (..), Declaration (..), Literal (..), File (..), parse) where
 
 import Data.Ratio ((%))
 import qualified Lexer
@@ -19,12 +19,11 @@ data Statement
   | While (Integer, Expression) [(Integer, Statement)]
   | IfChain [((Integer, Expression), [(Integer, Statement)])] [(Integer, Statement)] deriving (Show, Eq)
 
+data Literal = Int Integer | Real Double | Text String | Bool Bool deriving (Show, Eq)
+
 data Expression
-  = LiteralInt Integer
-  | LiteralFloat Double
-  | LiteralText String
-  | LiteralBool Bool
-  | LiteralRecord (Map.Map String (Integer, Expression))
+  = Literal Literal
+  | Record (Map.Map String (Integer, Expression))
   | Name String
   | Call (Integer, Expression) [(Integer, Expression)]
   | Access (Integer, Expression) String (Maybe [(Integer, Expression)])
@@ -40,10 +39,10 @@ parseMany parser end tokens = tailRec2M if' reverse tail else' [] tokens
         else' result tokens = fmap2 (: result) id $ parser tokens
 
 parseValue :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
-parseValue ((line, Lexer.LiteralInt _ lit) : tokens) = Ok ((line, LiteralInt lit), tokens)
-parseValue ((line, Lexer.LiteralFloat _ n exp) : tokens) = Ok ((line, LiteralFloat $ fromIntegral n / (10.0 ** fromIntegral exp)), tokens)
-parseValue ((line, Lexer.LiteralText lit) : tokens) = Ok ((line, LiteralText lit), tokens)
-parseValue ((line, Lexer.LiteralBool lit) : tokens) = Ok ((line, LiteralBool lit), tokens)
+parseValue ((line, Lexer.LiteralInt _ lit) : tokens) = Ok ((line, Literal $ Int lit), tokens)
+parseValue ((line, Lexer.LiteralFloat _ n exp) : tokens) = Ok ((line, Literal $ Real $ fromIntegral n / (10.0 ** fromIntegral exp)), tokens)
+parseValue ((line, Lexer.LiteralText lit) : tokens) = Ok ((line, Literal $ Text lit), tokens)
+parseValue ((line, Lexer.LiteralBool lit) : tokens) = Ok ((line, Literal $ Bool lit), tokens)
 parseValue ((line, Lexer.Word "fun") : tokens) = parseLambda line tokens
 parseValue ((line, Lexer.Word name) : tokens) = Ok ((line, Name name), tokens)
 parseValue ((line, Lexer.Separator '(') : tokens) = do
@@ -64,7 +63,7 @@ parseFields fields ((line, token) : _) = failure line $ "Expected a field name b
 parseRecord :: Integer -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Expression), [(Integer, Lexer.Token)])
 parseRecord line tokens = do
   (fields, tokensAfterFields) <- parseFields Map.empty tokens
-  Ok ((line, LiteralRecord fields), tokensAfterFields)
+  Ok ((line, Record fields), tokensAfterFields)
 
 parseArguments :: [(Integer, Lexer.Token)] -> Fallible ([(String, (Integer, Expression))], [(Integer, Lexer.Token)])
 parseArguments tokens = tailRecM if' then' else' ([], [], tokens)
@@ -99,13 +98,13 @@ parseExpression tokens = parseCall tokens >>= uncurry (tailRec2M if' id id else'
 parseIf :: Integer -> [((Integer, Expression), [(Integer, Statement)])] -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Statement), [(Integer, Lexer.Token)])
 parseIf line chain tokens = do
   (pair, tokensAfterBlock) <- follow parseExpression parseBlock tokens
-  let newChain = pair : chain
+  let chain' = pair : chain
   case tokensAfterBlock of
-    (_, Lexer.Word "else") : (_, Lexer.Word "if") : restTokens -> parseIf line newChain restTokens
+    (_, Lexer.Word "else") : (_, Lexer.Word "if") : restTokens -> parseIf line chain' restTokens
     (_, Lexer.Word "else") : restTokens -> do
       (elseBlock, tokensAfterElse) <- parseBlock restTokens
-      Ok ((line, IfChain (reverse newChain) $ elseBlock), tokensAfterElse)
-    restTokens -> Ok ((line, IfChain (reverse newChain) []), restTokens)
+      Ok ((line, IfChain (reverse chain') $ elseBlock), tokensAfterElse)
+    restTokens -> Ok ((line, IfChain (reverse chain') []), restTokens)
 
 parseStatement :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Statement), [(Integer, Lexer.Token)])
 parseStatement ((line, Lexer.Word "if") : tokens) = parseIf line [] tokens

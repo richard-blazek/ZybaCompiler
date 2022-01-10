@@ -3,44 +3,68 @@ module Loader (load) where
 import qualified Data.Map as Map
 import qualified Data.Tree as Tree
 import qualified Lexer
+import qualified Scope
 import qualified Parser
-import Fallible (FallibleT, success, failure, wrap)
-import Data.Maybe (mapMaybe)
+import qualified Semantics
+import qualified Language as Lang
+import Fallible (Fallible, FallibleT, success, failure, wrap)
+import Data.Maybe (catMaybes)
 import Data.Containers.ListUtils (nubOrdOn)
+import Functions (mapCatFoldlM, map2, fmap2, leaf)
 
-type FallibleIO = FallibleT IO
-type Cache = Map.Map String ([String], Parser.File)
-type Dependencies = Map.Map String (Tree.Tree (String, Parser.File))
+data File = Zyba Parser.File | Php String
+data Lang = ZybaLang | PhpLang deriving (Eq, Show)
+data LoadedFile = LoadedFile File [String] [String]
+type Cache = Map.Map String LoadedFile
+type Dependencies = Map.Map String (Tree.Tree (String, File))
 
-loadFile :: String -> FallibleIO ([String], Parser.File)
-loadFile path = do
+loadFile :: Lang -> String -> FallibleT IO LoadedFile
+loadFile PhpLang path = success (readFile path) >>= \content -> return (LoadedFile (Php content) [] [])
+loadFile ZybaLang path = do
   content <- success $ readFile path
-  file@(Parser.File declarations) <- wrap $ Parser.parse $ Lexer.tokenize content
-  return (mapMaybe import' declarations, file)
-  where import' (_, Parser.Import _ imported) = Just imported
-        import' _ = Nothing
+  parsed@(Parser.File declarations) <- wrap $ Parser.parse $ Lexer.tokenize content
+  let (zybas, phps) = map2 catMaybes catMaybes $ unzip $ map import' declarations
+  return $ LoadedFile (Zyba parsed) zybas phps
+  where import' (_, Parser.Import _ imported) = (Just imported, Nothing)
+        import' (_, Parser.Php imported _) = (Nothing, Just imported)
+        import' _ = (Nothing, Nothing)
 
-lookupCache :: String -> Cache -> FallibleIO ([String], Parser.File, Cache)
-lookupCache path cache = case Map.lookup path cache of
-  Just (imports, file) -> return (imports, file, cache)
-  Nothing -> do
-    (imports, file) <- loadFile path
-    return (imports, file, Map.insert path (imports, file) cache)
+lookupCache :: Lang -> Cache -> String -> FallibleT IO (Cache, LoadedFile)
+lookupCache lang cache path = case Map.lookup path cache of
+  Just file@(LoadedFile (Zyba _) _ _) | lang == ZybaLang -> return (cache, file)
+  Just file@(LoadedFile (Php _) _ _) | lang == PhpLang -> return (cache, file)
+  _ -> do
+    file <- loadFile lang path
+    return (Map.insert path file cache, file)
 
-loadDependencies :: Cache -> [String] -> Dependencies -> FallibleIO Dependencies
+loadDependencies :: Cache -> [String] -> Dependencies -> FallibleT IO Dependencies
 loadDependencies _ [] deps = return deps
 loadDependencies cache (path : upper) deps = do
-  (imports, file, cache') <- lookupCache path cache
-  case filter (`Map.notMember` deps) imports of
-    [] -> loadDependencies cache' upper $ Map.insert path (Tree.Node (path, file) $ map (deps Map.!) imports) deps
-    x : _ -> if x `elem` upper
-              then wrap $ failure (-1) $ "Circular dependency: " ++ x
-              else loadDependencies cache' (x : path : upper) deps
+  (cache, LoadedFile file zybas phps) <- lookupCache ZybaLang cache path
+  (cache, phpContents) <- getPhps cache phps
+  let children = map (deps Map.!) zybas ++ zipWith (curry leaf) phps phpContents
+  case filter (`Map.notMember` deps) zybas of
+    [] -> loadDependencies cache upper $ Map.insert path (Tree.Node (path, file) children) deps
+    next : _ -> checkCircular next >> loadDependencies cache (next : path : upper) deps
+  where getPhps = mapCatFoldlM (\cache' path' -> fmap2 id ((:[]) . getFile) $ lookupCache PhpLang cache' path')
+        getFile (LoadedFile file _ _) = file
+        checkCircular path = if path `elem` upper then wrap $ failure (-1) $ "Circular dependency: " ++ path else return ()
 
 orderDependencies :: Ord a => Tree.Tree (a, b) -> [(a, b)]
 orderDependencies = nubOrdOn fst . concat . reverse . Tree.levels
 
-load :: String -> FallibleIO [(String, Parser.File)]
-load path = do
+listOfImportedFiles :: String -> FallibleT IO [(String, File)]
+listOfImportedFiles path = do
   deps <- loadDependencies Map.empty [path] Map.empty 
   return $ orderDependencies $ deps Map.! path
+
+type Declarations = [(String, (Lang.Type, Semantics.Expression))]
+analyseAll :: Map.Map String Scope.Scope -> [String] -> [Declarations] -> [(String, File)] -> Fallible ([String], [Declarations])
+analyseAll _ phps zybas [] = return $ (reverse phps, reverse zybas)
+analyseAll known phps zybas ((_, Php content) : paths) = analyseAll known (content : phps) zybas paths
+analyseAll known phps zybas ((path, Zyba parsed) : paths) = do
+  (scope, declarations) <- Semantics.analyse known path parsed
+  analyseAll (Map.insert path scope known) phps (declarations : zybas) paths
+
+load :: String -> FallibleT IO ([String], [Declarations])
+load path = listOfImportedFiles path >>= wrap . analyseAll Map.empty [] []

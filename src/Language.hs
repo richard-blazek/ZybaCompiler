@@ -3,7 +3,7 @@ module Language (Type (..), Primitive (..), primitiveCall, fieldAccess, removePr
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Fallible (Fallible (..), failure, assert)
-import Functions (join, split, (??), zipMaps)
+import Functions (join, split, (??=), zipMaps)
 
 data Type = Void | Int | Bool | Float | Text | Function [Type] Type | Dictionary Type Type | Vector Type | Record (Map.Map String Type) deriving (Eq, Show)
 data Primitive = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not
@@ -27,7 +27,7 @@ constants :: Map.Map String Type
 constants = Map.fromList [("int", Int), ("bool", Bool), ("float", Float), ("text", Text), ("void", Void)]
 
 removePrimitives :: Set.Set String -> Set.Set String
-removePrimitives = flip Set.difference primitivesSet
+removePrimitives = (`Set.difference` primitivesSet)
 
 getResultType :: Integer -> Primitive -> [Type] -> Fallible Type
 getResultType line primitive args = case (primitive, args) of
@@ -107,10 +107,10 @@ getResultType line primitive args = case (primitive, args) of
 
 primitiveCall :: Integer -> String -> [Type] -> Fallible (Type, Primitive)
 primitiveCall line name args = do
-  primitive <- fmap Ok (Map.lookup name primitives) ?? failure line ("Primitive " ++ name ++ " does not exist")
+  primitive <- Map.lookup name primitives ??= failure line ("Primitive " ++ name ++ " does not exist")
   returnType <- getResultType line primitive args
   Ok (returnType, primitive)
 
 fieldAccess :: Integer -> String -> Type -> Fallible Type
-fieldAccess line name (Record fields) = fmap Ok (Map.lookup name fields) ?? failure line ("Record does not contain a field " ++ name)
+fieldAccess line name (Record fields) = Map.lookup name fields ??= failure line ("Record does not contain a field " ++ name)
 fieldAccess line _ _ = failure line "Value is not a record and cannot have any fields"

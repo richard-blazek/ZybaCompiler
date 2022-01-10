@@ -5,7 +5,7 @@ import qualified Parser
 import qualified Scope
 import qualified Language as Lang
 import Data.Foldable (foldlM)
-import Functions (pair, (??), foldlMapM, tailRecM, fmap2)
+import Functions (pair, (??), mapCatFoldlM, tailRecM, fmap2)
 import Fallible (Fallible (..), failure, assert)
 
 data Statement
@@ -16,16 +16,14 @@ data Statement
   | IfChain [((Lang.Type, Expression), [Statement])] [Statement] deriving (Eq, Show)
 
 data Expression
-  = LiteralInt Integer
-  | LiteralFloat Double
-  | LiteralText String
-  | LiteralBool Bool
-  | LiteralRecord (Map.Map String (Lang.Type, Expression))
+  = Literal Parser.Literal
+  | Record (Map.Map String (Lang.Type, Expression))
   | Lambda [(String, Lang.Type)] [Statement]
-  | Name String
+  | Name String String
   | Call (Lang.Type, Expression) [(Lang.Type, Expression)]
   | Primitive Lang.Primitive [(Lang.Type, Expression)]
-  | Access (Lang.Type, Expression) String deriving (Eq, Show)
+  | Access (Lang.Type, Expression) String
+  | PhpValue deriving (Eq, Show)
 
 analyseType :: Scope.Scope -> (Integer, Parser.Expression) -> Fallible Lang.Type
 analyseType scope expr = fmap fst $ analyseExpression scope expr
@@ -37,8 +35,8 @@ collectGlobal scope (_, Parser.Declaration name (line, Parser.Lambda args return
   fmap fst $ Scope.add False line name (Scope.Constant $ Lang.Function argTypes returnType) scope
 collectGlobal scope _ = Ok scope
 
-collectGlobals :: [(Integer, Parser.Declaration)] -> Fallible Scope.Scope
-collectGlobals = foldlM collectGlobal Scope.empty
+collectGlobals :: String -> [(Integer, Parser.Declaration)] -> Fallible Scope.Scope
+collectGlobals = foldlM collectGlobal . Scope.empty
 
 analyseCall :: Integer -> (Lang.Type, Expression) -> [(Lang.Type, Expression)] -> Fallible (Lang.Type, Expression)
 analyseCall line callee@(type', _) args = case type' of
@@ -47,27 +45,41 @@ analyseCall line callee@(type', _) args = case type' of
   _ -> failure line $ "Expected a function but got " ++ show callee ++ " which is of a type " ++ show type'
   where types = map fst args
 
-analyseAccess :: Integer -> Scope.Scope -> String -> [(Lang.Type, Expression)] -> Bool -> Fallible (Lang.Type, Expression)
-analyseAccess line scope name args@(obj : rest) called = case Lang.fieldAccess line name (fst obj) of
-  Ok type' | called -> analyseCall line (type', Access obj name) rest
+analyseAccess :: Integer -> Scope.Scope -> [(Lang.Type, Expression)] -> Bool -> (Lang.Type, Expression) -> String -> Fallible (Lang.Type, Expression)
+analyseAccess line scope args called obj name = case Lang.fieldAccess line name (fst obj) of
+  Ok type' | called -> analyseCall line (type', Access obj name) args
   Ok type' -> Ok (type', Access obj name)
-  Error _ -> fmap2 id (flip Primitive args) $ Lang.primitiveCall line name $ map fst args
+  Error _ -> fmap2 id (`Primitive` (obj : args)) $ Lang.primitiveCall line name $ map fst $ obj : args
+
+resolveNamespace :: [String] -> Scope.Scope -> (Integer, Parser.Expression) -> Fallible (Lang.Type, Expression)
+resolveNamespace parts scope (_, Parser.Access obj name Nothing) = resolveNamespace (name : parts) scope obj
+resolveNamespace parts scope (line, Parser.Name name) = do
+  (type', path, remaining) <- Scope.get line (name : parts) scope
+  let expr = (type', Name path name)
+  if null remaining
+    then Ok expr
+    else foldlM (analyseAccess line scope [] False) expr remaining
+resolveNamespace parts scope expr@(line, _) = do
+  expr' <- analyseExpression scope expr
+  foldlM (analyseAccess line scope [] False) expr' parts
 
 analyseExpression :: Scope.Scope -> (Integer, Parser.Expression) -> Fallible (Lang.Type, Expression)
-analyseExpression scope (line, Parser.LiteralInt lit) = Ok (Lang.Int, LiteralInt lit)
-analyseExpression scope (line, Parser.LiteralFloat lit) = Ok (Lang.Float, LiteralFloat lit)
-analyseExpression scope (line, Parser.LiteralText lit) = Ok (Lang.Text, LiteralText lit)
-analyseExpression scope (line, Parser.LiteralBool lit) = Ok (Lang.Bool, LiteralBool lit)
-analyseExpression scope (line, Parser.Name name) = fmap (`pair` Name name) $ Scope.get line [name] scope
+analyseExpression scope (line, Parser.Literal lit@(Parser.Int _)) = Ok (Lang.Int, Literal lit)
+analyseExpression scope (line, Parser.Literal lit@(Parser.Real _)) = Ok (Lang.Float, Literal lit)
+analyseExpression scope (line, Parser.Literal lit@(Parser.Text _)) = Ok (Lang.Text, Literal lit)
+analyseExpression scope (line, Parser.Literal lit@(Parser.Bool _)) = Ok (Lang.Bool, Literal lit)
+analyseExpression scope expr@(_, Parser.Name _) = resolveNamespace [] scope expr
+analyseExpression scope expr@(_, Parser.Access _ _ Nothing) = resolveNamespace [] scope expr
+
+analyseExpression scope (line, Parser.Access obj name (Just args)) = do
+  obj' <- analyseExpression scope obj
+  args' <- mapM (analyseExpression scope) args
+  analyseAccess line scope args' True obj' name
 
 analyseExpression scope (line, Parser.Call callee args) = do
-  args' <- mapM (analyseExpression scope) args
   callee' <- analyseExpression scope callee
+  args' <- mapM (analyseExpression scope) args
   analyseCall line callee' args'
-
-analyseExpression scope (line, Parser.Access obj name args) = do
-  args' <- mapM (analyseExpression scope) (obj : (args ?? []))
-  analyseAccess line scope name args' (args /= Nothing)
 
 analyseExpression scope (line, Parser.Lambda args returnType block) = do
   argTypes <- mapM (analyseType scope . snd) args
@@ -79,9 +91,9 @@ analyseExpression scope (line, Parser.Lambda args returnType block) = do
     Expression (type', _) : _ | returnType' `elem` [type', Lang.Void] -> Ok (Lang.Function argTypes returnType', Lambda args' block')
     _ -> failure line $ "Function must return a value of type " ++ show returnType'
 
-analyseExpression scope (line, Parser.LiteralRecord fields) = do
+analyseExpression scope (line, Parser.Record fields) = do
   fields' <- mapM (analyseExpression scope) fields
-  Ok (Lang.Record $ Map.map fst fields', LiteralRecord $ fields')
+  Ok (Lang.Record $ Map.map fst fields', Record $ fields')
 
 analyseStatement :: Scope.Scope -> (Integer, Parser.Statement) -> Fallible (Statement, Scope.Scope)
 analyseStatement scope (line, Parser.Expression expr) = do
@@ -90,8 +102,8 @@ analyseStatement scope (line, Parser.Expression expr) = do
 
 analyseStatement scope (line, Parser.Assignment name expr) = do
   value@(type', _) <- analyseExpression scope expr
-  (newScope, added) <- Scope.add True line name (Scope.Variable type') scope
-  Ok . (`pair` newScope) $ if added
+  (scope', added) <- Scope.add True line name (Scope.Variable type') scope
+  Ok . (`pair` scope') $ if added
     then Initialization name value
     else Assignment name value
 
@@ -112,14 +124,20 @@ analyseBlock scope statements = tailRecM if' then' else' ([], scope, statements)
         then' (result, _, _) = Ok $ reverse result
         else' (result, scope, statement : statements) = fmap (\(analysed, sc) -> (analysed : result, sc, statements)) $ analyseStatement scope statement
 
-analyseDeclaration :: Scope.Scope -> (Integer, Parser.Declaration) -> Fallible (Scope.Scope, (String, (Lang.Type, Expression)))
-analyseDeclaration scope (_, Parser.Declaration name expression@(_, Parser.Lambda _ _ _)) = fmap (pair scope . pair name) $ analyseExpression scope expression
-analyseDeclaration scope (line, Parser.Declaration name expression) = do
+analyseDeclaration :: Map.Map String Scope.Scope -> Scope.Scope -> (Integer, Parser.Declaration) -> Fallible (Scope.Scope, [(String, (Lang.Type, Expression))])
+analyseDeclaration files scope (line, Parser.Import name path) = fmap ((`pair` []) . fst) $ Scope.add False line name (Scope.Namespace $ files Map.! path) scope
+analyseDeclaration _ scope (_, Parser.Declaration name expression@(_, Parser.Lambda _ _ _)) = fmap (pair scope . (:[]) . pair name) $ analyseExpression scope expression
+analyseDeclaration _ scope (line, Parser.Declaration name expression) = do
   expression@(type', _) <- analyseExpression scope expression
-  newScope <- fmap fst $ Scope.add False line name (Scope.Constant type') scope
-  Ok (newScope, (name, expression))
+  scope' <- fmap fst $ Scope.add False line name (Scope.Constant type') scope
+  Ok (scope', [(name, expression)])
 
-analyse :: Parser.File -> Fallible [(String, (Lang.Type, Expression))]
-analyse (Parser.File declarations) = do
-  globalScope <- collectGlobals declarations
-  fmap (reverse . snd) $ foldlMapM analyseDeclaration globalScope declarations
+analyseDeclaration files scope (line, Parser.Php _ imported) = do
+  imported' <- mapM (fmap fst . analyseExpression scope) imported
+  scope' <- foldlM (\scope (name, type') -> fmap fst $ Scope.add False line name (Scope.Constant type') scope) scope $ Map.assocs imported'
+  Ok (scope', map (\(name, type') -> (name, (type', PhpValue))) $ Map.assocs imported')
+
+analyse :: Map.Map String Scope.Scope -> String -> Parser.File -> Fallible (Scope.Scope, [(String, (Lang.Type, Expression))])
+analyse files path (Parser.File declarations) = do
+  globalScope <- collectGlobals path declarations
+  mapCatFoldlM (analyseDeclaration files) globalScope declarations
