@@ -1,135 +1,141 @@
-module Codegen (generate) where
+module Codegen (gen) where
 
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
-import Language (Type (..), Primitive (..), removePrimitives)
+import qualified Language as Lang
 import Semantics (Expression (..), Statement (..))
+import Parser (Literal (..))
 import Fallible (Fallible, failure)
-import Functions (intercalate, split, number)
+import Functions (intercalate, split, number, pad)
 import Data.Maybe (fromJust)
 
-capturesOfBlock :: Set.Set String -> [Statement] -> Set.Set String
-capturesOfBlock skip [] = Set.empty
-capturesOfBlock skip (Expression value : rest) = capturesOfExpression skip value
-capturesOfBlock skip (Initialization name value : rest) = Set.union (capturesOfExpression skip value) $ capturesOfBlock (Set.insert name skip) rest
-capturesOfBlock skip (Assignment _ value : rest) = Set.union (capturesOfExpression skip value) $ capturesOfBlock skip rest
-capturesOfBlock skip (While condition block : rest) = Set.unions [capturesOfExpression skip condition, capturesOfBlock skip block, capturesOfBlock skip rest]
-capturesOfBlock skip (IfChain chains else' : rest) = Set.unions [Set.unions $ map (\(cond, block) -> Set.union (capturesOfExpression skip cond) $ capturesOfBlock skip block) chains, capturesOfBlock skip else', capturesOfBlock skip rest]
+capturesOfBlock :: (String -> String) -> String -> Set.Set String -> [Statement] -> Set.Set String
+capturesOfBlock _ _ _ [] = Set.empty
+capturesOfBlock qual this skip (Expression value : rest) = capturesOfExpression qual this skip value
+capturesOfBlock qual this skip (Initialization name value : rest) = Set.union (capturesOfExpression qual this skip value) $ capturesOfBlock qual this (Set.insert name skip) rest
+capturesOfBlock qual this skip (Assignment _ value : rest) = Set.union (capturesOfExpression qual this skip value) $ capturesOfBlock qual this skip rest
+capturesOfBlock qual this skip (While condition block : rest) = Set.unions [capturesOfExpression qual this skip condition, capturesOfBlock qual this skip block, capturesOfBlock qual this skip rest]
+capturesOfBlock qual this skip (IfChain chains else' : rest) = Set.unions [Set.unions $ map (\(cond, block) -> Set.union (capturesOfExpression qual this skip cond) $ capturesOfBlock qual this skip block) chains, capturesOfBlock qual this skip else', capturesOfBlock qual this skip rest]
 
-capturesOfExpression :: Set.Set String -> (Type, Expression) -> Set.Set String
-capturesOfExpression skip (_, Name name) = if Set.member name skip then Set.empty else Set.singleton name
-capturesOfExpression skip (_, Lambda args body) = capturesOfBlock (Set.union skip $ Set.fromList $ map fst args) body
-capturesOfExpression skip (_, Call fun args) = Set.unions $ map (capturesOfExpression skip) $ fun : args
-capturesOfExpression skip _ = Set.empty
+capturesOfExpression :: (String -> String) -> String -> Set.Set String -> (Lang.Type, Expression) -> Set.Set String
+capturesOfExpression qual _ skip (_, Name pkg name) = Set.difference (Set.singleton $ qual pkg ++ name) skip
+capturesOfExpression qual this skip (_, Lambda args body) = capturesOfBlock qual this (Set.union skip $ Set.fromList $ map ((qual this ++) . fst) args) body
+capturesOfExpression qual this skip (_, Call fun args) = Set.unions $ map (capturesOfExpression qual this skip) $ fun : args
+capturesOfExpression _ _ skip _ = Set.empty
 
-defaultValue :: Type -> String
-defaultValue Void = "NULL"
-defaultValue Int = "0"
-defaultValue Bool = "FALSE"
-defaultValue Float = "0.0"
-defaultValue Text = "''"
-defaultValue (Function args result) = "(function(" ++ intercalate "," (map (\n -> "$_" ++ show n) $ number args) ++ "){return " ++ defaultValue result ++ ";})"
-defaultValue (Vector _) = "z1array::n([])"
-defaultValue (Dictionary _ _) = "z1array::n([])"
-defaultValue (Record fields) = "z1array::n([" ++ intercalate "," (map stringifyAssoc $ Map.assocs fields) ++ "])"
-  where stringifyAssoc (name, value) = "'" ++ name ++ "'=>" ++ defaultValue value
+defaultValue :: Lang.Type -> String
+defaultValue Lang.Void = "NULL"
+defaultValue Lang.Int = "0"
+defaultValue Lang.Bool = "FALSE"
+defaultValue Lang.Float = "0.0"
+defaultValue Lang.Text = "''"
+defaultValue (Lang.Function args result) = "(function(" ++ intercalate "," (map (\n -> "$_" ++ show n) $ number args) ++ "){return " ++ defaultValue result ++ ";})"
+defaultValue (Lang.Vector _) = "z1array::n([])"
+defaultValue (Lang.Dictionary _ _) = "z1array::n([])"
+defaultValue (Lang.Record fields) = "z1array::n([" ++ intercalate "," (map genAssoc $ Map.assocs fields) ++ "])"
+  where genAssoc (name, value) = "'" ++ name ++ "'=>" ++ defaultValue value
 
-asArrayArgument :: Type -> (Type, String) -> String
-asArrayArgument itemType (Vector type', arg) | type' == itemType = arg
+asArrayArgument :: Lang.Type -> (Lang.Type, String) -> String
+asArrayArgument itemType (Lang.Vector type', arg) | type' == itemType = arg
 asArrayArgument itemType (type', arg) = "[" ++ arg ++ "]"
 
-stringifyPrimitive :: Primitive -> [String] -> [Type] -> String
-stringifyPrimitive Add [a, b] [Int, Int] = "(int)(" ++ a ++ "+" ++ b ++ ")"
-stringifyPrimitive Add [a, b] [Text, Text] = "(" ++ a ++ "." ++ b ++ ")"
-stringifyPrimitive Add [a, b] [Vector _, Vector _] = a ++ "->concat(" ++ b ++ ")"
-stringifyPrimitive Add [a, b] [_, _] = "(" ++ a ++ "+" ++ b ++ ")"
-stringifyPrimitive Sub [a, b] [Int, Int] = "(int)(" ++ a ++ "-" ++ b ++ ")"
-stringifyPrimitive Sub [a, b] [_, _] = "(" ++ a ++ "-" ++ b ++ ")"
-stringifyPrimitive Mul [a, b] [Int, Int] = "(int)(" ++ a ++ "*" ++ b ++ ")"
-stringifyPrimitive Mul [a, b] [_, _] = "(" ++ a ++ "*" ++ b ++ ")"
-stringifyPrimitive Div [a, b] [_, _] = "(" ++ a ++ "/(float)" ++ b ++ ")"
-stringifyPrimitive IntDiv [a, b] [_, _] = "(int)(" ++ a ++ "/" ++ b ++ ")"
-stringifyPrimitive Rem [a, b] [Int, Int] = "(" ++ a ++ "%" ++ b ++ ")"
-stringifyPrimitive Rem [a, b] [_, _] = "fmod(" ++ a ++ "," ++ b ++ ")"
-stringifyPrimitive And [a, b] [Int, Int] = "(" ++ a ++ "&" ++ b ++ ")"
-stringifyPrimitive And [a, b] [_, _] = "(" ++ a ++ "&&" ++ b ++ ")"
-stringifyPrimitive Or [a, b] [Int, Int] = "(" ++ a ++ "||" ++ b ++ ")"
-stringifyPrimitive Or [a, b] [Dictionary _ _, Dictionary _ _] = a ++ "->unionD(" ++ b ++ ")"
-stringifyPrimitive Or [a, b] [Record _, Record f2] = a ++ "->unionR(" ++ b ++ ",array(" ++ intercalate "," (Map.keys f2) ++ "))"
-stringifyPrimitive Or [a, b] [Bool, Bool] = "(" ++ a ++ "||" ++ b ++ ")"
-stringifyPrimitive Xor [a, b] [Bool, Bool] = "(" ++ a ++ "!==" ++ b ++ ")"
-stringifyPrimitive Xor [a, b] [Int, Int] = "(" ++ a ++ "^" ++ b ++ ")"
-stringifyPrimitive Eq _ [a, b] | a /= b = "FALSE"
-stringifyPrimitive Eq [a, b] [_, _] = "(" ++ a ++ "==" ++ b ++ ")"
-stringifyPrimitive Neq _ [a, b] | a /= b = "FALSE"
-stringifyPrimitive Neq [a, b] [_, _] = "(" ++ a ++ "!=" ++ b ++ ")"
-stringifyPrimitive Lt [a, b] [_, _] = "(" ++ a ++ "<" ++ b ++ ")"
-stringifyPrimitive Gt [a, b] [_, _] = "(" ++ a ++ ">" ++ b ++ ")"
-stringifyPrimitive Le [a, b] [_, _] = "(" ++ a ++ "<=" ++ b ++ ")"
-stringifyPrimitive Ge [a, b] [_, _] = "(" ++ a ++ ">=" ++ b ++ ")"
-stringifyPrimitive Pow [a, b] [Int, Int] = "(int)pow(" ++ a ++ "**" ++ b ++ ")"
-stringifyPrimitive Pow [a, b] [_, _] = "pow(" ++ a ++ "," ++ b ++ ")"
-stringifyPrimitive Not [a] [Int] = "(~" ++ a ++ ")"
-stringifyPrimitive Not [a] [Bool] = "(!" ++ a ++ ")"
-stringifyPrimitive AsInt [a] [_] = "(int)" ++ a
-stringifyPrimitive AsBool [a] [Text] = "(" ++ a ++ "!=='')"
-stringifyPrimitive AsBool [a] [_] = "(bool)" ++ a
-stringifyPrimitive AsFloat [a] [_] = "(float)" ++ a
-stringifyPrimitive AsText [a] [Text] = a
-stringifyPrimitive AsText [a] [_] = "json_encode(" ++ a ++ ")"
-stringifyPrimitive Dict (_ : _ : args) _ = "z1array::n([" ++ intercalate "," (map (\(k, v) -> k ++ "=>" ++ v) $ fromJust $ split args) ++ "])"
-stringifyPrimitive List (_ : args) _ = "z1array::n([" ++ intercalate "," args ++ "])"
-stringifyPrimitive Get [array, key] [Vector _, _] = array ++ "->getV(" ++ key ++ ")"
-stringifyPrimitive Get [array, key] [Dictionary _ _, _] = array ++ "->getD(" ++ key ++ ")"
-stringifyPrimitive Set [array, key, value] [Vector _, _, _] = array ++ "->setV(" ++ key ++ "," ++ value ++ ")"
-stringifyPrimitive Set [array, key, value] [Dictionary _ _, _, _] = array ++ "->setD(" ++ key ++ "," ++ value ++ ")"
-stringifyPrimitive Has [array, key] [Dictionary _ _, _] = array ++ "->hasD(" ++ key ++ ")"
-stringifyPrimitive Size [text] [Text] = "mb_strlen(" ++ text ++ ")"
-stringifyPrimitive Size [array] [Vector _] = "count(" ++ array ++ "->a)"
-stringifyPrimitive Size [array] [Dictionary _ _] = "count(" ++ array ++ "->a)"
-stringifyPrimitive Concat (array : args) (Vector v : types) = array ++ "->concat(" ++ intercalate "," (map (asArrayArgument v) $ zip types args) ++ ")"
-stringifyPrimitive Append (array : args) (Vector v : types) = array ++ "->append(" ++ intercalate "," (map (asArrayArgument v) $ zip types args) ++ ")"
-stringifyPrimitive Sized [array, size] [Vector v, Int] = array ++ "->sized(" ++ size ++ "," ++ defaultValue v ++ ")"
-stringifyPrimitive Sized [array, size, value] [Vector _, Int, _] = array ++ "->sized(" ++ size ++ "," ++ value ++ ")"
-stringifyPrimitive Sort [array] _ = array ++ "->sort(FALSE)"
-stringifyPrimitive Sort [array, reversed] [Vector _, Bool] = array ++ "->sort(" ++ reversed ++ ")"
-stringifyPrimitive Sort [array, compare] _ = array ++ "->usort(" ++ compare ++ ")"
-stringifyPrimitive Join [array, separator] [Vector Text, Text] = "implode(" ++ separator ++ "," ++ array ++ "->a)"
-stringifyPrimitive Join [array, separator] [Vector v, Text] = "implode(" ++ separator ++ ",array_map(" ++ array ++ "->a,'json_encode'))"
+genPrimitive :: Lang.Primitive -> [String] -> [Lang.Type] -> String
+genPrimitive Lang.Add [a, b] [Lang.Int, Lang.Int] = "(int)(" ++ a ++ "+" ++ b ++ ")"
+genPrimitive Lang.Add [a, b] [Lang.Text, Lang.Text] = "(" ++ a ++ "." ++ b ++ ")"
+genPrimitive Lang.Add [a, b] [Lang.Vector _, Lang.Vector _] = a ++ "->concat(" ++ b ++ ")"
+genPrimitive Lang.Add [a, b] [_, _] = "(" ++ a ++ "+" ++ b ++ ")"
+genPrimitive Lang.Sub [a, b] [Lang.Int, Lang.Int] = "(int)(" ++ a ++ "-" ++ b ++ ")"
+genPrimitive Lang.Sub [a, b] [_, _] = "(" ++ a ++ "-" ++ b ++ ")"
+genPrimitive Lang.Mul [a, b] [Lang.Int, Lang.Int] = "(int)(" ++ a ++ "*" ++ b ++ ")"
+genPrimitive Lang.Mul [a, b] [_, _] = "(" ++ a ++ "*" ++ b ++ ")"
+genPrimitive Lang.Div [a, b] [_, _] = "(" ++ a ++ "/(float)" ++ b ++ ")"
+genPrimitive Lang.IntDiv [a, b] [_, _] = "(int)(" ++ a ++ "/" ++ b ++ ")"
+genPrimitive Lang.Rem [a, b] [Lang.Int, Lang.Int] = "(" ++ a ++ "%" ++ b ++ ")"
+genPrimitive Lang.Rem [a, b] [_, _] = "fmod(" ++ a ++ "," ++ b ++ ")"
+genPrimitive Lang.And [a, b] [Lang.Int, Lang.Int] = "(" ++ a ++ "&" ++ b ++ ")"
+genPrimitive Lang.And [a, b] [_, _] = "(" ++ a ++ "&&" ++ b ++ ")"
+genPrimitive Lang.Or [a, b] [Lang.Int, Lang.Int] = "(" ++ a ++ "||" ++ b ++ ")"
+genPrimitive Lang.Or [a, b] [Lang.Dictionary _ _, Lang.Dictionary _ _] = a ++ "->unionD(" ++ b ++ ")"
+genPrimitive Lang.Or [a, b] [Lang.Record _, Lang.Record f2] = a ++ "->unionR(" ++ b ++ ",array(" ++ intercalate "," (Map.keys f2) ++ "))"
+genPrimitive Lang.Or [a, b] [Lang.Bool, Lang.Bool] = "(" ++ a ++ "||" ++ b ++ ")"
+genPrimitive Lang.Xor [a, b] [Lang.Bool, Lang.Bool] = "(" ++ a ++ "!==" ++ b ++ ")"
+genPrimitive Lang.Xor [a, b] [Lang.Int, Lang.Int] = "(" ++ a ++ "^" ++ b ++ ")"
+genPrimitive Lang.Eq _ [a, b] | a /= b = "FALSE"
+genPrimitive Lang.Eq [a, b] [_, _] = "(" ++ a ++ "==" ++ b ++ ")"
+genPrimitive Lang.Neq _ [a, b] | a /= b = "FALSE"
+genPrimitive Lang.Neq [a, b] [_, _] = "(" ++ a ++ "!=" ++ b ++ ")"
+genPrimitive Lang.Lt [a, b] [_, _] = "(" ++ a ++ "<" ++ b ++ ")"
+genPrimitive Lang.Gt [a, b] [_, _] = "(" ++ a ++ ">" ++ b ++ ")"
+genPrimitive Lang.Le [a, b] [_, _] = "(" ++ a ++ "<=" ++ b ++ ")"
+genPrimitive Lang.Ge [a, b] [_, _] = "(" ++ a ++ ">=" ++ b ++ ")"
+genPrimitive Lang.Pow [a, b] [Lang.Int, Lang.Int] = "(int)pow(" ++ a ++ "**" ++ b ++ ")"
+genPrimitive Lang.Pow [a, b] [_, _] = "pow(" ++ a ++ "," ++ b ++ ")"
+genPrimitive Lang.Not [a] [Lang.Int] = "(~" ++ a ++ ")"
+genPrimitive Lang.Not [a] [Lang.Bool] = "(!" ++ a ++ ")"
+genPrimitive Lang.AsInt [a] [_] = "(int)" ++ a
+genPrimitive Lang.AsBool [a] [Lang.Text] = "(" ++ a ++ "!=='')"
+genPrimitive Lang.AsBool [a] [_] = "(bool)" ++ a
+genPrimitive Lang.AsFloat [a] [_] = "(float)" ++ a
+genPrimitive Lang.AsText [a] [Lang.Text] = a
+genPrimitive Lang.AsText [a] [_] = "json_encode(" ++ a ++ ")"
+genPrimitive Lang.Dict (_ : _ : args) _ = "z1array::n([" ++ intercalate "," (map (\(k, v) -> k ++ "=>" ++ v) $ fromJust $ split args) ++ "])"
+genPrimitive Lang.List (_ : args) _ = "z1array::n([" ++ intercalate "," args ++ "])"
+genPrimitive Lang.Get [array, key] [Lang.Vector _, _] = array ++ "->getV(" ++ key ++ ")"
+genPrimitive Lang.Get [array, key] [Lang.Dictionary _ _, _] = array ++ "->getD(" ++ key ++ ")"
+genPrimitive Lang.Set [array, key, value] [Lang.Vector _, _, _] = array ++ "->setV(" ++ key ++ "," ++ value ++ ")"
+genPrimitive Lang.Set [array, key, value] [Lang.Dictionary _ _, _, _] = array ++ "->setD(" ++ key ++ "," ++ value ++ ")"
+genPrimitive Lang.Has [array, key] [Lang.Dictionary _ _, _] = array ++ "->hasD(" ++ key ++ ")"
+genPrimitive Lang.Size [text] [Lang.Text] = "mb_strlen(" ++ text ++ ")"
+genPrimitive Lang.Size [array] [Lang.Vector _] = "count(" ++ array ++ "->a)"
+genPrimitive Lang.Size [array] [Lang.Dictionary _ _] = "count(" ++ array ++ "->a)"
+genPrimitive Lang.Concat (array : args) (Lang.Vector v : types) = array ++ "->concat(" ++ intercalate "," (map (asArrayArgument v) $ zip types args) ++ ")"
+genPrimitive Lang.Append (array : args) (Lang.Vector v : types) = array ++ "->append(" ++ intercalate "," (map (asArrayArgument v) $ zip types args) ++ ")"
+genPrimitive Lang.Sized [array, size] [Lang.Vector v, Lang.Int] = array ++ "->sized(" ++ size ++ "," ++ defaultValue v ++ ")"
+genPrimitive Lang.Sized [array, size, value] [Lang.Vector _, Lang.Int, _] = array ++ "->sized(" ++ size ++ "," ++ value ++ ")"
+genPrimitive Lang.Sort [array] _ = array ++ "->sort(FALSE)"
+genPrimitive Lang.Sort [array, reversed] [Lang.Vector _, Lang.Bool] = array ++ "->sort(" ++ reversed ++ ")"
+genPrimitive Lang.Sort [array, compare] _ = array ++ "->usort(" ++ compare ++ ")"
+genPrimitive Lang.Join [array, separator] [Lang.Vector Lang.Text, Lang.Text] = "implode(" ++ separator ++ "," ++ array ++ "->a)"
+genPrimitive Lang.Join [array, separator] [Lang.Vector v, Lang.Text] = "implode(" ++ separator ++ ",array_map(" ++ array ++ "->a,'json_encode'))"
 
-stringifyStatement :: Statement -> String
-stringifyStatement (Expression value) = stringifyExpression value ++ ";"
-stringifyStatement (Initialization name value) = "$z0" ++ name ++ "=" ++ stringifyExpression value ++ ";"
-stringifyStatement (Assignment name value) = "$z0" ++ name ++ "=" ++ stringifyExpression value ++ ";"
-stringifyStatement (While condition block) = "while(" ++ stringifyExpression condition ++ "){" ++ stringifyBlock False block ++ "}"
-stringifyStatement (IfChain chain else') = intercalate "else " (map (\(cond, block) -> "if(" ++ stringifyExpression cond ++ "){" ++ stringifyBlock False block ++ "}") chain) ++ "else{" ++ stringifyBlock False else' ++ "}"
+qualify :: Map.Map String String -> String -> String
+qualify pkgQuals pkgName = "$z0" ++ pkgQuals Map.! pkgName
 
-stringifyBlock :: Bool -> [Statement] -> String
-stringifyBlock _ [] = ""
-stringifyBlock True [statement@(Expression (type', _))] | type' /= Void = "return " ++ stringifyStatement statement
-stringifyBlock return (statement : statements) = stringifyStatement statement ++ stringifyBlock return statements
+genStatement :: (String -> String) -> String -> Statement -> String
+genStatement qual this (Expression value) = genExpression qual this value ++ ";"
+genStatement qual this (Initialization name value) = qual this ++ name ++ "=" ++ genExpression qual this value ++ ";"
+genStatement qual this (Assignment name value) = qual this ++ name ++ "=" ++ genExpression qual this value ++ ";"
+genStatement qual this (While condition block) = "while(" ++ genExpression qual this condition ++ "){" ++ genBlock qual this False block ++ "}"
+genStatement qual this (IfChain chain else') = intercalate "else " (map genIf chain) ++ "else{" ++ genBlock qual this False else' ++ "}"
+  where genIf (cond, block) = "if(" ++ genExpression qual this cond ++ "){" ++ genBlock qual this False block ++ "}"
 
-stringifyExpression :: (Type, Expression) -> String
-stringifyExpression (_, LiteralBool b) = if b then "TRUE" else "FALSE"
-stringifyExpression (_, LiteralInt i) = show i
-stringifyExpression (_, LiteralFloat f) = show f
-stringifyExpression (_, LiteralText s) = show s
-stringifyExpression (_, LiteralRecord fields) = "z1array::n([" ++ intercalate "," (map stringifyAssoc $ Map.assocs fields) ++ "])"
-  where stringifyAssoc (name, value) = "'" ++ name ++ "'=>" ++ stringifyExpression value
-stringifyExpression (_, Name name) = "$z0" ++ name
-stringifyExpression (_, Call fun args) = stringifyExpression fun ++ "(" ++ (intercalate "," $ map stringifyExpression args) ++ ")"
-stringifyExpression (_, Primitive primitive args) = stringifyPrimitive primitive (map stringifyExpression args) (map fst args)
-stringifyExpression (Function _ returnType', Lambda args block) = header ++ "{" ++ stringifyBlock (returnType' /= Void) block ++ "})"
-  where argNames = map fst args
-        captures = intercalate "," $ Set.map ("&$z0" ++) $ removePrimitives $ capturesOfBlock (Set.fromList argNames) block
-        header = "(function(" ++ intercalate "," (map ("$z0" ++) argNames) ++ ")" ++ (if null captures then "" else "use(" ++ captures ++ ")")
-stringifyExpression (_, Access obj field) = stringifyExpression obj ++ "[\"" ++ field ++ "\"]"
+genBlock :: (String -> String) -> String -> Bool -> [Statement] -> String
+genBlock _ _ _ [] = ""
+genBlock qual this True [statement@(Expression (type', _))] | type' /= Lang.Void = "return " ++ genStatement qual this statement
+genBlock qual this return (statement : statements) = genStatement qual this statement ++ genBlock qual this return statements
 
-stringifyDeclaration :: String -> (Type, Expression) -> String
-stringifyDeclaration name value = "$z0" ++ name ++ "=" ++ (stringifyExpression value) ++ ";"
+genExpression :: (String -> String) -> String -> (Lang.Type, Expression) -> String
+genExpression _ _ (_, Literal (Bool b)) = if b then "TRUE" else "FALSE"
+genExpression _ _ (_, Literal (Int i)) = show i
+genExpression _ _ (_, Literal (Real r)) = show r
+genExpression _ _ (_, Literal (Text s)) = show s
+genExpression qual this (_, Name pkg name) = qual pkg ++ name
+genExpression qual this (_, Call fun args) = genExpression qual this fun ++ "(" ++ (intercalate "," $ map (genExpression qual this) args) ++ ")"
+genExpression qual this (_, Primitive primitive args) = genPrimitive primitive (map (genExpression qual this) args) (map fst args)
+genExpression qual this (_, Record fields) = "z1array::n([" ++ intercalate "," (map genAssoc $ Map.assocs fields) ++ "])"
+  where genAssoc (name, value) = "'" ++ name ++ "'=>" ++ genExpression qual this value
+genExpression qual this (Lang.Function _ returnType', Lambda args block) = header ++ "{" ++ genBlock qual this (returnType' /= Lang.Void) block ++ "})"
+  where argNames = map ((qual this ++) . fst) args
+        captures = intercalate "," $ Set.map (("&" ++ qual this) ++) $ Lang.removePrimitives $ capturesOfBlock qual this (Set.fromList argNames) block
+        header = "(function(" ++ intercalate "," argNames ++ ")" ++ (if null captures then "" else "use(" ++ captures ++ ")")
+genExpression qual this (_, Access obj field) = genExpression qual this obj ++ "[\"" ++ field ++ "\"]"
 
-preamble :: String
-preamble = "<?php $z0int=0;$z0float=0.0;$z0bool=FALSE;$z0text='';$z0void=NULL;\
+genDeclaration :: (String -> String) -> String -> String -> (Lang.Type, Semantics.Expression) -> String
+genDeclaration qual this name value = qual this ++ name ++ "=" ++ genExpression qual this value ++ ";"
+
+preamble :: String -> String
+preamble qualification = "<?php " ++ qualification ++ "int=0;" ++ qualification ++ "float=0.0;\
+\" ++ qualification ++ "bool=FALSE;" ++ qualification ++ "text='';" ++ qualification ++ "void=NULL;\
 \class z1array implements JsonSerializable{\
   \public $a;\
   \public static function n($a) {\
@@ -200,7 +206,14 @@ preamble = "<?php $z0int=0;$z0float=0.0;$z0bool=FALSE;$z0text='';$z0void=NULL;\
   \public function jsonSerialize(){\
     \return $this->a;\
   \}\
-\}"
+\}?>"
 
-generate :: [(String, (Type, Expression))] -> String
-generate globals = preamble ++ concat (map (uncurry stringifyDeclaration) globals)
+genModule :: (String -> String) -> String -> [(String, (Lang.Type, Semantics.Expression))] -> String
+genModule qual pkg = concat . map (uncurry $ genDeclaration qual pkg)
+
+gen :: [String] -> [(String, [(String, (Lang.Type, Semantics.Expression))])] -> String
+gen phps modules = php ++ preamble (padNumber "") ++ concat (map (uncurry $ genModule $ qualify numbers) modules)
+  where php = concat phps
+        count = length modules
+        padNumber = pad (length $ show count) '0'
+        numbers = Map.fromList $ zip (map fst modules) $ map (("z0" ++ ) . padNumber . show) [count-1,count-2..]
