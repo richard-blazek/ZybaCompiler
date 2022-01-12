@@ -46,7 +46,7 @@ test4 = testEqual "Parsing the fourth code" [
 
 test5 = testEqual "Parsing the second code" [
   InvalidDeclaration "Expected Word \"fun\" but got Word \"not\"",
-  Function "fun" ["a", "b"] $ InvalidExpression "Expected a value but reached the EOF"]
+  Function "fun" ["a", "b"] $ InvalidValue "Expected a value but reached the EOF"]
   $ pt "some is not fun is fun[a b]"
 
 tests = [test1, test2, test3, test4]

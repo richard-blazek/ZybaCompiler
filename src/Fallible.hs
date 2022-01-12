@@ -1,4 +1,4 @@
-module Fallible (Fallible, FallibleIO, ExceptT (..), err, assert, correct, wrap, unwrap) where
+module Fallible (Fallible, FallibleIO, ExceptT (..), err, assert, correct, wrap, unwrap, dropLeft) where
 
 import Control.Monad.Except (ExceptT (..))
 
@@ -11,6 +11,10 @@ err line msg = Left $ "Line " ++ show (line + 1) ++ ": " ++ msg
 assert :: Bool -> Integer -> String -> Fallible ()
 assert True _ _ = Right ()
 assert False line msg = err line msg
+
+dropLeft :: Fallible a -> Maybe a
+dropLeft (Right x) = Just x
+dropLeft (Left _) = Nothing
 
 correct :: Monad m => m a -> ExceptT e m a
 correct = ExceptT . (>>= return . Right)

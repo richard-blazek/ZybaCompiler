@@ -16,7 +16,7 @@ map2 f g (a, b) = (f a, g b)
 fmap2 :: Functor f => (a -> c) -> (b -> d) -> f (a, b) -> f (c, d)
 fmap2 f g = fmap (map2 f g)
 
-infixl 3 ??
+infixr 2 ??
 (??) :: Monad m => Maybe a -> m a -> m a
 Nothing ?? m = m
 Just x ?? _ = return x

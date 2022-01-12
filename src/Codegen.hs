@@ -3,7 +3,7 @@ module Codegen (gen) where
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
 import qualified Language as Lang
-import Semantics (Expression (..), Statement (..))
+import Semantics (Value (..), Statement (..))
 import Parser (Literal (..))
 import Fallible (Fallible, err)
 import Functions (intercalate, split, number, pad)
@@ -11,17 +11,17 @@ import Data.Maybe (fromJust)
 
 capturesOfBlock :: (String -> String) -> String -> Set.Set String -> [Statement] -> Set.Set String
 capturesOfBlock _ _ _ [] = Set.empty
-capturesOfBlock qual this skip (Expression value : rest) = capturesOfExpression qual this skip value
-capturesOfBlock qual this skip (Initialization name value : rest) = Set.union (capturesOfExpression qual this skip value) $ capturesOfBlock qual this (Set.insert name skip) rest
-capturesOfBlock qual this skip (Assignment _ value : rest) = Set.union (capturesOfExpression qual this skip value) $ capturesOfBlock qual this skip rest
-capturesOfBlock qual this skip (While condition block : rest) = Set.unions [capturesOfExpression qual this skip condition, capturesOfBlock qual this skip block, capturesOfBlock qual this skip rest]
-capturesOfBlock qual this skip (IfChain chains else' : rest) = Set.unions [Set.unions $ map (\(cond, block) -> Set.union (capturesOfExpression qual this skip cond) $ capturesOfBlock qual this skip block) chains, capturesOfBlock qual this skip else', capturesOfBlock qual this skip rest]
+capturesOfBlock qual this skip (Value value : rest) = capturesOfValue qual this skip value
+capturesOfBlock qual this skip (Initialization name value : rest) = Set.union (capturesOfValue qual this skip value) $ capturesOfBlock qual this (Set.insert name skip) rest
+capturesOfBlock qual this skip (Assignment _ value : rest) = Set.union (capturesOfValue qual this skip value) $ capturesOfBlock qual this skip rest
+capturesOfBlock qual this skip (While condition block : rest) = Set.unions [capturesOfValue qual this skip condition, capturesOfBlock qual this skip block, capturesOfBlock qual this skip rest]
+capturesOfBlock qual this skip (IfChain chains else' : rest) = Set.unions [Set.unions $ map (\(cond, block) -> Set.union (capturesOfValue qual this skip cond) $ capturesOfBlock qual this skip block) chains, capturesOfBlock qual this skip else', capturesOfBlock qual this skip rest]
 
-capturesOfExpression :: (String -> String) -> String -> Set.Set String -> (Lang.Type, Expression) -> Set.Set String
-capturesOfExpression qual _ skip (_, Name pkg name) = Set.difference (Set.singleton $ qual pkg ++ name) skip
-capturesOfExpression qual this skip (_, Lambda args body) = capturesOfBlock qual this (Set.union skip $ Set.fromList $ map ((qual this ++) . fst) args) body
-capturesOfExpression qual this skip (_, Call fun args) = Set.unions $ map (capturesOfExpression qual this skip) $ fun : args
-capturesOfExpression _ _ skip _ = Set.empty
+capturesOfValue :: (String -> String) -> String -> Set.Set String -> (Lang.Type, Value) -> Set.Set String
+capturesOfValue qual _ skip (_, Name pkg name) = Set.difference (Set.singleton $ qual pkg ++ name) skip
+capturesOfValue qual this skip (_, Lambda args body) = capturesOfBlock qual this (Set.union skip $ Set.fromList $ map ((qual this ++) . fst) args) body
+capturesOfValue qual this skip (_, Call fun args) = Set.unions $ map (capturesOfValue qual this skip) $ fun : args
+capturesOfValue _ _ skip _ = Set.empty
 
 defaultValue :: Lang.Type -> String
 defaultValue Lang.Void = "NULL"
@@ -99,36 +99,36 @@ genPrimitive Lang.Join [array, separator] [Lang.Vector Lang.Text, Lang.Text] = "
 genPrimitive Lang.Join [array, separator] [Lang.Vector v, Lang.Text] = "implode(" ++ separator ++ ",array_map(" ++ array ++ "->a,'json_encode'))"
 
 genStatement :: (String -> String) -> String -> Statement -> String
-genStatement qual this (Expression value) = genExpression qual this value ++ ";"
-genStatement qual this (Initialization name value) = qual this ++ name ++ "=" ++ genExpression qual this value ++ ";"
-genStatement qual this (Assignment name value) = qual this ++ name ++ "=" ++ genExpression qual this value ++ ";"
-genStatement qual this (While condition block) = "while(" ++ genExpression qual this condition ++ "){" ++ genBlock qual this False block ++ "}"
+genStatement qual this (Value value) = genValue qual this value ++ ";"
+genStatement qual this (Initialization name value) = qual this ++ name ++ "=" ++ genValue qual this value ++ ";"
+genStatement qual this (Assignment name value) = qual this ++ name ++ "=" ++ genValue qual this value ++ ";"
+genStatement qual this (While condition block) = "while(" ++ genValue qual this condition ++ "){" ++ genBlock qual this False block ++ "}"
 genStatement qual this (IfChain chain else') = intercalate "else " (map genIf chain) ++ "else{" ++ genBlock qual this False else' ++ "}"
-  where genIf (cond, block) = "if(" ++ genExpression qual this cond ++ "){" ++ genBlock qual this False block ++ "}"
+  where genIf (cond, block) = "if(" ++ genValue qual this cond ++ "){" ++ genBlock qual this False block ++ "}"
 
 genBlock :: (String -> String) -> String -> Bool -> [Statement] -> String
 genBlock _ _ _ [] = ""
-genBlock qual this True [statement@(Expression (type', _))] | type' /= Lang.Void = "return " ++ genStatement qual this statement
+genBlock qual this True [statement@(Value (type', _))] | type' /= Lang.Void = "return " ++ genStatement qual this statement
 genBlock qual this return (statement : statements) = genStatement qual this statement ++ genBlock qual this return statements
 
-genExpression :: (String -> String) -> String -> (Lang.Type, Expression) -> String
-genExpression _ _ (_, Literal (Bool b)) = if b then "TRUE" else "FALSE"
-genExpression _ _ (_, Literal (Int i)) = show i
-genExpression _ _ (_, Literal (Real r)) = show r
-genExpression _ _ (_, Literal (Text s)) = show s
-genExpression qual this (_, Name pkg name) = qual pkg ++ name
-genExpression qual this (_, Call fun args) = genExpression qual this fun ++ "(" ++ (intercalate "," $ map (genExpression qual this) args) ++ ")"
-genExpression qual this (_, Primitive primitive args) = genPrimitive primitive (map (genExpression qual this) args) (map fst args)
-genExpression qual this (_, Record fields) = "z1array::n([" ++ intercalate "," (map genAssoc $ Map.assocs fields) ++ "])"
-  where genAssoc (name, value) = "'" ++ name ++ "'=>" ++ genExpression qual this value
-genExpression qual this (Lang.Function _ returnType', Lambda args block) = header ++ "{" ++ genBlock qual this (returnType' /= Lang.Void) block ++ "})"
+genValue :: (String -> String) -> String -> (Lang.Type, Value) -> String
+genValue _ _ (_, Literal (Bool b)) = if b then "TRUE" else "FALSE"
+genValue _ _ (_, Literal (Int i)) = show i
+genValue _ _ (_, Literal (Real r)) = show r
+genValue _ _ (_, Literal (Text s)) = show s
+genValue qual this (_, Name pkg name) = qual pkg ++ name
+genValue qual this (_, Call fun args) = genValue qual this fun ++ "(" ++ (intercalate "," $ map (genValue qual this) args) ++ ")"
+genValue qual this (_, Primitive primitive args) = genPrimitive primitive (map (genValue qual this) args) (map fst args)
+genValue qual this (_, Record fields) = "z1array::n([" ++ intercalate "," (map genAssoc $ Map.assocs fields) ++ "])"
+  where genAssoc (name, value) = "'" ++ name ++ "'=>" ++ genValue qual this value
+genValue qual this (Lang.Function _ returnType', Lambda args block) = header ++ "{" ++ genBlock qual this (returnType' /= Lang.Void) block ++ "})"
   where argNames = map ((qual this ++) . fst) args
         captures = intercalate "," $ Set.map ('&' :) $ Lang.removePrimitives $ capturesOfBlock qual this (Set.fromList argNames) block
         header = "(function(" ++ intercalate "," argNames ++ ")" ++ (if null captures then "" else "use(" ++ captures ++ ")")
-genExpression qual this (_, Access obj field) = genExpression qual this obj ++ "[\"" ++ field ++ "\"]"
+genValue qual this (_, Access obj field) = genValue qual this obj ++ "[\"" ++ field ++ "\"]"
 
-genDeclaration :: (String -> String) -> String -> String -> (Lang.Type, Semantics.Expression) -> String
-genDeclaration qual this name value = qual this ++ name ++ "=" ++ genExpression qual this value ++ ";"
+genDeclaration :: (String -> String) -> String -> String -> (Lang.Type, Semantics.Value) -> String
+genDeclaration qual this name value = qual this ++ name ++ "=" ++ genValue qual this value ++ ";"
 
 preamble :: [String] -> String
 preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "real=0.0;", "bool=FALSE;", "text='';", "void=NULL;"]) quals) ++ "\
@@ -201,10 +201,10 @@ preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "
   \}\
 \}?>"
 
-genPkg :: (String -> String) -> String -> [(String, (Lang.Type, Semantics.Expression))] -> String
+genPkg :: (String -> String) -> String -> [(String, (Lang.Type, Semantics.Value))] -> String
 genPkg qual pkg decls = "<?php " ++ concat (map (uncurry $ genDeclaration qual pkg) decls) ++ "?>"
 
-gen :: [String] -> [(String, [(String, (Lang.Type, Semantics.Expression))])] -> String
+gen :: [String] -> [(String, [(String, (Lang.Type, Semantics.Value))])] -> String
 gen phps pkgs = concat phps ++ preamble qualified ++ concat (map (uncurry $ genPkg (quals Map.!)) pkgs)
   where qualified = map (("$z0" ++) . pad (length $ show $ length pkgs) '0' . show) $ number pkgs
         quals = Map.fromList $ zip (map fst pkgs) qualified
