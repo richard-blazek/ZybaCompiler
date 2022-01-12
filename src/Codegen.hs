@@ -140,21 +140,18 @@ preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "
     \return $z;\
   \}\
   \public function getV($i){\
-    \if($i<0||$i>=count($this->a)){\
-      \die('There is no element at '.$i);\
+    \$c=count($this->a);\
+    \if($c==0){\
+      \die('An empty array cannot have an index '.$i);\
     \}\
-    \return $this->a[$i];\
+    \return $this->a[(($i%$c)+$c)%$c];\
   \}\
   \public function setV($i,$v){\
     \$c=count($this->a);\
-    \if($i<0){\
-      \die('Assigning to a negative index '.$i);\
+    \if($c==0){\
+      \die('An empty array cannot have an index '.$i);\
     \}\
-    \if($i>=count($this->a)){\
-      \$this->a=array_pad($this->a,$i+1,$v);\
-    \}else{\
-      \$this->a[$i]=$v;\
-    \}\
+    \$this->a[(($i%$c)+$c)%$c]=$v;\
   \}\
   \public function getD($i){\
     \if(!array_key_exists($i,$this->a)){\
