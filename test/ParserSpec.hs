@@ -45,7 +45,7 @@ test4 = testEqual "Parsing the fourth code" [
         (n, e, s, a, b, c) = (Name "n", Name "e", Name "s", Name "a", Name "b", Name "c")
 
 test5 = testEqual "Parsing the second code" [
-  InvalidDeclaration "Expected Word \"fun\" but got Word \"not\"",
+  InvalidDeclaration "Expected Name \"fun\" but got Name \"not\"",
   Function "fun" ["a", "b"] $ InvalidValue "Expected a value but reached the EOF"]
   $ pt "some is not fun is fun[a b]"
 

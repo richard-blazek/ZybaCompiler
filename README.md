@@ -25,7 +25,7 @@ maths {
     three 3
 }
 
-circleArea fun[radius: float] float {
+circleArea fun[radius: real] real {
     radius * radius * maths.pi
 }
 
@@ -81,6 +81,22 @@ merge fun[a: int.list, b: int.list] int.list {
         i = i + 1
     }
     result
+}
+
+; Linear congruential pseudo-random generator
+a 1103515245
+c 12345 + int
+m 256r10000
+
+next fun[x: int]int {
+	x * a + c % m
+}
+
+seed fun[s: int] int.fun {
+	fun[]int {
+		s = next[s]
+		s
+	}
 }
 
 ```
