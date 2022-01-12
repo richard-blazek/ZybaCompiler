@@ -24,8 +24,9 @@ data Literal = Int Integer | Real Double | Text String | Bool Bool deriving (Sho
 data Value
   = Literal Literal
   | Record (Map.Map String (Integer, Value))
-  | Name String
+  | Name [String]
   | Call (Integer, Value) [(Integer, Value)]
+  | Operation String [(Integer, Value)]
   | Access (Integer, Value) String
   | Lambda [(String, (Integer, Value))] (Integer, Value) [(Integer, Statement)] deriving (Show, Eq)
 
@@ -44,7 +45,7 @@ parseFactor ((line, Lexer.LiteralReal _ n exp) : tokens) = Right ((line, Literal
 parseFactor ((line, Lexer.LiteralText lit) : tokens) = Right ((line, Literal $ Text lit), tokens)
 parseFactor ((line, Lexer.LiteralBool lit) : tokens) = Right ((line, Literal $ Bool lit), tokens)
 parseFactor ((line, Lexer.Word "fun") : tokens) = parseLambda line tokens
-parseFactor ((line, Lexer.Word name) : tokens) = Right ((line, Name name), tokens)
+parseFactor ((line, Lexer.Word name) : tokens) = Right ((line, Name [name]), tokens)
 parseFactor ((line, Lexer.Separator '(') : tokens) = do
   (expression, tokensAfterValue) <- parseValue tokens
   tokensAfterParenthesis <- expect (Lexer.Separator ')') tokensAfterValue
@@ -83,6 +84,7 @@ parseCall :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Value), [(Integer, 
 parseCall tokens = parseFactor tokens >>= uncurry (tailRec2M if' id id else')
   where if' fun tokens = Right $ null tokens || snd (head tokens) `notElem` [Lexer.Separator '[', Lexer.Separator '.', Lexer.Separator ':']
         else' fun ((line, Lexer.Separator '[') : tokens) = fmap2 (pair line . Call fun) id $ parseValues tokens
+        else' (line, Name names) ((_, Lexer.Separator '.') : (_, Lexer.Word name) : tokens) = Right ((line, Name $ names ++ [name]), tokens)
         else' obj ((line, Lexer.Separator '.') : (_, Lexer.Word name) : tokens) = Right ((line, Access obj name), tokens)
         else' obj ((line, Lexer.Separator c) : _) = err line $ "Expected field or primitive name after " ++ [c]
         parseValues = parseMany parseValue $ Lexer.Separator ']'
@@ -90,7 +92,7 @@ parseCall tokens = parseFactor tokens >>= uncurry (tailRec2M if' id id else')
 parseValue :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Value), [(Integer, Lexer.Token)])
 parseValue tokens = parseCall tokens >>= uncurry (tailRec2M if' id id else')
   where if' first tokens = Right (case tokens of (_, Lexer.Operator _) : _ -> False; _ -> True)
-        else' first ((line, Lexer.Operator op) : tokens) = fmap2 (\second -> (line, Call (line, Name op) [first, second])) id $ parseCall tokens
+        else' first ((line, Lexer.Operator op) : tokens) = fmap2 (\second -> (line, Operation op [first, second])) id $ parseCall tokens
 
 parseIf :: Integer -> [((Integer, Value), [(Integer, Statement)])] -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Statement), [(Integer, Lexer.Token)])
 parseIf line chain tokens = do

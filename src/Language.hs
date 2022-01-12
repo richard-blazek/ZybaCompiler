@@ -112,5 +112,5 @@ primitiveCall line name args = do
   Right (returnType, primitive)
 
 fieldAccess :: Integer -> String -> Type -> Fallible Type
-fieldAccess line name (Record fields) = Map.lookup name fields ?? err line ("Record does not contain a field " ++ name)
-fieldAccess line _ _ = err line "Value is not a record and cannot have any fields"
+fieldAccess line name (Record fields) = Map.lookup name fields ?? err line ("The record does not have a field " ++ name)
+fieldAccess line name _ = err line $ "It is not a record; therefore it cannot have a field " ++ name

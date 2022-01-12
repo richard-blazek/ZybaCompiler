@@ -42,40 +42,47 @@ analyseCall :: Integer -> [(Lang.Type, Value)] -> (Lang.Type, Value) -> Fallible
 analyseCall line args callee@(type', _) = case type' of
   Lang.Function from to | from == types -> Right (to, Call callee args)
   Lang.Function from to -> err line $ "Expected arguments' types " ++ show from ++ " but got " ++ show types
-  _ -> err line $ "Expected a function but got " ++ show callee ++ " which is of a type " ++ show type'
+  _ -> err line $ "Expected a function but got " ++ show type'
   where types = map fst args
+
+analysePrimitive :: Scope.Scope -> (Integer, Parser.Value) -> [(Lang.Type, Value)] -> Maybe (Lang.Type, Value)
+analysePrimitive scope (line, Parser.Name names@(_ : _ : _)) args = do
+  let (primitive, obj) = (last names, init names)
+  obj' <- dropLeft $ analyseValue scope (line, Parser.Name obj)
+  (type', primitive') <- dropLeft $ Lang.primitiveCall line primitive $ map fst (obj' : args)
+  Just (type', Primitive primitive' (obj' : args))
+
+analysePrimitive scope (line, Parser.Access obj primitive) args = do
+  obj' <- dropLeft $ analyseValue scope obj
+  (type', primitive') <- dropLeft $ Lang.primitiveCall line primitive $ map fst (obj' : args)
+  Just (type', Primitive primitive' (obj' : args))
+analysePrimitive _ _ _ = Nothing
 
 analyseAccess :: Integer -> Scope.Scope -> [String] -> (Lang.Type, Value) -> Fallible (Lang.Type, Value)
 analyseAccess line scope [] obj = Right obj
-analyseAccess line scope (name : names) obj = Lang.fieldAccess line name (fst obj) >>= analyseAccess line scope names . (`pair` Access obj name)
-
-resolveNamespace :: [String] -> Scope.Scope -> (Integer, Parser.Value) -> Fallible (Lang.Type, Value)
-resolveNamespace parts scope (_, Parser.Access obj name) = resolveNamespace (name : parts) scope obj
-resolveNamespace parts scope (line, Parser.Name name) = do
-  (type', path, remaining) <- Scope.get line (name : parts) scope
-  let expr = (type', Name path name)
-  if null remaining
-    then Right expr
-    else analyseAccess line scope remaining expr
-resolveNamespace parts scope expr@(line, _) = analyseValue scope expr >>= analyseAccess line scope parts
-
-analysePrimitive :: (Integer, Parser.Value) -> [(Lang.Type, Value)] -> Maybe (Lang.Type, Value)
-analysePrimitive (line, Parser.Name name) args = case Lang.primitiveCall line name $ map fst args of
-  Right (type', primitive) -> Just (type', Primitive primitive args)
-  Left _ -> Nothing
-analysePrimitive _ _ = Nothing
+analyseAccess line scope (name : names) obj@(type', _) = case Lang.primitiveCall line name [type'] of
+  Right (resultType, primitive) -> Right (resultType, Primitive primitive [obj])
+  _ -> Lang.fieldAccess line name type' >>= analyseAccess line scope names . (`pair` Access obj name)
 
 analyseValue :: Scope.Scope -> (Integer, Parser.Value) -> Fallible (Lang.Type, Value)
 analyseValue scope (_, Parser.Literal lit@(Parser.Int _)) = Right (Lang.Int, Literal lit)
 analyseValue scope (_, Parser.Literal lit@(Parser.Real _)) = Right (Lang.Real, Literal lit)
 analyseValue scope (_, Parser.Literal lit@(Parser.Text _)) = Right (Lang.Text, Literal lit)
 analyseValue scope (_, Parser.Literal lit@(Parser.Bool _)) = Right (Lang.Bool, Literal lit)
-analyseValue scope expr@(_, Parser.Name _) = resolveNamespace [] scope expr
-analyseValue scope expr@(line, Parser.Access obj name) = (dropLeft (analyseValue scope obj) >>= analysePrimitive (line, Parser.Name name) . (:[])) ?? resolveNamespace [] scope expr
+analyseValue scope (line, Parser.Access obj name) = analyseValue scope obj >>= analyseAccess line scope [name]
+
+analyseValue scope (line, Parser.Name names@(name : _)) = do
+  (type', path, remaining) <- Scope.get line names scope
+  analyseAccess line scope remaining (type', Name path name)
 
 analyseValue scope (line, Parser.Call callee args) = do
   args' <- mapM (analyseValue scope) args
-  analysePrimitive callee args' ?? (analyseValue scope callee >>= analyseCall line args')
+  analysePrimitive scope callee args' ?? (analyseValue scope callee >>= analyseCall line args')
+
+analyseValue scope (line, Parser.Operation name args) = do
+  args' <- mapM (analyseValue scope) args
+  (type', primitive) <- Lang.primitiveCall line name $ map fst args'
+  Right (type', Primitive primitive args')
 
 analyseValue scope (line, Parser.Lambda args returnType block) = do
   argTypes <- mapM (analyseType scope . snd) args
@@ -92,16 +99,12 @@ analyseValue scope (line, Parser.Record fields) = do
   Right (Lang.Record $ Map.map fst fields', Record $ fields')
 
 analyseStatement :: Scope.Scope -> (Integer, Parser.Statement) -> Fallible (Statement, Scope.Scope)
-analyseStatement scope (line, Parser.Value expr) = do
-  value <- analyseValue scope expr
-  Right (Value value, scope)
+analyseStatement scope (line, Parser.Value expr) = fmap ((`pair` scope) . Value) $ analyseValue scope expr
 
 analyseStatement scope (line, Parser.Assignment name expr) = do
   value@(type', _) <- analyseValue scope expr
   (scope', added) <- Scope.add True line name (Scope.Variable type') scope
-  Right . (`pair` scope') $ if added
-    then Initialization name value
-    else Assignment name value
+  Right . (`pair` scope') $ (if added then Initialization else Assignment) name value
 
 analyseStatement scope (line, Parser.IfChain ifs else') = do
   ifChain <- mapM (\(cond, block) -> analyseValue scope cond >>= (\cond' -> fmap (pair cond') $ analyseBlock scope block)) ifs
