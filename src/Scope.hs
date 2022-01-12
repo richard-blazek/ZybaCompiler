@@ -5,6 +5,8 @@ import qualified Language as Lang
 import Fallible (Fallible (..), err)
 import Functions (pair, (??))
 
+import Debug.Trace (trace)
+
 data Entry = Constant Lang.Type | Variable Lang.Type | Namespace Scope deriving (Eq, Show)
 data Scope = Scope String (Map.Map String Entry) deriving (Eq, Show)
 

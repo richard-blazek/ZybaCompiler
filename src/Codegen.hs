@@ -206,5 +206,5 @@ genPkg qual pkg decls = "<?php " ++ concat (map (uncurry $ genDeclaration qual p
 
 gen :: [String] -> [(String, [(String, (Lang.Type, Semantics.Value))])] -> String
 gen phps pkgs = concat phps ++ preamble qualified ++ concat (map (uncurry $ genPkg (quals Map.!)) pkgs)
-  where qualified = map (("$z0" ++) . pad (length $ show $ length pkgs) '0' . show) $ number pkgs
-        quals = Map.fromList $ zip (map fst pkgs) qualified
+  where qualified = map (("$z0" ++) . pad (length $ show $ length pkgs) '0' . show) [0..]
+        quals = Map.fromList $ zip (reverse $ map fst pkgs) qualified
