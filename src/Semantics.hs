@@ -38,8 +38,8 @@ collectGlobal scope _ = Right scope
 collectGlobals :: String -> [(Integer, Parser.Declaration)] -> Fallible Scope.Scope
 collectGlobals = foldlM collectGlobal . Scope.empty
 
-analyseCall :: Integer -> (Lang.Type, Expression) -> [(Lang.Type, Expression)] -> Fallible (Lang.Type, Expression)
-analyseCall line callee@(type', _) args = case type' of
+analyseCall :: Integer -> [(Lang.Type, Expression)] -> (Lang.Type, Expression) -> Fallible (Lang.Type, Expression)
+analyseCall line args callee@(type', _) = case type' of
   Lang.Function from to | from == types -> Right (to, Call callee args)
   Lang.Function from to -> err line $ "Expected arguments' types " ++ show from ++ " but got " ++ show types
   _ -> err line $ "Expected a function but got " ++ show callee ++ " which is of a type " ++ show type'
@@ -59,6 +59,12 @@ resolveNamespace parts scope (line, Parser.Name name) = do
     else analyseAccess line scope remaining expr
 resolveNamespace parts scope expr@(line, _) = analyseExpression scope expr >>= analyseAccess line scope parts
 
+analysePrimitive :: (Integer, Parser.Expression) -> [(Lang.Type, Expression)] -> (Lang.Type, Expression) -> (Lang.Type, Expression)
+analysePrimitive (line, Parser.Name name) args default' = case Lang.primitiveCall line name $ map fst args of
+  Right (type', primitive) -> (type', Primitive primitive args)
+  Left _ -> default'
+analysePrimitive _ _ default' = default'
+
 analyseExpression :: Scope.Scope -> (Integer, Parser.Expression) -> Fallible (Lang.Type, Expression)
 analyseExpression scope (_, Parser.Literal lit@(Parser.Int _)) = Right (Lang.Int, Literal lit)
 analyseExpression scope (_, Parser.Literal lit@(Parser.Real _)) = Right (Lang.Real, Literal lit)
@@ -69,12 +75,7 @@ analyseExpression scope expr@(_, Parser.Access _ _) = resolveNamespace [] scope 
 
 analyseExpression scope (line, Parser.Call callee args) = do
   args' <- mapM (analyseExpression scope) args
-  case callee of
-    (_, Parser.Name name) -> do
-      case Lang.primitiveCall line name $ map fst args' of
-        Right (type', primitive) -> Right (type', Primitive primitive args')
-        _ -> analyseExpression scope callee >>= flip (analyseCall line) args'
-    _ -> analyseExpression scope callee >>= flip (analyseCall line) args'
+  fmap (analysePrimitive callee args') $ analyseExpression scope callee >>= analyseCall line args'
 
 analyseExpression scope (line, Parser.Lambda args returnType block) = do
   argTypes <- mapM (analyseType scope . snd) args

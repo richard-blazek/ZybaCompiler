@@ -1,6 +1,5 @@
 module Fallible (Fallible, FallibleIO, ExceptT (..), err, assert, correct, wrap, unwrap) where
 
-import Control.Monad (liftM, ap)
 import Control.Monad.Except (ExceptT (..))
 
 type Fallible a = Either String a
