@@ -1,4 +1,4 @@
-module Functions (zipMaps, pair, map2, (??), intercalate, join, pad, mapCatFoldlM, tailRecM, tailRec2M, fmap2, split, follow, number, leaf) where
+module Functions (zipMaps, pair, map2, (??), intercalate, join, pad, mapCatFoldlM, tailRecM, tailRec2M, fmap2, split, follow, leaf) where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.Map.Merge.Strict as Merge
@@ -36,7 +36,7 @@ mapCatFoldlM :: (Monad m, Foldable t) => (b -> a -> m (b, [c])) -> b -> t a -> m
 mapCatFoldlM f seed = fmap2 id (concat . reverse) . foldl combine (return (seed, []))
   where combine accM item = accM >>= (\(acc, list) -> fmap2 id (: list) $ f acc item)
 
-tailRecM :: (Monad m) => (a -> m Bool) -> (a -> m b) -> (a -> m a) -> a -> m b
+tailRecM :: Monad m => (a -> m Bool) -> (a -> m b) -> (a -> m a) -> a -> m b
 tailRecM if' then' else' arg = if' arg >>= action
   where action True = then' arg
         action False = else' arg >>= tailRecM if' then' else'
@@ -44,10 +44,10 @@ tailRecM if' then' else' arg = if' arg >>= action
 tailRec2M :: Monad m => (a -> b -> m Bool) -> (a -> c) -> (b -> d) -> (a -> b -> m (a, b)) -> a -> b -> m (c, d)
 tailRec2M if' thenA thenB else' = curry $ tailRecM (uncurry if') (return . map2 thenA thenB) (uncurry else')
 
-split :: [a] -> Maybe [(a, a)]
+split :: [a] -> ([(a, a)], Maybe a)
 split = splitTail []
-  where splitTail acc [] = Just acc
-        splitTail acc [x] = Nothing
+  where splitTail acc [] = (acc, Nothing)
+        splitTail acc [x] = (acc, Just x)
         splitTail acc (x1 : x2 : xs) = splitTail ((x1, x2) : acc) xs
 
 follow :: Monad m => (a -> m (b, a)) -> (a -> m (c, a)) -> a -> m ((b, c), a)
@@ -55,9 +55,6 @@ follow f g x = do
   (a, y) <- f x
   (b, z) <- g y
   return ((a, b), z)
-
-number :: Integral i => [a] -> [i]
-number = (zipWith const [0..])
 
 leaf :: a -> Tree.Tree a
 leaf = (`Tree.Node` [])

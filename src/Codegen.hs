@@ -5,9 +5,7 @@ import qualified Data.Map.Strict as Map
 import qualified Language as Lang
 import Semantics (Value (..), Statement (..))
 import Parser (Literal (..))
-import Fallible (Fallible, err)
-import Functions (intercalate, split, number, pad)
-import Data.Maybe (fromJust)
+import Functions (intercalate, split, pad)
 
 capturesOfBlock :: (String -> String) -> String -> Set.Set String -> [Statement] -> Set.Set String
 capturesOfBlock _ _ _ [] = Set.empty
@@ -29,7 +27,7 @@ defaultValue Lang.Int = "0"
 defaultValue Lang.Bool = "FALSE"
 defaultValue Lang.Real = "0.0"
 defaultValue Lang.Text = "''"
-defaultValue (Lang.Function args result) = "(function(" ++ intercalate "," (map (\n -> "$_" ++ show n) $ number args) ++ "){return " ++ defaultValue result ++ ";})"
+defaultValue (Lang.Function args result) = "(function(" ++ intercalate "," (zipWith (const . ("$_" ++) . show) [0..] args) ++ "){return " ++ defaultValue result ++ ";})"
 defaultValue (Lang.Vector _) = "z1array::n([])"
 defaultValue (Lang.Dictionary _ _) = "z1array::n([])"
 defaultValue (Lang.Record fields) = "z1array::n([" ++ intercalate "," (map genAssoc $ Map.assocs fields) ++ "])"
@@ -78,7 +76,7 @@ genPrimitive Lang.AsBool [a] [_] = "(bool)" ++ a
 genPrimitive Lang.AsReal [a] [_] = "(float)" ++ a
 genPrimitive Lang.AsText [a] [Lang.Text] = a
 genPrimitive Lang.AsText [a] [_] = "json_encode(" ++ a ++ ")"
-genPrimitive Lang.Dict (_ : _ : args) _ = "z1array::n([" ++ intercalate "," (map (\(k, v) -> k ++ "=>" ++ v) $ fromJust $ split args) ++ "])"
+genPrimitive Lang.Dict (_ : _ : args) _ = "z1array::n([" ++ intercalate "," (map (\(k, v) -> k ++ "=>" ++ v) $ fst $ split args) ++ "])"
 genPrimitive Lang.List (_ : args) _ = "z1array::n([" ++ intercalate "," args ++ "])"
 genPrimitive Lang.Get [array, key] [Lang.Vector _, _] = array ++ "->getV(" ++ key ++ ")"
 genPrimitive Lang.Get [array, key] [Lang.Dictionary _ _, _] = array ++ "->getD(" ++ key ++ ")"
@@ -206,5 +204,5 @@ genPkg qual pkg decls = "<?php " ++ concat (map (uncurry $ genDeclaration qual p
 
 gen :: [String] -> [(String, [(String, (Lang.Type, Semantics.Value))])] -> String
 gen phps pkgs = concat phps ++ preamble qualified ++ concat (map (uncurry $ genPkg (quals Map.!)) pkgs)
-  where qualified = map (("$z0" ++) . pad (length $ show $ length pkgs) '0' . show) [0..]
+  where qualified = let len = length pkgs in map (("$z0" ++) . pad (length $ show len) '0' . show) [0..len-1]
         quals = Map.fromList $ zip (reverse $ map fst pkgs) qualified

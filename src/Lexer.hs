@@ -27,9 +27,9 @@ isOperator = (`elem` "+-*/%&|~^<>=!")
 isSeparator = (`elem` "()[]{}:.")
 
 startToken :: Char -> Token
+startToken '"' = LiteralText ""
+startToken ';' = Comment
 startToken char
-  | char == '"' = LiteralText ""
-  | char == ';' = Comment
   | isDigit 10 char = LiteralInt 10 $ parseDigit char
   | isOperator char = Operator [char]
   | isSeparator char = Separator char
@@ -55,4 +55,4 @@ buildToken tokens char = case tokens of
   where inc = if char == '\n' then 1 else 0
 
 tokenize :: String -> [(Integer, Token)]
-tokenize = tail . reverse . dropWhile (\x -> snd x `elem` [Empty, Comment]) . foldl buildToken [(0, Empty)]
+tokenize = tail . reverse . dropWhile ((`elem` [Empty, Comment]) . snd) . foldl buildToken [(0, Empty)]

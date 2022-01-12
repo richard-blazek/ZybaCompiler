@@ -85,9 +85,9 @@ getResultType line primitive args = case (primitive, args) of
     Right $ Vector value
   (Dict, key : value : args) -> do
     assert (key `elem` [Int, Text]) line "Map keys must be either int or text"
-    let pairs = split args
-    assert (pairs /= Nothing) line "Missing value for the last key"
-    assert (fmap (all (== (key, value))) pairs == Just True) line "All keys and values must have the specified type"
+    let (pairs, leftover) = split args
+    assert (leftover == Nothing) line "Missing value for the last key"
+    assert (all (== (key, value)) pairs) line "All keys and values must have the specified type"
     Right $ Dictionary key value
   (Get, [Vector value, Int]) -> Right value
   (Get, [Dictionary key value, index]) | index == key -> Right value
