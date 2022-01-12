@@ -93,8 +93,8 @@ genPrimitive Lang.Append (array : args) (Lang.Vector v : types) = array ++ "->ap
 genPrimitive Lang.Sized [array, size] [Lang.Vector v, Lang.Int] = array ++ "->sized(" ++ size ++ "," ++ defaultValue v ++ ")"
 genPrimitive Lang.Sized [array, size, value] [Lang.Vector _, Lang.Int, _] = array ++ "->sized(" ++ size ++ "," ++ value ++ ")"
 genPrimitive Lang.Sort [array] _ = array ++ "->sort(FALSE)"
-genPrimitive Lang.Sort [array, reversed] [Lang.Vector _, Lang.Bool] = array ++ "->sort(" ++ reversed ++ ")"
-genPrimitive Lang.Sort [array, compare] _ = array ++ "->usort(" ++ compare ++ ")"
+genPrimitive Lang.Sort [array, reversed] [Lang.Vector _, Lang.Bool] = array ++ "->sortV(" ++ reversed ++ ")"
+genPrimitive Lang.Sort [array, compare] _ = array ++ "->usortV(" ++ compare ++ ")"
 genPrimitive Lang.Join [array, separator] [Lang.Vector Lang.Text, Lang.Text] = "implode(" ++ separator ++ "," ++ array ++ "->a)"
 genPrimitive Lang.Join [array, separator] [Lang.Vector v, Lang.Text] = "implode(" ++ separator ++ ",array_map(" ++ array ++ "->a,'json_encode'))"
 
@@ -123,7 +123,7 @@ genExpression qual this (_, Record fields) = "z1array::n([" ++ intercalate "," (
   where genAssoc (name, value) = "'" ++ name ++ "'=>" ++ genExpression qual this value
 genExpression qual this (Lang.Function _ returnType', Lambda args block) = header ++ "{" ++ genBlock qual this (returnType' /= Lang.Void) block ++ "})"
   where argNames = map ((qual this ++) . fst) args
-        captures = intercalate "," $ Set.map (("&" ++ qual this) ++) $ Lang.removePrimitives $ capturesOfBlock qual this (Set.fromList argNames) block
+        captures = intercalate "," $ Set.map ('&' :) $ Lang.removePrimitives $ capturesOfBlock qual this (Set.fromList argNames) block
         header = "(function(" ++ intercalate "," argNames ++ ")" ++ (if null captures then "" else "use(" ++ captures ++ ")")
 genExpression qual this (_, Access obj field) = genExpression qual this obj ++ "[\"" ++ field ++ "\"]"
 
@@ -186,14 +186,14 @@ preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "
     \}\
     \return z1array::n(array_pad($this->a,$n,$v));\
   \}\
-  \public function sort($r){\
+  \public function sortV($r){\
     \if($r){\
       \rsort($this->a);\
     \}else{\
       \sort($this->a);\
     \}\
   \}\
-  \public function usort($c){\
+  \public function usortV($c){\
     \usort($this->a,$c);\
   \}\
   \public function jsonSerialize(){\
@@ -202,7 +202,7 @@ preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "
 \}?>"
 
 genPkg :: (String -> String) -> String -> [(String, (Lang.Type, Semantics.Expression))] -> String
-genPkg qual pkg = concat . map (uncurry $ genDeclaration qual pkg)
+genPkg qual pkg decls = "<?php " ++ concat (map (uncurry $ genDeclaration qual pkg) decls) ++ "?>"
 
 gen :: [String] -> [(String, [(String, (Lang.Type, Semantics.Expression))])] -> String
 gen phps pkgs = concat phps ++ preamble qualified ++ concat (map (uncurry $ genPkg (quals Map.!)) pkgs)
