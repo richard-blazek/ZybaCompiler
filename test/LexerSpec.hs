@@ -7,14 +7,14 @@ testEqual t x y = TestCase $ assertEqual t x y
 test1 = testEqual "Tokenization of the first code"
   [(0, LiteralInt 10 1), (0, Operator "+"), (0, LiteralInt 10 2), (1, LiteralInt 10 222),
   (1, LiteralText "a+%74漢語if^\nelse1e"), (2, Operator "*"), (2, LiteralInt 9 8), (2, Operator "+"),
-  (2, LiteralFloat 9 5 0), (2, Operator "-"), (2, LiteralFloat 10 4404 3), (2, Operator "/"), (2, Word "abh_hc")]
+  (2, LiteralReal 9 5 0), (2, Operator "-"), (2, LiteralReal 10 4404 3), (2, Operator "/"), (2, Word "abh_hc")]
   $ tokenize "1+2\n222\"a+%74漢語if^\nelse1e\"*9r8+9r5.-4.404/abh_hc"
 
 test2 = testEqual "Tokenization of the second code"
   [(0, Separator '['), (0, LiteralInt 16 255), (0, Operator "--"), (0, LiteralInt 9 5), (0, LiteralInt 10 0),
   (1, LiteralInt 10 7), (1, Operator ":"), (1, LiteralInt 10 5), (1, Operator "->"), (1, Word "var"),
   (1, Operator "^"), (1, LiteralInt 10 4), (1, Operator "~"), (1, LiteralInt 10 5), (1, Operator "&"),
-  (1, LiteralInt 10 7), (1, Operator ">="), (1, LiteralInt 10 4), (1, Operator "<="), (1, LiteralFloat 2 3 2),
+  (1, LiteralInt 10 7), (1, Operator ">="), (1, LiteralInt 10 4), (1, Operator "<="), (1, LiteralReal 2 3 2),
   (1, Operator "!="), (1, LiteralInt 10 7), (1, Operator "<"), (1, Operator "-"), (1, Operator "<<"), (1, Word "fu"),
   (1, Separator '['), (1, LiteralInt 16 16), (1, Separator ']'), (2, Operator ":")]
   $ tokenize "[16rFF--9r5 0\n7:5->var  ^4~5&7>=4<=2r0.11!=7< - <<fu[16r10];\n:"
@@ -34,7 +34,7 @@ test4 = testEqual "Tokenization of the fourth code"
 
 test5 = testEqual "Tokenization of an incorrent code"
   [(0, Word "stri"), (7, LiteralInt 10 2), (7, LiteralText "###\"```"), (7, LiteralInt 10 987), (7, Operator "<=="),
-  (7, Operator ">"), (8, LiteralFloat 8 25 0)]
+  (7, Operator ">"), (8, LiteralReal 8 25 0)]
   $ tokenize "stri#\n\n\n\n\n\n\n2\"###\"\"```\"987<== >\n`.8r31."
 
 tests = [test1, test2, test3, test4, test5]

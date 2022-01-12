@@ -5,7 +5,7 @@ import Data.Char (ord)
 data Token
   = Comment
   | Empty
-  | LiteralFloat Integer Integer Integer
+  | LiteralReal Integer Integer Integer
   | LiteralInt Integer Integer
   | LiteralText String
   | LiteralBool Bool
@@ -44,10 +44,10 @@ buildToken tokens char = case tokens of
   (line, LiteralText s) : rest | char == '"' -> (line + inc, Empty) : (line, LiteralText $ reverse s) : rest
   (line, LiteralText s) : rest -> (line + inc, LiteralText $ char : s) : rest
   (line, LiteralInt radix n) : rest | parseDigit char < radix -> (line + inc, LiteralInt radix $ n * radix + parseDigit char) : rest
-  (line, LiteralInt radix n) : rest | char == '.' -> (line + inc, LiteralFloat radix n 0) : rest
+  (line, LiteralInt radix n) : rest | char == '.' -> (line + inc, LiteralReal radix n 0) : rest
   (line, LiteralInt radix n) : rest | char == 'b' && between 0 1 n -> (line + inc, LiteralBool (n == 1)) : rest
   (line, LiteralInt 10 n) : rest | (n /= 10) && (char == 'r') -> (line + inc, LiteralInt n 0) : rest
-  (line, LiteralFloat radix n exp) : rest | parseDigit char < radix -> (line + inc, LiteralFloat radix (radix * n + parseDigit char) $ exp + 1) : rest
+  (line, LiteralReal radix n exp) : rest | parseDigit char < radix -> (line + inc, LiteralReal radix (radix * n + parseDigit char) $ exp + 1) : rest
   (line, Word name) : rest | isAlnum char -> (line + inc, Word $ name ++ [char]) : rest
   (line, Operator s) : rest | isOperator char -> (line + inc, Operator $ s ++ [char]) : rest
   (line, Empty) : rest | not (null rest) -> (line + inc, startToken char) : rest

@@ -1,4 +1,4 @@
-module Functions (zipMaps, pair, map2, (!?), (??), (??=), intercalate, join, pad, mapCatFoldlM, tailRecM, tailRec2M, fmap2, split, follow, number, leaf) where
+module Functions (zipMaps, pair, map2, (??), intercalate, join, pad, mapCatFoldlM, tailRecM, tailRec2M, fmap2, split, follow, number, leaf) where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.Map.Merge.Strict as Merge
@@ -16,20 +16,10 @@ map2 f g (a, b) = (f a, g b)
 fmap2 :: Functor f => (a -> c) -> (b -> d) -> f (a, b) -> f (c, d)
 fmap2 f g = fmap (map2 f g)
 
-infixl 9 !?
-(!?) :: Integral i => [a] -> i -> Maybe a
-(x : _) !? 0 = Just x
-(_ : xs) !? n = xs !? (n - 1)
-_ !? _ = Nothing
-
 infixl 3 ??
-(??) :: Maybe a -> a -> a
-Nothing ?? x = x
-Just x ?? _ = x
-
-infixl 3 ??=
-(??=) :: Monad m => Maybe a -> m a -> m a
-(??=) maybe m = fmap return maybe ?? m
+(??) :: Monad m => Maybe a -> m a -> m a
+Nothing ?? m = m
+Just x ?? _ = return x
 
 intercalate :: (Foldable f, Monoid m) => m -> f m -> m
 intercalate x xs

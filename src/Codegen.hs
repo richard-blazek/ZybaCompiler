@@ -5,7 +5,7 @@ import qualified Data.Map.Strict as Map
 import qualified Language as Lang
 import Semantics (Expression (..), Statement (..))
 import Parser (Literal (..))
-import Fallible (Fallible, failure)
+import Fallible (Fallible, err)
 import Functions (intercalate, split, number, pad)
 import Data.Maybe (fromJust)
 
@@ -27,7 +27,7 @@ defaultValue :: Lang.Type -> String
 defaultValue Lang.Void = "NULL"
 defaultValue Lang.Int = "0"
 defaultValue Lang.Bool = "FALSE"
-defaultValue Lang.Float = "0.0"
+defaultValue Lang.Real = "0.0"
 defaultValue Lang.Text = "''"
 defaultValue (Lang.Function args result) = "(function(" ++ intercalate "," (map (\n -> "$_" ++ show n) $ number args) ++ "){return " ++ defaultValue result ++ ";})"
 defaultValue (Lang.Vector _) = "z1array::n([])"
@@ -75,7 +75,7 @@ genPrimitive Lang.Not [a] [Lang.Bool] = "(!" ++ a ++ ")"
 genPrimitive Lang.AsInt [a] [_] = "(int)" ++ a
 genPrimitive Lang.AsBool [a] [Lang.Text] = "(" ++ a ++ "!=='')"
 genPrimitive Lang.AsBool [a] [_] = "(bool)" ++ a
-genPrimitive Lang.AsFloat [a] [_] = "(float)" ++ a
+genPrimitive Lang.AsReal [a] [_] = "(float)" ++ a
 genPrimitive Lang.AsText [a] [Lang.Text] = a
 genPrimitive Lang.AsText [a] [_] = "json_encode(" ++ a ++ ")"
 genPrimitive Lang.Dict (_ : _ : args) _ = "z1array::n([" ++ intercalate "," (map (\(k, v) -> k ++ "=>" ++ v) $ fromJust $ split args) ++ "])"
@@ -131,7 +131,7 @@ genDeclaration :: (String -> String) -> String -> String -> (Lang.Type, Semantic
 genDeclaration qual this name value = qual this ++ name ++ "=" ++ genExpression qual this value ++ ";"
 
 preamble :: [String] -> String
-preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "float=0.0;", "bool=FALSE;", "text='';", "void=NULL;"]) quals) ++ "\
+preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "real=0.0;", "bool=FALSE;", "text='';", "void=NULL;"]) quals) ++ "\
 \class z1array implements JsonSerializable{\
   \public $a;\
   \public static function n($a) {\
@@ -179,7 +179,7 @@ preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "
   \}\
   \public function sized($n,$v){\
     \if($n<0){\
-      \die('Array size must be non-negative, got '.$n);\
+      \die('Cannot resize an array to a negative size '.$n);\
     \}\
     \if($n<count($this->a)){\
       \return z1array::n(array_slice($this->a,0,$n));\
