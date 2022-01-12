@@ -37,10 +37,10 @@ intercalate x xs
   | otherwise = foldr1 (\a b -> a <> x <> b) xs
 
 join :: Show a => String -> [a] -> String
-join str xs = intercalate str (map show xs)
+join str = intercalate str . map show
 
-pad :: Int -> Char -> String -> String
-pad n c s = replicate (n - length s) c ++ s
+pad :: Integral i => i -> Char -> String -> String
+pad n c s = replicate (fromIntegral n - length s) c ++ s
 
 mapCatFoldlM :: (Monad m, Foldable t) => (b -> a -> m (b, [c])) -> b -> t a -> m (b, [c])
 mapCatFoldlM f seed = fmap2 id (concat . reverse) . foldl combine (return (seed, []))
@@ -66,8 +66,8 @@ follow f g x = do
   (b, z) <- g y
   return ((a, b), z)
 
-number :: [a] -> [Integer]
-number = (`take` [0..]) . length
+number :: Integral i => [a] -> [i]
+number = (zipWith const [0..])
 
 leaf :: a -> Tree.Tree a
 leaf = (`Tree.Node` [])

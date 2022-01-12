@@ -98,9 +98,6 @@ genPrimitive Lang.Sort [array, compare] _ = array ++ "->usort(" ++ compare ++ ")
 genPrimitive Lang.Join [array, separator] [Lang.Vector Lang.Text, Lang.Text] = "implode(" ++ separator ++ "," ++ array ++ "->a)"
 genPrimitive Lang.Join [array, separator] [Lang.Vector v, Lang.Text] = "implode(" ++ separator ++ ",array_map(" ++ array ++ "->a,'json_encode'))"
 
-qualify :: Map.Map String String -> String -> String
-qualify pkgQuals pkgName = "$z0" ++ pkgQuals Map.! pkgName
-
 genStatement :: (String -> String) -> String -> Statement -> String
 genStatement qual this (Expression value) = genExpression qual this value ++ ";"
 genStatement qual this (Initialization name value) = qual this ++ name ++ "=" ++ genExpression qual this value ++ ";"
@@ -133,9 +130,8 @@ genExpression qual this (_, Access obj field) = genExpression qual this obj ++ "
 genDeclaration :: (String -> String) -> String -> String -> (Lang.Type, Semantics.Expression) -> String
 genDeclaration qual this name value = qual this ++ name ++ "=" ++ genExpression qual this value ++ ";"
 
-preamble :: String -> String
-preamble qualification = "<?php " ++ qualification ++ "int=0;" ++ qualification ++ "float=0.0;\
-\" ++ qualification ++ "bool=FALSE;" ++ qualification ++ "text='';" ++ qualification ++ "void=NULL;\
+preamble :: [String] -> String
+preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "float=0.0;", "bool=FALSE;", "text='';", "void=NULL;"]) quals) ++ "\
 \class z1array implements JsonSerializable{\
   \public $a;\
   \public static function n($a) {\
@@ -208,12 +204,10 @@ preamble qualification = "<?php " ++ qualification ++ "int=0;" ++ qualification 
   \}\
 \}?>"
 
-genModule :: (String -> String) -> String -> [(String, (Lang.Type, Semantics.Expression))] -> String
-genModule qual pkg = concat . map (uncurry $ genDeclaration qual pkg)
+genPkg :: (String -> String) -> String -> [(String, (Lang.Type, Semantics.Expression))] -> String
+genPkg qual pkg = concat . map (uncurry $ genDeclaration qual pkg)
 
 gen :: [String] -> [(String, [(String, (Lang.Type, Semantics.Expression))])] -> String
-gen phps modules = php ++ preamble (padNumber "") ++ concat (map (uncurry $ genModule $ qualify numbers) modules)
-  where php = concat phps
-        count = length modules
-        padNumber = pad (length $ show count) '0'
-        numbers = Map.fromList $ zip (map fst modules) $ map (("z0" ++ ) . padNumber . show) [count-1,count-2..]
+gen phps pkgs = concat phps ++ preamble qualified ++ concat (map (uncurry $ genPkg (quals Map.!)) pkgs)
+  where qualified = map (("$z0" ++) . pad (length $ show $ length pkgs) '0' . show) $ number pkgs
+        quals = Map.fromList $ zip (map fst pkgs) qualified
