@@ -10,13 +10,13 @@ process = analyse . parse . tokenize
 testEqual t x y = TestCase $ assertEqual t (fromList x) y
 
 naryFunction n = Function (iterate (Pair Int) Void !! n) Int
-a \- b = Operation Int (Primitive (naryFunction 2) Subtract) [a, b]
-a \+ b = Operation Int (Primitive (naryFunction 2) Add) [a, b]
-a \* b = Operation Int (Primitive (naryFunction 2) Multiply) [a, b]
-a \/ b = Operation Int (Primitive (naryFunction 2) Divide) [a, b]
-a \= b = Operation Int (Primitive (naryFunction 2) Equal) [a, b]
+a \- b = Operation Int (Builtin (naryFunction 2) Subtract) [a, b]
+a \+ b = Operation Int (Builtin (naryFunction 2) Add) [a, b]
+a \* b = Operation Int (Builtin (naryFunction 2) Multiply) [a, b]
+a \/ b = Operation Int (Builtin (naryFunction 2) Divide) [a, b]
+a \= b = Operation Int (Builtin (naryFunction 2) Equal) [a, b]
 call name args = Operation Int (Global (naryFunction $ length args) name) args
-ifte a b c = Operation Int (Primitive (naryFunction 3) If) [a, b, c]
+ifte a b c = Operation Int (Builtin (naryFunction 3) If) [a, b, c]
 arg = Argument Int
 int = Literal Int
 

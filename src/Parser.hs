@@ -86,7 +86,7 @@ parseCall tokens = parseFactor tokens >>= uncurry (tailRec2M if' id id else')
         else' fun ((line, Lexer.Separator '[') : tokens) = fmap2 (pair line . Call fun) id $ parseValues tokens
         else' (line, Name names) ((_, Lexer.Separator '.') : (_, Lexer.Name name) : tokens) = Right ((line, Name $ names ++ [name]), tokens)
         else' obj ((line, Lexer.Separator '.') : (_, Lexer.Name name) : tokens) = Right ((line, Access obj name), tokens)
-        else' obj ((line, Lexer.Separator c) : _) = err line $ "Expected field or primitive name after " ++ [c]
+        else' obj ((line, Lexer.Separator c) : _) = err line $ "Expected field or builtin name after " ++ [c]
         parseValues = parseMany parseValue $ Lexer.Separator ']'
 
 parseValue :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Value), [(Integer, Lexer.Token)])

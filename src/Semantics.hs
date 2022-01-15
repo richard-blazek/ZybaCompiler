@@ -21,7 +21,7 @@ data Value
   | Lambda [(String, Lang.Type)] [Statement]
   | Name String String
   | Call (Lang.Type, Value) [(Lang.Type, Value)]
-  | Primitive Lang.Primitive [(Lang.Type, Value)]
+  | Builtin Lang.Builtin [(Lang.Type, Value)]
   | Access (Lang.Type, Value) String
   | PhpValue deriving (Eq, Show)
 
@@ -45,23 +45,23 @@ analyseCall line args callee@(type', _) = case type' of
   _ -> err line $ "Expected a function but got " ++ show type'
   where types = map fst args
 
-analysePrimitive :: Scope.Scope -> (Integer, Parser.Value) -> [(Lang.Type, Value)] -> Maybe (Lang.Type, Value)
-analysePrimitive scope (line, Parser.Name names@(_ : _ : _)) args = do
-  let (primitive, obj) = (last names, init names)
+analyseBuiltin :: Scope.Scope -> (Integer, Parser.Value) -> [(Lang.Type, Value)] -> Maybe (Lang.Type, Value)
+analyseBuiltin scope (line, Parser.Name names@(_ : _ : _)) args = do
+  let (builtin, obj) = (last names, init names)
   obj' <- dropLeft $ analyseValue scope (line, Parser.Name obj)
-  (type', primitive') <- dropLeft $ Lang.primitiveCall line primitive $ map fst (obj' : args)
-  Just (type', Primitive primitive' (obj' : args))
+  (type', builtin') <- dropLeft $ Lang.builtinCall line builtin $ map fst (obj' : args)
+  Just (type', Builtin builtin' (obj' : args))
 
-analysePrimitive scope (line, Parser.Access obj primitive) args = do
+analyseBuiltin scope (line, Parser.Access obj builtin) args = do
   obj' <- dropLeft $ analyseValue scope obj
-  (type', primitive') <- dropLeft $ Lang.primitiveCall line primitive $ map fst (obj' : args)
-  Just (type', Primitive primitive' (obj' : args))
-analysePrimitive _ _ _ = Nothing
+  (type', builtin') <- dropLeft $ Lang.builtinCall line builtin $ map fst (obj' : args)
+  Just (type', Builtin builtin' (obj' : args))
+analyseBuiltin _ _ _ = Nothing
 
 analyseAccess :: Integer -> Scope.Scope -> [String] -> (Lang.Type, Value) -> Fallible (Lang.Type, Value)
 analyseAccess line scope [] obj = Right obj
-analyseAccess line scope (name : names) obj@(type', _) = case Lang.primitiveCall line name [type'] of
-  Right (resultType, primitive) -> Right (resultType, Primitive primitive [obj])
+analyseAccess line scope (name : names) obj@(type', _) = case Lang.builtinCall line name [type'] of
+  Right (resultType, builtin) -> Right (resultType, Builtin builtin [obj])
   _ -> Lang.fieldAccess line name type' >>= analyseAccess line scope names . (`pair` Access obj name)
 
 analyseValue :: Scope.Scope -> (Integer, Parser.Value) -> Fallible (Lang.Type, Value)
@@ -77,12 +77,12 @@ analyseValue scope (line, Parser.Name names@(name : _)) = do
 
 analyseValue scope (line, Parser.Call callee args) = do
   args' <- mapM (analyseValue scope) args
-  analysePrimitive scope callee args' ?? (analyseValue scope callee >>= analyseCall line args')
+  analyseBuiltin scope callee args' ?? (analyseValue scope callee >>= analyseCall line args')
 
 analyseValue scope (line, Parser.Operation name args) = do
   args' <- mapM (analyseValue scope) args
-  (type', primitive) <- Lang.primitiveCall line name $ map fst args'
-  Right (type', Primitive primitive args')
+  (type', builtin) <- Lang.builtinCall line name $ map fst args'
+  Right (type', Builtin builtin args')
 
 analyseValue scope (line, Parser.Lambda args returnType block) = do
   argTypes <- mapM (analyseType scope . snd) args

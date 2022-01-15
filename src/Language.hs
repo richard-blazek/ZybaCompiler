@@ -1,4 +1,4 @@
-module Language (Type (..), Primitive (..), primitiveCall, fieldAccess, removePrimitives, constants) where
+module Language (Type (..), Builtin (..), builtinCall, fieldAccess, removeBuiltins, constants) where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -6,31 +6,31 @@ import Fallible (Fallible (..), err, assert)
 import Functions (join, split, (??), zipMaps)
 
 data Type = Void | Int | Bool | Real | Text | Function [Type] Type | Dictionary Type Type | Vector Type | Record (Map.Map String Type) deriving (Eq, Show)
-data Primitive = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not
+data Builtin = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not
   | AsInt | AsReal | AsBool | AsText | Fun | Dict | List | Set | Get | Has | Size | Concat | Append | Sized | Sort
   | Join deriving (Eq, Ord)
 
-instance Show Primitive where
-  show primitive = primitivesReversed Map.! primitive
-    where primitivesReversed = Map.fromList $ map (\(k, v) -> (v, k)) $ Map.toList primitives
+instance Show Builtin where
+  show builtin = builtinsReversed Map.! builtin
+    where builtinsReversed = Map.fromList $ map (\(k, v) -> (v, k)) $ Map.toList builtins
 
-primitives :: Map.Map String Primitive
-primitives = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("/", Div), ("//", IntDiv), ("%", Rem), ("&", And), ("|", Or), ("^", Xor), ("==", Eq), ("!=", Neq),
+builtins :: Map.Map String Builtin
+builtins = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("/", Div), ("//", IntDiv), ("%", Rem), ("&", And), ("|", Or), ("^", Xor), ("==", Eq), ("!=", Neq),
   ("<", Lt), (">", Gt), ("<=", Le), (">=", Ge), ("**", Pow), ("not", Not), ("asInt", AsInt), ("asReal", AsReal), ("asBool", AsBool), ("asText", AsText),
   ("fun", Fun), ("dict", Dict), ("list", List), ("set", Set), ("get", Get), ("has", Has), ("size", Size), ("concat", Concat), ("append", Append), ("sized", Sized),
   ("sort", Sort), ("join", Join)]
 
-primitivesSet :: Set.Set String
-primitivesSet = Map.keysSet primitives
+builtinsSet :: Set.Set String
+builtinsSet = Map.keysSet builtins
 
 constants :: Map.Map String Type
 constants = Map.fromList [("int", Int), ("bool", Bool), ("real", Real), ("text", Text), ("void", Void)]
 
-removePrimitives :: Set.Set String -> Set.Set String
-removePrimitives = (`Set.difference` primitivesSet)
+removeBuiltins :: Set.Set String -> Set.Set String
+removeBuiltins = (`Set.difference` builtinsSet)
 
-getResultType :: Integer -> Primitive -> [Type] -> Fallible Type
-getResultType line primitive args = case (primitive, args) of
+getResultType :: Integer -> Builtin -> [Type] -> Fallible Type
+getResultType line builtin args = case (builtin, args) of
   (Add, [Int, Int]) -> Right Int
   (Add, [a, b]) | all (`elem` [Int, Real]) [a, b] -> Right Real
   (Add, [Text, Text]) -> Right Text
@@ -103,13 +103,13 @@ getResultType line primitive args = case (primitive, args) of
   (Sized, [Vector v, Int, v2]) | v2 == v -> Right $ Vector v
   (Sort, Vector v : args) | args `elem` [[], [Bool], [Function [v, v] Int]] -> Right Void
   (Join, [Vector v, Text]) -> getResultType line AsText [v]
-  _ -> err line $ "Primitive " ++ show primitive ++ " does not accept arguments of types " ++ join ", " args
+  _ -> err line $ "Builtin " ++ show builtin ++ " does not accept arguments of types " ++ join ", " args
 
-primitiveCall :: Integer -> String -> [Type] -> Fallible (Type, Primitive)
-primitiveCall line name args = do
-  primitive <- Map.lookup name primitives ?? err line ("Primitive " ++ name ++ " does not exist")
-  returnType <- getResultType line primitive args
-  Right (returnType, primitive)
+builtinCall :: Integer -> String -> [Type] -> Fallible (Type, Builtin)
+builtinCall line name args = do
+  builtin <- Map.lookup name builtins ?? err line ("Builtin " ++ name ++ " does not exist")
+  returnType <- getResultType line builtin args
+  Right (returnType, builtin)
 
 fieldAccess :: Integer -> String -> Type -> Fallible Type
 fieldAccess line name (Record fields) = Map.lookup name fields ?? err line ("The record does not have a field " ++ name)
