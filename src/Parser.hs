@@ -1,6 +1,5 @@
 module Parser (Value (..), Statement (..), Declaration (..), Literal (..), File (..), parse) where
 
-import Data.Ratio ((%))
 import qualified Lexer
 import qualified Data.Map.Strict as Map
 import Functions (intercalate, pair, tailRecM, tailRec2M, fmap2, follow)
@@ -11,7 +10,7 @@ newtype File = File [(Integer, Declaration)] deriving (Show, Eq)
 data Declaration
   = Declaration String (Integer, Value)
   | Import String String
-  | Php String (Map.Map String (Integer, Value)) deriving (Show, Eq)
+  | Php String String (Map.Map String (Integer, Value)) deriving (Show, Eq)
 
 data Statement
   = Value (Integer, Value)
@@ -122,12 +121,11 @@ parseBlock :: [(Integer, Lexer.Token)] -> Fallible ([(Integer, Statement)], [(In
 parseBlock tokens = expect (Lexer.Separator '{') tokens >>= parseMany parseStatement (Lexer.Separator '}')
 
 parseDeclaration :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Declaration), [(Integer, Lexer.Token)])
-parseDeclaration ((line, Lexer.Name "import") : (_, Lexer.Name "php") : (_, Lexer.LiteralText path) : tokens) = do
+parseDeclaration ((line, Lexer.Name "import") : (_, Lexer.Name name) : (_, Lexer.LiteralText path) : tokens) = Right ((line, Import name path), tokens)
+parseDeclaration ((line, Lexer.Name "import") : (_, Lexer.Name "php") : (_, Lexer.Name name) : (_, Lexer.LiteralText path) : tokens) = do
   tokensAfterBracket <- expect (Lexer.Separator '{') tokens
   (imports, tokensAfterImports) <- parseFields Map.empty tokensAfterBracket
-  Right ((line, Php path imports), tokensAfterImports)
-
-parseDeclaration ((line, Lexer.Name "import") : (_, Lexer.Name name) : (_, Lexer.LiteralText path) : tokens) = Right ((line, Import name path), tokens)
+  Right ((line, Php name path imports), tokensAfterImports)
 
 parseDeclaration ((line, Lexer.Name name) : tokens) = do
   (expression, restTokens) <- parseValue tokens

@@ -1,4 +1,4 @@
-module Scope (Scope, Entry (..), empty, add, get) where
+module Scope (Scope, Entry (..), scope, empty, add, get) where
 
 import qualified Data.Map.Strict as Map
 import qualified Language as Lang
@@ -12,6 +12,9 @@ data Scope = Scope String (Map.Map String Entry) deriving (Eq, Show)
 
 empty :: String -> Scope
 empty = (`Scope` (Map.map Constant Lang.constants))
+
+scope :: String -> Map.Map String Entry -> Scope
+scope = Scope
 
 get :: Integer -> [String] -> Scope -> Fallible (Lang.Type, String, [String])
 get line (name : names) (Scope path scope) = case Map.lookup name scope of

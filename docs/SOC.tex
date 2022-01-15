@@ -18,7 +18,7 @@
 \addbibresource{SOC.bib}
 
 \def\keyword #1{\color{keyword}#1\color{black}}
-\def\emphasis #1{\textbf{"#1"}}
+\def\emphasis #1{\textbf{\texttt{"#1"}}}
 \renewcommand{\labelitemii}{$\circ$}
 \renewcommand{\labelitemiii}{$-$}
 \makeatletter
@@ -90,7 +90,7 @@ Tímto bych chtěl poděkovat Matěji Žáčkovi za odborné vedení práce.
 \thispagestyle{empty}
 \Large\textbf{Anotace}\normalsize
 
-Práce se zabývá navržením jazyka Zyba a implementací překladače tohoto jazyka do PHP, což by mělo umožnit používání tohoto jazyka na všech webhostinzích, které podporují PHP skripty. Rovněž bude možné vyvíjet část projektu v Zybě a část v PHP.
+Práce se zabývá navržením jazyka Zyba a implementací překladače tohoto jazyka do PHP, což by mělo umožnit používání tohoto jazyka na všech webhostinzích, které podporují PHP skripty. Rovněž bude možné vyvíjet část projektu v Zybě a část v PHP a používat funkce z jednoho jazyka ve druhém.
 
 \Large\textbf{Klíčová slova}\normalsize
 
@@ -98,7 +98,7 @@ programovací jazyk; překladač; transpiling; webová aplikace; PHP; Zyba
 
 \Large\textbf{Annotation}\normalsize
 
-The thesis is concerned with the design of the Zyba language and implementing its compiler. The compiler generates PHP code, making it possible for the language to be used on all webhostings where PHP is supported. Also, it will be possible to combine Zyba and PHP when developing web applications.
+The thesis is concerned with the design of the Zyba language and implementing its compiler. The compiler generates PHP code, making it possible for the language to be used on all webhostings where PHP is supported. Also, it will be possible to combine Zyba and PHP when developing web applications and use functions from one of the languages in the other one.
 
 \Large\textbf{Keywords}\normalsize
 
@@ -108,34 +108,60 @@ programming lanugage; compiler; transpiling; web application; PHP; Zyba
 \tableofcontents
 \newpage
 \section{Úvod}
-Cílem této práce je navrhnout programovací jazyk Zyba, který by měl umožnit psaní přehlednějšího kódu než PHP, a překladač, který by přeložil kód ze Zyby do PHP, aby bylo možné programy v Zybě používat na všech na všech serverech s podporou PHP skriptů. Navrhl jsem Zybu jako staticky typovaný jazyk, protože překlad z jednoho dynamicky typovaného jazyka do druhého by umožnil provádět pouze minimální kontrolu při překladu a Zyba by představovala jen alternativní syntaxi pro PHP. Překladač jsem se rozhodl napsat v jazyce Haskell, protože umožňuje psát velmi stručné a přehledné programy. Haskell totiž vyžaduje, aby funkce byly referenčně transparentní (tzn. bez vedlejších efektů), a jeho typový systém umožňuje zápis rekurzivních typů, což se u překladače hodí například na zápis syntaktického stromu. Naopak není nutné používat oddělovače, struktura programu se vyjadřuje odřádkováním a odsazením, což dále přispívá k čitelnosti výsledných programů.
+Cílem této práce je navrhnout programovací jazyk Zyba, který by měl umožnit psaní přehlednějšího kódu než PHP, a implementovat překladač ze Zyby do PHP, aby bylo možné programy v Zybě používat na všech na všech serverech s podporou PHP skriptů. Navrhl jsem Zybu jako staticky typovaný jazyk, protože překlad z jednoho dynamicky typovaného jazyka do druhého by umožnil provádět při překladu pouze syntatickou kontrolu. K vyhodnocení typů by mohlo dojít až za běhu programu a Zyba by tak představovala jen alternativní syntaxi pro PHP. Zybu jsem navrhl jako jazyk jednoduchý na naučení, ale s dostatečnou funkcionalitou pro psaní webových stránek.
+
+Překladač jsem se rozhodl napsat v jazyce Haskell, protože umožňuje psát velmi stručné a přehledné programy. K čitelnosti programu přispívá jednak syntaxe jazyka, v němž se struktura programu vyjadřuje formátováním zdrojového kódu a ne oddělovači, jednak jeho striktní dodržování funkcionálního paradigmatu, které vyžaduje, aby funkce byly referenčně transparentní (tzn. bez vedlejších efektů). Navíc jeho typový systém obsahuje algebraické datové typy a umožňuje zápis rekurzivních typů, což se u překladače hodí například na zápis syntaktického stromu.
 
 \section{Návrh jazyka}
 \subsection{Syntaxe}
+Syntaxe Zyby je stejně jako u řady dalších jazyků (např. C++, Java, C\#, JavaScript) odvozená z jazyka C, aby byla blízká ostatním programátorům, v řadě detailů je však odlišná. Všechny operátory jsou binární, zleva asociativní a mají stejnou prioritu. Práce s poli a slovníky (tj. jejich vytváření a přístup k prvkům a jejich změna) není záležitostí speciální syntaxe, ale provádí se zabudovanými metodami až na úrovni sémantiky. Volání funkce je vyjádřeno hranatými závorkami. Díky těmto změnám je syntaxe jednoznačná i bez použití středníků pro ukončení příkazů, takže středníky jsou v Zybě používány na uvozování jednořádkových komentářů.
+
+Soubor v Zybě se skládá z deklarací. Každá deklarace buď přiřadí určité globální konstantě hodnotu určitého výrazu, nebo importuje konstanty deklarované v jiném souboru.
 \begin{grammar}
-<program> ::= <declaration>*
+<file> ::= <declaration>*
 
-<declaration> ::= <name> <expression>
+<declaration> ::= <name> <expression> | <import>
+\end{grammar}
 
-<expression> ::= <call-expression> (<operator> <call-expression>)*
+Importovat lze jak ze Zyby tak i z PHP. Import ze Zyby vyžaduje cestu k souboru, který má být importován, a název jmenného prostoru, do kterého budou importované hodnoty spadat. Import z PHP to vyžaduje rovněž, ale před názvem jmenného prostoru musí být napsáno slovo \texttt{php} a za cestou k souboru musí následovat záznam se jmény a typy importovaných hodnot. Záznam tvoří složené závorky a v nich několik dvojic názvů (tj. jména importovaných hodnot) a výrazů (tj. jejich typy).
+\begin{grammar}
+<import> ::= <import-zyba> | <import-php>
 
-<call-expression> ::= <value-expression> (\emphasis{.} <name> | \emphasis{[} <expression>* \emphasis{]})*
+<import-zyba> ::= \emphasis{import} <name> <literal-string>
 
-<value-expression> ::= <literal-int> | <literal-bool> | <literal-float> | <literal-string>
+<import-php> ::= \emphasis{import php} <name> <literal-string> <record>
 
-<value-expression> ::= \emphasis{(} <expression> \emphasis{)}
+<record> ::= \emphasis{\{} (<name> <expression>)* \emphasis{\}}
+\end{grammar}
 
-<value-expression> ::= \emphasis{fun} \emphasis{[} (<name>+ \emphasis{:} <expression>)* \emphasis{]} <block>
+Výraz tvoří jeden či více podvýrazů oddělených binárními operátory. Podvýraz se skládá z jednotky a po
+\begin{grammar}
+<expression> ::= <call> (<operator> <call>)*
+
+<subexpression> ::= <unit> (<call> | <access>)*
+
+<call> ::= \emphasis{[} <expression>* \emphasis{]}
+
+<access> ::= \emphasis{.} <name>
+\end{grammar}
+
+\begin{grammar}
+<unit> ::= <literal-int> | <literal-bool> | <literal-float> | <literal-string> | <record>
+
+<unit> ::= \emphasis{(} <expression> \emphasis{)}
+
+<unit> ::= \emphasis{fun} \emphasis{[} (<name>+ \emphasis{:} <expression>)* \emphasis{]} <block>
+
 
 <block> ::= \emphasis{\{} <statement>* \emphasis{\}}
 
-<statement> ::= <expression> | <assignment> | <if-statement> | <while-statement>
+<statement> ::= <expression> | <assignment> | <if> | <while>
 
 <assignment> ::= <name> \emphasis{=} <expression>
 
-<if-statement> ::= \emphasis{if} <expression> <block> (\emphasis{else} <block> | \emphasis{else} <if-statement>)?
+<if> ::= \emphasis{if} <expression> <block> (\emphasis{else if} <block>)* (\emphasis{else} <block>)?
 
-<while-statement> ::= \emphasis{while} <expression> <block>
+<while> ::= \emphasis{while} <expression> <block>
 \end{grammar} 
 
 \section{Závěr}

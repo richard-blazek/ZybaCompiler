@@ -131,10 +131,10 @@ analyseDeclaration _ scope (line, Parser.Declaration name expression) = do
   scope' <- fmap fst $ Scope.add False line name (Scope.Constant type') scope
   Right (scope', [(name, expression)])
 
-analyseDeclaration files scope (line, Parser.Php _ imported) = do
-  imported' <- mapM (fmap fst . analyseValue scope) imported
-  scope' <- foldlM (\scope (name, type') -> fmap fst $ Scope.add False line name (Scope.Constant type') scope) scope $ Map.assocs imported'
-  Right (scope', map (\(name, type') -> (name, (type', PhpValue))) $ Map.assocs imported')
+analyseDeclaration files scope (line, Parser.Php name path imported) = do
+  imported' <- mapM (fmap (Scope.Constant . fst) . analyseValue scope) imported
+  (scope', _) <- Scope.add False line name (Scope.Namespace $ Scope.scope path imported') scope
+  Right (scope', [])
 
 analyse :: Map.Map String Scope.Scope -> String -> Parser.File -> Fallible (Scope.Scope, [(String, (Lang.Type, Value))])
 analyse files path (Parser.File declarations) = do
