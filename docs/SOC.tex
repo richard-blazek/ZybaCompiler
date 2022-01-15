@@ -134,7 +134,7 @@ Importovat lze jak ze Zyby tak i z PHP. Import ze Zyby vyžaduje cestu k souboru
 <record> ::= \emphasis{\{} (<name> <expression>)* \emphasis{\}}
 \end{grammar}
 
-Výraz tvoří jeden či více podvýrazů oddělených binárními operátory. Podvýraz tvoří jednotka, kterou můžou následovat volání funkce a  se skládá z jednotky a po
+Výraz tvoří jeden či více podvýrazů oddělených binárními operátory. Podvýraz tvoří jednotka, kterou můžou následovat volání funkce a přístupy k prvkům záznamu nebo jmenného prostoru. Volání funkce tvoří několik výrazů v hranatých závorkách; přístup k prvku tvoří tečka následovaná jménem. Zabudované metody, které budou podrobněji popsány později, se volají způsobem, který kombinuje syntaxi přístupu a syntaxi volání funkce, ale z hlediska gramatiky se nejedná o zvláštní případ.
 \begin{grammar}
 <expression> ::= <call> (<operator> <call>)*
 
@@ -145,16 +145,29 @@ Výraz tvoří jeden či více podvýrazů oddělených binárními operátory. 
 <access> ::= \emphasis{.} <name>
 \end{grammar}
 
+Jednotek je několik druhů: výraz v závorkách; literál celého čísla, reálného čísla, logické hodnoty či textu; záznam nebo lambda funkce.
 \begin{grammar}
-<unit> ::= <literal-int> | <literal-bool> | <literal-float> | <literal-string> | <record>
-
 <unit> ::= \emphasis{(} <expression> \emphasis{)}
 
-<unit> ::= \emphasis{fun} \emphasis{[} (<name>+ \emphasis{:} <expression>)* \emphasis{]} <block>
+<unit> ::= <literal-int> | <literal-real> | <literal-bool> | <literal-text>
 
+<unit> ::= <record>
+
+<unit> ::= <lambda>
+\end{grammar}
+
+Lambda funkce začíná slovem \texttt{fun}. Následují argumenty funkce, výraz specifikující typ navrácené hodnoty a blok kódu, který tvoří několik příkazů ve složených závorkách. Argumenty funkce se zapisují v hranatých závorkách.
+\begin{grammar}
+<lambda> ::= \emphasis{fun} <arguments> <expression> <block>
+
+<arguments> ::= \emphasis{[} <argument-group>* \emphasis{]}
+
+<argument-group> ::= <name>+ \emphasis{:} <expression>
 
 <block> ::= \emphasis{\{} <statement>* \emphasis{\}}
+\end{grammar}
 
+\begin{grammar}
 <statement> ::= <expression> | <assignment> | <if> | <while>
 
 <assignment> ::= <name> \emphasis{=} <expression>
