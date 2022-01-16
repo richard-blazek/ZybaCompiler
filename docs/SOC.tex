@@ -114,7 +114,7 @@ Překladač jsem se rozhodl napsat v jazyce Haskell, protože umožňuje psát v
 
 \section{Návrh jazyka}
 \subsection{Syntaxe}
-Syntaxe Zyby je stejně jako u řady dalších jazyků (např. C++, Java, C\#, JavaScript) odvozená z jazyka C, aby byla blízká ostatním programátorům, v řadě detailů je však odlišná. Všechny operátory jsou binární, zleva asociativní a mají stejnou prioritu. Práce s poli a slovníky (tj. jejich vytváření a přístup k prvkům a jejich změna) není záležitostí speciální syntaxe, ale provádí se zabudovanými metodami až na úrovni sémantiky. Volání funkce je vyjádřeno hranatými závorkami. Díky těmto změnám je syntaxe jednoznačná i bez použití středníků pro ukončení příkazů, takže středníky jsou v Zybě používány na uvozování jednořádkových komentářů.
+Syntaxe Zyby je stejně jako u řady dalších jazyků (např. C++, Java, C\#, JavaScript) odvozená z jazyka C, aby byla blízká ostatním programátorům, ale liší se v řadě detailů. Všechny operátory jsou binární, zleva asociativní a mají stejnou prioritu. Práce s poli a slovníky (tj. jejich vytváření a přístup k prvkům a jejich změna) není záležitostí speciální syntaxe, ale provádí se zabudovanými metodami až na úrovni sémantiky. Volání funkce je vyjádřeno hranatými závorkami. Díky těmto změnám je syntaxe jednoznačná i bez použití středníků pro ukončení příkazů, takže středníky jsou v Zybě používány na uvozování jednořádkových komentářů.
 
 Soubor v Zybě se skládá z deklarací. Každá deklarace buď přiřadí určité globální konstantě hodnotu určitého výrazu, nebo importuje konstanty deklarované v jiném souboru.
 \begin{grammar}
@@ -156,26 +156,29 @@ Jednotek je několik druhů: výraz v závorkách; literál celého čísla, re�
 <unit> ::= <lambda>
 \end{grammar}
 
-Lambda funkce začíná slovem \texttt{fun}. Následují argumenty funkce, výraz specifikující typ navrácené hodnoty a blok kódu, který tvoří několik příkazů ve složených závorkách. Argumenty funkce se zapisují v hranatých závorkách.
+Lambda funkce začíná slovem \texttt{fun}. Následují argumenty funkce v hranatých závorkách, výraz specifikující typ navrácené hodnoty a blok kódu, který tvoří několik příkazů ve složených závorkách. Argumenty funkce, pokud nějaké jsou, se zapisují po skupinách, z nichž každá se skládá z názvů jednoho či více argumentů následovaných dvojtečkou a výrazem specifikujícím typ těchto argumentů.
 \begin{grammar}
-<lambda> ::= \emphasis{fun} <arguments> <expression> <block>
+<lambda> ::= \emphasis{fun} \emphasis{[} <arguments> \emphasis{]} <expression> <block>
 
-<arguments> ::= \emphasis{[} <argument-group>* \emphasis{]}
-
-<argument-group> ::= <name>+ \emphasis{:} <expression>
+<arguments> ::= (<name>+ \emphasis{:} <expression>)*
 
 <block> ::= \emphasis{\{} <statement>* \emphasis{\}}
 \end{grammar}
 
+Příkazem může být výraz, jenž má být vyhodnocen, přiřazení, příkaz \texttt{if} nebo cyklus \texttt{while}. Přiřazení se zapíše jako jméno proměnné, do níž má být přiřazeno, znak rovná se a výraz, jehož hodnota bude přiřazena. Příkaz \texttt{if} začíná slovem \texttt{if} následovaným podmínkou a blokem kódu; za blokem můžou následovat další části, jež začínají slovy \texttt{else if} a rovněž pokračují podmínkou a blokem; na konci podmínky může být slovo \texttt{else} následované blokem, který se provede, pokud žádná z předchozích podmínek nebyla splněna. Cyklus \texttt{while} začíná slovem \texttt{while} následovaným podmínkou a blokem kódu. Podmínka je výraz, který vrací logickou hodnotu.
 \begin{grammar}
 <statement> ::= <expression> | <assignment> | <if> | <while>
 
 <assignment> ::= <name> \emphasis{=} <expression>
 
-<if> ::= \emphasis{if} <expression> <block> (\emphasis{else if} <block>)* (\emphasis{else} <block>)?
+<if> ::= \emphasis{if} <condition> <block> (\emphasis{else if} <condition> <block>)* (\emphasis{else} <block>)?
 
-<while> ::= \emphasis{while} <expression> <block>
-\end{grammar} 
+<while> ::= \emphasis{while} <condition> <block>
+
+<condition> ::= <expression>
+\end{grammar}
+
+\subsection{Typový systém}
 
 \section{Závěr}
 

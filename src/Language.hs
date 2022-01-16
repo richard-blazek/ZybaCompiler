@@ -76,9 +76,7 @@ getResultType line builtin args = case (builtin, args) of
   (AsText, [a]) | a `elem` [Int, Real, Bool, Text] -> Right Text
   (AsText, [Vector v]) -> getResultType line AsText [v]
   (AsText, [Dictionary k v]) -> getResultType line AsText [v]
-  (AsText, [Record fields]) -> do
-    mapM (getResultType line AsText . (:[])) $ Map.elems fields
-    Right Text
+  (AsText, [Record fields]) -> mapM (getResultType line AsText . (:[])) (Map.elems fields) >> Right Text
   (Fun, returned : args) -> Right $ Function args returned
   (List, value : args) -> do
     assert (all (== value) args) line "All values must have the specified type"

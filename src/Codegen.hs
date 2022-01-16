@@ -21,17 +21,17 @@ capturesOfValue qual this skip (_, Lambda args body) = capturesOfBlock qual this
 capturesOfValue qual this skip (_, Call fun args) = Set.unions $ map (capturesOfValue qual this skip) $ fun : args
 capturesOfValue _ _ skip _ = Set.empty
 
-defaultValue :: Lang.Type -> String
-defaultValue Lang.Void = "NULL"
-defaultValue Lang.Int = "0"
-defaultValue Lang.Bool = "FALSE"
-defaultValue Lang.Real = "0.0"
-defaultValue Lang.Text = "''"
-defaultValue (Lang.Function args result) = "(function(" ++ intercalate "," (zipWith (const . ("$_" ++) . show) [0..] args) ++ "){return " ++ defaultValue result ++ ";})"
-defaultValue (Lang.Vector _) = "z1array::n([])"
-defaultValue (Lang.Dictionary _ _) = "z1array::n([])"
-defaultValue (Lang.Record fields) = "z1array::n([" ++ intercalate "," (map genAssoc $ Map.assocs fields) ++ "])"
-  where genAssoc (name, value) = "'" ++ name ++ "'=>" ++ defaultValue value
+genDefault :: Lang.Type -> String
+genDefault Lang.Void = "NULL"
+genDefault Lang.Int = "0"
+genDefault Lang.Bool = "FALSE"
+genDefault Lang.Real = "0.0"
+genDefault Lang.Text = "''"
+genDefault (Lang.Function args result) = "(function(" ++ intercalate "," (zipWith (const . ("$_" ++) . show) [0..] args) ++ "){return " ++ genDefault result ++ ";})"
+genDefault (Lang.Vector _) = "z1array::n([])"
+genDefault (Lang.Dictionary _ _) = "z1array::n([])"
+genDefault (Lang.Record fields) = "z1array::n([" ++ intercalate "," (map genAssoc $ Map.assocs fields) ++ "])"
+  where genAssoc (name, value) = "'" ++ name ++ "'=>" ++ genDefault value
 
 asArrayArgument :: Lang.Type -> (Lang.Type, String) -> String
 asArrayArgument itemType (Lang.Vector type', arg) | type' == itemType = arg
@@ -74,10 +74,10 @@ genBuiltin Lang.AsInt [a] [_] = "(int)" ++ a
 genBuiltin Lang.AsBool [a] [Lang.Text] = "(" ++ a ++ "!=='')"
 genBuiltin Lang.AsBool [a] [_] = "(bool)" ++ a
 genBuiltin Lang.AsReal [a] [_] = "(float)" ++ a
-genBuiltin Lang.AsText [a] [Lang.Text] = a
 genBuiltin Lang.AsText [a] [_] = "json_encode(" ++ a ++ ")"
 genBuiltin Lang.Dict (_ : _ : args) _ = "z1array::n([" ++ intercalate "," (map (\(k, v) -> k ++ "=>" ++ v) $ fst $ split args) ++ "])"
 genBuiltin Lang.List (_ : args) _ = "z1array::n([" ++ intercalate "," args ++ "])"
+genBuiltin Lang.Fun _ (returned : args) = genDefault $ Lang.Function args returned
 genBuiltin Lang.Get [array, key] [Lang.Vector _, _] = array ++ "->getV(" ++ key ++ ")"
 genBuiltin Lang.Get [array, key] [Lang.Dictionary _ _, _] = array ++ "->getD(" ++ key ++ ")"
 genBuiltin Lang.Set [array, key, value] [Lang.Vector _, _, _] = array ++ "->setV(" ++ key ++ "," ++ value ++ ")"
@@ -88,7 +88,7 @@ genBuiltin Lang.Size [array] [Lang.Vector _] = "count(" ++ array ++ "->a)"
 genBuiltin Lang.Size [array] [Lang.Dictionary _ _] = "count(" ++ array ++ "->a)"
 genBuiltin Lang.Concat (array : args) (Lang.Vector v : types) = array ++ "->concat(" ++ intercalate "," (map (asArrayArgument v) $ zip types args) ++ ")"
 genBuiltin Lang.Append (array : args) (Lang.Vector v : types) = array ++ "->append(" ++ intercalate "," (map (asArrayArgument v) $ zip types args) ++ ")"
-genBuiltin Lang.Sized [array, size] [Lang.Vector v, Lang.Int] = array ++ "->sized(" ++ size ++ "," ++ defaultValue v ++ ")"
+genBuiltin Lang.Sized [array, size] [Lang.Vector v, Lang.Int] = array ++ "->sized(" ++ size ++ "," ++ genDefault v ++ ")"
 genBuiltin Lang.Sized [array, size, value] [Lang.Vector _, Lang.Int, _] = array ++ "->sized(" ++ size ++ "," ++ value ++ ")"
 genBuiltin Lang.Sort [array] _ = array ++ "->sort(FALSE)"
 genBuiltin Lang.Sort [array, reversed] [Lang.Vector _, Lang.Bool] = array ++ "->sortV(" ++ reversed ++ ")"
