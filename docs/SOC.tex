@@ -12,21 +12,25 @@
 \usepackage{hyperref}
 \usepackage[nounderscore]{syntax}
 \usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage{array}
 
 \definecolor{keyword}{RGB}{0, 64, 255}
 
 \addbibresource{SOC.bib}
 
+\def\circumflex{\char`\^}
+\def\quote #1{"#1"}
 \def\keyword #1{\color{keyword}#1\color{black}}
-\def\emphasis #1{\textbf{\texttt{"#1"}}}
+\def\emphasis #1{\textbf{\texttt{\quote{#1}}}}
 \renewcommand{\labelitemii}{$\circ$}
 \renewcommand{\labelitemiii}{$-$}
 \makeatletter
 \newcount\my@repeat@count
-\newcommand{\repeatchar}[2]{%
+\newcommand{\repeatchar}[2]{
   \begingroup
   \my@repeat@count=\z@
-  \@whilenum\my@repeat@count<#1\do{#2\advance\my@repeat@count\@ne}%
+  \@whilenum\my@repeat@count<#1\do{#2\advance\my@repeat@count\@ne}
   \endgroup
 }
 \makeatother
@@ -42,6 +46,7 @@
 \fancyfoot[L]{Kapitola \thesection}
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.8em}
+\def\arraystretch{1.2}
 
 \begin{document}
 \begin{titlepage}
@@ -114,7 +119,9 @@ Překladač jsem se rozhodl napsat v jazyce Haskell, protože umožňuje psát v
 
 \section{Návrh jazyka}
 \subsection{Syntaxe}
-Syntaxe Zyby je stejně jako u řady dalších jazyků (např. C++, Java, C\#, JavaScript) odvozená z jazyka C, aby byla blízká ostatním programátorům, ale liší se v řadě detailů. Všechny operátory jsou binární, zleva asociativní a mají stejnou prioritu. Práce s poli a slovníky (tj. jejich vytváření a přístup k prvkům a jejich změna) není záležitostí speciální syntaxe, ale provádí se zabudovanými metodami až na úrovni sémantiky. Volání funkce je vyjádřeno hranatými závorkami. Díky těmto změnám je syntaxe jednoznačná i bez použití středníků pro ukončení příkazů, takže středníky jsou v Zybě používány na uvozování jednořádkových komentářů.
+Syntaxe Zyby je stejně jako u řady dalších jazyků (např. C++, Java, C\#, JavaScript) odvozená z jazyka C, aby byla blízká ostatním programátorům, ale liší se v řadě detailů. Všechny operátory jsou binární, zleva asociativní a mají stejnou prioritu. Práce s poli a slovníky (tj. jejich vytváření a přístup k prvkům a jejich změna) není záležitostí speciální syntaxe, ale provádí se zabudovanými metodami až na úrovni sémantiky. Volání funkce je vyjádřeno hranatými závorkami. Díky těmto změnám je syntaxe jednoznačná, aniž by musel uživatel používat středníky. Středníky a čárky jsou považovány za bílé znaky, takže je možné je používat, kde to programátor uzná za vhodné pro přehlednost kódu. Komentáře jsou jednořádkové a začínají křížkem (\texttt{\#}).
+
+Následuje popis prvků syntaxe a její formální popis v rozšířené Backus-Naurově formě.
 
 Soubor v Zybě se skládá z deklarací. Každá deklarace buď přiřadí určité globální konstantě hodnotu určitého výrazu, nebo importuje konstanty deklarované v jiném souboru.
 \begin{grammar}
@@ -127,9 +134,9 @@ Importovat lze jak ze Zyby tak i z PHP. Import ze Zyby vyžaduje cestu k souboru
 \begin{grammar}
 <import> ::= <import-zyba> | <import-php>
 
-<import-zyba> ::= \emphasis{import} <name> <literal-string>
+<import-zyba> ::= \emphasis{import} <name> <literal-text>
 
-<import-php> ::= \emphasis{import php} <name> <literal-string> <record>
+<import-php> ::= \emphasis{import php} <name> <literal-text> <record>
 
 <record> ::= \emphasis{\{} (<name> <expression>)* \emphasis{\}}
 \end{grammar}
@@ -178,10 +185,32 @@ Příkazem může být výraz, jenž má být vyhodnocen, přiřazení, příkaz
 <condition> ::= <expression>
 \end{grammar}
 
-Nejmenší jednotkou syntaxe jsou tokeny: jména, literály (celého čísla, reálného čísla, logické hodnoty, textu), operátory a oddělovače. Jméno je posloupnost znaků, která obsahuje pouze číslice, malá a velká písmena latinky a podtržítka, přičemž nesmí začínat číslicí. Literál celého čísla je buď posloupnost číslic, jež se interpretuje jako číslo v desítkové soustavě, nebo posloupnost číslic, jež určuje číselnou soustavu, následovaná znakem \texttt{r} a poté posloupností znaků, které se interpretují jako číslice v dané soustavě, přičemž písmena od A do Z bez ohledu na jejich velikost se považují za číslice 10 až 35.
+Nejmenší jednotkou syntaxe jsou tokeny. Token může být jedno z následujících:
+\begin{itemize}
+\item \textbf{Jméno} je posloupnost znaků, jež obsahuje pouze číslice, malá a velká písmena latinky a podtržítka a jejíž první znak není číslice.
+\item \textbf{Literál celého čísla} je buď posloupnost dekadických číslic tvořící číslo, nebo posloupnost dekadických číslic, udávající základ číselné soustavy, a po ní znak \texttt{r} a posloupnost číslic z oné číselné soustavy, písmena A až Z bez ohledu na velikost se považují za číslice 10 až 35. Lze používat i soustavy o základu vyšším než 36, ale není v nich možné zapsat všechna čísla protože pro ně nejsou další číslice.
+\item \textbf{Literál reálného čísla} začíná jako literál celého čísla, ale pokračuje desetinnou tečkou po které můžou následovat další číslice. Rovněž lze používat libovolnou číselnou soustavu.
+\item \textbf{Literál logické hodnoty} je \texttt{1b} pro pravdu a \texttt{0b} pro nepravdu. Je to totiž kratší než tradiční \texttt{true} a \texttt{false} a navíc je zápis obou hodnot stejně dlouhý.
+\item \textbf{Literál textu} je posloupnost znaků v uvozovkách. Patří do něj všechny znaky mezi nimi, tedy i konce řádků a speciální znaky, ale je-li potřeba zapsat znak uvozovek, musí se zdvojit, aby nedošlo k ukončení literálu.
+\item \textbf{Operátor} je libovolná poslounost znaků \uv{\texttt{+-*/\%\&|\textasciitilde\circumflex<>=!}}. Operátory jsou zabudované metody, takže jestli dotyčný operátor skutečně něco znamená se posoudí až při vyhodnocování zabudovaných metod.
+\item \textbf{Oddělovač} je jeden znak; některý ze znaků \uv{\texttt{()[]\{\}.:}}.
+\end{itemize}
 
 \subsection{Typový systém}
-Zyba je staticky typovaný jazyk se silnou typovou kontrolou; typy všech hodnot tedy musí být známy v čase překladu a nemůžou se implicitně konvertovat. Pro konverzi hodnoty z jednoho typu na druhý lze použít zabudované metody, pokud je programátor nechce převádět ručně. Určitou zvláštností Zyby je to, že neexistuje způsob, jak vyjádřit určitý typ
+Zyba je staticky typovaný jazyk se silnou typovou kontrolou; typy všech hodnot tedy musí být známy v čase překladu a nemůžou se implicitně konvertovat. Pro konverzi hodnoty z jednoho typu na druhý lze použít zabudované metody, pokud je programátor nechce převádět ručně. Určitou zvláštností Zyby je to, že v místě, kde je očekáván typ, se dá použít libovolná hodnota onoho typu (např. hodnota \texttt{3+4} se dá použít jako typ \texttt{int}). Jména \texttt{int}, \texttt{bool} a další tak ve skutečnosti znamenají pouze výchozí hodnoty těchto typů, nikoliv typy samotné (např. \texttt{int} je totéž jako \texttt{0}). Samozřejmě není vhodné takovým způsobem psát kód, protože by to bylo matoucí, ale ta možnost tu je. Má to ale i některé výhody, protože to činí jazyk jednodušším a navíc to umožňuje vytvářet typové aliasy úplně stejně jako se vytváří proměnné a konstanty. Ostatně tento přístup má určitou paralelu v chování některých objektově orientovaných jazyků, které umožňují volat statické metody jak na třídě, tak i na objektu; i v nich se tedy dá někdy použít hodnota (objekt) na místo typu (třídy).
+
+\subsubsection{Datové typy}
+\begin{tabular}{|m{3.5cm} m{6cm} m{5cm}|}\hline
+Název & Popis & Výchozí hodnota \\\hline
+\texttt{int} & Celé číslo & Nula (\texttt{0})\\\hline
+\texttt{real} & Reálné číslo & Nula jako reálné číslo (\texttt{0.0})\\\hline
+\texttt{bool} & Logická hodnota & Nepravda (\texttt{0b})\\\hline
+\texttt{text} & Textový řetězec & Prázdný text (\texttt{\quote{}})\\\hline
+\texttt{T.list} & Pole hodnot typu \texttt{T} & Prázdné pole\\\hline
+\texttt{K.dict[V]} & Asociativní pole s klíči typu \texttt{K} a hodnotami typu \texttt{V} & Prázdné asociativní pole\\\hline
+\texttt{R.fun[T\textsubscript{0} \ldots{} T\textsubscript{m}]} & Funkce přebírající argumenty typů \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}} a vracející \texttt{R} & Funkce přebírající libovolné argumenty typů \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}} vracející vždy výchozí hodnotu typu \texttt{R}\\\hline
+\texttt{\{N\textsubscript{0} T\textsubscript{0} \ldots{} N\textsubscript{m} T\textsubscript{m}\}} & Záznam s prvky, jejichž názvy jsou \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a typy jsou \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}} & Záznam se všemi prvky nabývajícími svých výchozích hodnot\\\hline
+\end{tabular}
 
 \subsection{Jmenné prostory}
 
