@@ -22,11 +22,11 @@ loadFile :: Lang -> String -> FallibleIO LoadedFile
 loadFile PhpLang path = correct (readFile path) >>= \content -> return (LoadedFile (Php content) [] [])
 loadFile ZybaLang path = do
   content <- correct $ readFile path
-  parsed@(Parser.File declarations) <- wrap $ Parser.parse $ Lexer.tokenize content
+  parsed@(Parser.File declarations) <- wrap $ Lexer.tokenize content >>= Parser.parse
   let (zybas, phps) = map2 catMaybes catMaybes $ unzip $ map import' declarations
   return $ LoadedFile (Zyba parsed) zybas phps
   where import' (_, Parser.Import _ imported) = (Just imported, Nothing)
-        import' (_, Parser.Php imported _) = (Nothing, Just imported)
+        import' (_, Parser.Php _ imported _) = (Nothing, Just imported)
         import' _ = (Nothing, Nothing)
 
 lookupCache :: Lang -> Cache -> String -> FallibleIO (Cache, LoadedFile)

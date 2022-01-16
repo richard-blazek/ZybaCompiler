@@ -178,7 +178,16 @@ Příkazem může být výraz, jenž má být vyhodnocen, přiřazení, příkaz
 <condition> ::= <expression>
 \end{grammar}
 
+Nejmenší jednotkou syntaxe jsou tokeny: jména, literály (celého čísla, reálného čísla, logické hodnoty, textu), operátory a oddělovače. Jméno je posloupnost znaků, která obsahuje pouze číslice, malá a velká písmena latinky a podtržítka, přičemž nesmí začínat číslicí. Literál celého čísla je buď posloupnost číslic, jež se interpretuje jako číslo v desítkové soustavě, nebo posloupnost číslic, jež určuje číselnou soustavu, následovaná znakem \texttt{r} a poté posloupností znaků, které se interpretují jako číslice v dané soustavě, přičemž písmena od A do Z bez ohledu na jejich velikost se považují za číslice 10 až 35.
+
 \subsection{Typový systém}
+Zyba je staticky typovaný jazyk se silnou typovou kontrolou; typy všech hodnot tedy musí být známy v čase překladu a nemůžou se implicitně konvertovat. Pro konverzi hodnoty z jednoho typu na druhý lze použít zabudované metody, pokud je programátor nechce převádět ručně. Určitou zvláštností Zyby je to, že neexistuje způsob, jak vyjádřit určitý typ
+
+\subsection{Jmenné prostory}
+
+\subsection{Zabudované metody}
+
+\section{Konstrukce překladače}
 
 \section{Závěr}
 

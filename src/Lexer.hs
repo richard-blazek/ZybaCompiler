@@ -1,6 +1,8 @@
 module Lexer (Token (..), tokenize) where
 
 import Data.Char (ord)
+import Data.Foldable (foldlM)
+import Fallible (Fallible, err)
 
 data Token
   = Comment
@@ -25,34 +27,36 @@ isAlpha c = between 'A' 'Z' c || between 'a' 'z' c || c == '_'
 isAlnum c = isAlpha c || isDigit 10 c
 isOperator = (`elem` "+-*/%&|~^<>=!")
 isSeparator = (`elem` "()[]{}:.")
+isWhite = (`elem` " \t\n\r\f\v,;")
 
-startToken :: Char -> Token
-startToken '"' = LiteralText ""
-startToken ';' = Comment
-startToken char
-  | isDigit 10 char = LiteralInt 10 $ parseDigit char
-  | isOperator char = Operator [char]
-  | isSeparator char = Separator char
-  | isAlpha char = Name [char]
-  | otherwise = Empty
+startToken :: Integer -> Char -> Fallible (Integer, Token)
+startToken line '"' = Right (line, LiteralText "")
+startToken line '#' = Right (line, Comment)
+startToken line char
+  | isDigit 10 char = Right (line, LiteralInt 10 $ parseDigit char)
+  | isOperator char = Right (line, Operator [char])
+  | isSeparator char = Right (line, Separator char)
+  | isAlpha char = Right (line, Name [char])
+  | isWhite char = Right (line, Empty)
+  | otherwise = err line $ "Invalid character: " ++ [char]
 
-buildToken :: [(Integer, Token)] -> Char -> [(Integer, Token)]
-buildToken tokens char = case tokens of
-  (line, Comment) : rest | char == '\n' -> (line + inc, Empty) : rest
-  (line, Comment) : rest -> (line + inc, Comment) : rest
-  (_, Empty) : (line, LiteralText s) : rest | char == '"' -> (line + inc, LiteralText $ '"' : reverse s) : rest
-  (line, LiteralText s) : rest | char == '"' -> (line + inc, Empty) : (line, LiteralText $ reverse s) : rest
-  (line, LiteralText s) : rest -> (line + inc, LiteralText $ char : s) : rest
-  (line, LiteralInt radix n) : rest | isDigit radix char -> (line + inc, LiteralInt radix $ n * radix + parseDigit char) : rest
-  (line, LiteralInt radix n) : rest | char == '.' -> (line + inc, LiteralReal radix n 0) : rest
-  (line, LiteralInt radix n) : rest | char == 'b' && between 0 1 n -> (line + inc, LiteralBool (n == 1)) : rest
-  (line, LiteralInt 10 n) : rest | (n /= 10) && (char == 'r') -> (line + inc, LiteralInt n 0) : rest
-  (line, LiteralReal radix n exp) : rest | isDigit radix char -> (line + inc, LiteralReal radix (radix * n + parseDigit char) $ exp + 1) : rest
-  (line, Name name) : rest | isAlnum char -> (line + inc, Name $ name ++ [char]) : rest
-  (line, Operator s) : rest | isOperator char -> (line + inc, Operator $ s ++ [char]) : rest
-  (line, Empty) : rest | not (null rest) -> (line + inc, startToken char) : rest
-  token@(line, _) : rest -> (line + inc, startToken char) : token : rest
-  where inc = if char == '\n' then 1 else 0
+buildToken :: [(Integer, Token)] -> Char -> Fallible [(Integer, Token)]
+buildToken tokens@((line, _) : _) char = case tokens of
+  (_, Comment) : rest | char == '\n' -> Right $ (line', Empty) : rest
+  (_, Comment) : rest -> Right $ (line', Comment) : rest
+  (_, Empty) : (_, LiteralText s) : rest | char == '"' -> Right $ (line', LiteralText $ '"' : reverse s) : rest
+  (_, LiteralText s) : rest | char == '"' -> Right $ (line', Empty) : (line, LiteralText $ reverse s) : rest
+  (_, LiteralText s) : rest -> Right $ (line', LiteralText $ char : s) : rest
+  (_, LiteralInt radix n) : rest | isDigit radix char -> Right $ (line', LiteralInt radix $ n * radix + parseDigit char) : rest
+  (_, LiteralInt radix n) : rest | char == '.' -> Right $ (line', LiteralReal radix n 0) : rest
+  (_, LiteralInt radix n) : rest | char == 'b' && between 0 1 n -> Right $ (line', LiteralBool (n == 1)) : rest
+  (_, LiteralInt 10 n) : rest | (n /= 10) && (char == 'r') -> Right $ (line', LiteralInt n 0) : rest
+  (_, LiteralReal radix n exp) : rest | isDigit radix char -> Right $ (line', LiteralReal radix (radix * n + parseDigit char) $ exp + 1) : rest
+  (_, Name name) : rest | isAlnum char -> Right $ (line', Name $ name ++ [char]) : rest
+  (_, Operator s) : rest | isOperator char -> Right $ (line', Operator $ s ++ [char]) : rest
+  (_, Empty) : rest | not (null rest) -> fmap (: rest) $ startToken line' char
+  tokens -> fmap (: tokens) $ startToken line' char
+  where line' = line + if char == '\n' then 1 else 0
 
-tokenize :: String -> [(Integer, Token)]
-tokenize = tail . reverse . dropWhile ((`elem` [Empty, Comment]) . snd) . foldl buildToken [(0, Empty)]
+tokenize :: String -> Fallible [(Integer, Token)]
+tokenize = fmap (tail . reverse . dropWhile ((`elem` [Empty, Comment]) . snd)) . foldlM buildToken [(0, Empty)]
