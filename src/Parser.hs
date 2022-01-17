@@ -47,17 +47,16 @@ parseFactor ((line, Lexer.LiteralBool lit) : tokens) = Right ((line, Literal $ B
 parseFactor ((line, Lexer.Name "fun") : tokens) = parseLambda line tokens
 parseFactor ((line, Lexer.Name name) : tokens) = Right ((line, Name [name]), tokens)
 parseFactor ((line, Lexer.Separator '(') : tokens) = do
-  (expression, tokensAfterValue) <- parseValue tokens
-  tokensAfterParenthesis <- expect (Lexer.Separator ')') tokensAfterValue
-  Right (expression, tokensAfterParenthesis)
+  (value, tokens') <- parseValue tokens
+  fmap (pair value) $ expect (Lexer.Separator ')') tokens'
 parseFactor ((line, Lexer.Separator '{') : tokens) = parseRecord line tokens
 parseFactor ((line, token) : _) = err line $ "Expected a value but got " ++ show token
 
 parseFields :: Map.Map String (Integer, Value) -> [(Integer, Lexer.Token)] -> Fallible (Map.Map String (Integer, Value), [(Integer, Lexer.Token)])
 parseFields fields ((line, Lexer.Name name) : tokens) = do
   assert (not $ Map.member name fields) line $ "Duplicate field " ++ name
-  (expression, restTokens) <- parseValue tokens
-  parseFields (Map.insert name expression fields) restTokens
+  (value, tokens') <- parseValue tokens
+  parseFields (Map.insert name value fields) tokens'
 parseFields fields ((_, Lexer.Separator '}') : tokens) = Right (fields, tokens)
 parseFields fields ((line, token) : _) = err line $ "Expected a field name but got " ++ show token
 
@@ -70,15 +69,15 @@ parseArguments tokens = tailRecM if' then' else' ([], [], tokens)
         then' (names, args, (line, _) : tokens) = assert (null names) line ("Missing type for " ++ intercalate ", " names) >> Right (reverse args, tokens)
         else' (names, args, (_, Lexer.Name name) : tokens) = Right (name : names, args, tokens)
         else' (names, args, (_, Lexer.Separator ':') : tokens) = do
-          (type', restTokens) <- parseValue tokens
-          Right ([], map (`pair` type') names ++ args, restTokens)
+          (type', tokens') <- parseValue tokens
+          Right ([], map (`pair` type') names ++ args, tokens')
         else' (names, args, (line, token) : _) = err line $ "Unexpected " ++ show token ++ " in the argument list"
 
 parseLambda :: Integer -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Value), [(Integer, Lexer.Token)])
 parseLambda line tokens = do
-  tokensAfterBracket <- expect (Lexer.Separator '[') tokens
-  ((args, (returnType, block)), restTokens) <- follow parseArguments (follow parseValue parseBlock) tokensAfterBracket
-  Right ((line, Lambda args returnType block), restTokens)
+  tokens' <- expect (Lexer.Separator '[') tokens
+  ((args, (returnType, block)), tokens'') <- follow parseArguments (follow parseValue parseBlock) tokens'
+  Right ((line, Lambda args returnType block), tokens'')
 
 parseCall :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Value), [(Integer, Lexer.Token)])
 parseCall tokens = parseFactor tokens >>= uncurry (tailRec2M if' id id else')
@@ -96,24 +95,24 @@ parseValue tokens = parseCall tokens >>= uncurry (tailRec2M if' id id else')
 
 parseIf :: Integer -> [((Integer, Value), [(Integer, Statement)])] -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Statement), [(Integer, Lexer.Token)])
 parseIf line chain tokens = do
-  (pair, tokensAfterBlock) <- follow parseValue parseBlock tokens
+  (pair, tokens') <- follow parseValue parseBlock tokens
   let chain' = pair : chain
-  case tokensAfterBlock of
-    (_, Lexer.Name "else") : (_, Lexer.Name "if") : restTokens -> parseIf line chain' restTokens
-    (_, Lexer.Name "else") : restTokens -> do
-      (elseBlock, tokensAfterElse) <- parseBlock restTokens
-      Right ((line, IfChain (reverse chain') $ elseBlock), tokensAfterElse)
-    restTokens -> Right ((line, IfChain (reverse chain') []), restTokens)
+  case tokens' of
+    (_, Lexer.Name "else") : (_, Lexer.Name "if") : tokens'' -> parseIf line chain' tokens''
+    (_, Lexer.Name "else") : tokens'' -> do
+      (elseBlock, tokens''') <- parseBlock tokens''
+      Right ((line, IfChain (reverse chain') $ elseBlock), tokens''')
+    _ -> Right ((line, IfChain (reverse chain') []), tokens')
 
 parseStatement :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Statement), [(Integer, Lexer.Token)])
 parseStatement ((line, Lexer.Name "if") : tokens) = parseIf line [] tokens
 parseStatement ((line, Lexer.Name "while") : tokens) = do
-  ((condition, block), restTokens) <- follow parseValue parseBlock tokens
-  Right ((line, While condition block), restTokens)
+  ((condition, block), tokens') <- follow parseValue parseBlock tokens
+  Right ((line, While condition block), tokens')
 
 parseStatement ((line, Lexer.Name name) : (_, Lexer.Operator "=") : tokens) = do
-  (expression, restTokens) <- parseValue tokens
-  Right ((line, Assignment name expression), restTokens)
+  (value, tokens') <- parseValue tokens
+  Right ((line, Assignment name value), tokens')
 
 parseStatement tokens@((line, _):_) = fmap2 (pair line . Value) id $ parseValue tokens
 
@@ -123,13 +122,14 @@ parseBlock tokens = expect (Lexer.Separator '{') tokens >>= parseMany parseState
 parseDeclaration :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Declaration), [(Integer, Lexer.Token)])
 parseDeclaration ((line, Lexer.Name "import") : (_, Lexer.Name name) : (_, Lexer.LiteralText path) : tokens) = Right ((line, Import name path), tokens)
 parseDeclaration ((line, Lexer.Name "import") : (_, Lexer.Name "php") : (_, Lexer.Name name) : (_, Lexer.LiteralText path) : tokens) = do
-  tokensAfterBracket <- expect (Lexer.Separator '{') tokens
-  (imports, tokensAfterImports) <- parseFields Map.empty tokensAfterBracket
-  Right ((line, Php name path imports), tokensAfterImports)
+  tokens' <- expect (Lexer.Separator '{') tokens
+  (imports, tokens'') <- parseFields Map.empty tokens'
+  Right ((line, Php name path imports), tokens'')
 
 parseDeclaration ((line, Lexer.Name name) : tokens) = do
-  (expression, restTokens) <- parseValue tokens
-  Right ((line, Declaration name expression), restTokens)
+  tokens' <- expect (Lexer.Separator '=') tokens
+  (value, tokens'') <- parseValue tokens'
+  Right ((line, Declaration name value), tokens'')
 parseDeclaration ((line, token) : _) = err line $ "Expected a name of declared function but got " ++ show token
 
 parse :: [(Integer, Lexer.Token)] -> Fallible File

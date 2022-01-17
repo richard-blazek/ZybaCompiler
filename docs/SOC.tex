@@ -127,7 +127,9 @@ Soubor v Zybě se skládá z deklarací. Každá deklarace buď přiřadí urči
 \begin{grammar}
 <file> ::= <declaration>*
 
-<declaration> ::= <name> <expression> | <import>
+<declaration> ::= <assignment> | <import>
+
+<assignment> ::= <name> \emphasis{=} <expression>
 \end{grammar}
 
 Importovat lze jak ze Zyby tak i z PHP. Import ze Zyby vyžaduje cestu k souboru, který má být importován, a název jmenného prostoru, do kterého budou importované hodnoty spadat. Import z PHP to vyžaduje rovněž, ale před názvem jmenného prostoru musí být napsáno slovo \texttt{php} a za cestou k souboru musí následovat záznam se jmény a typy importovaných hodnot. Záznam tvoří složené závorky a v nich několik dvojic názvů (tj. jména importovaných hodnot) a výrazů (tj. jejich typy).
@@ -163,7 +165,7 @@ Jednotek je několik druhů: výraz v závorkách; literál celého čísla, re�
 <unit> ::= <lambda>
 \end{grammar}
 
-Lambda funkce začíná slovem \texttt{fun}. Následují argumenty funkce v hranatých závorkách, výraz specifikující typ navrácené hodnoty a blok kódu, který tvoří několik příkazů ve složených závorkách. Argumenty funkce, pokud nějaké jsou, se zapisují po skupinách, z nichž každá se skládá z názvů jednoho či více argumentů následovaných dvojtečkou a výrazem specifikujícím typ těchto argumentů.
+Lambda funkce začíná slovem \texttt{fun}. Následují argumenty funkce v hranatých závorkách, výraz specifikující typ navrácené hodnoty a blok, který tvoří několik příkazů ve složených závorkách. Argumenty funkce, pokud nějaké jsou, se zapisují po skupinách, z nichž každá se skládá z názvů jednoho či více argumentů následovaných dvojtečkou a výrazem specifikujícím typ těchto argumentů.
 \begin{grammar}
 <lambda> ::= \emphasis{fun} \emphasis{[} <arguments> \emphasis{]} <expression> <block>
 
@@ -172,17 +174,13 @@ Lambda funkce začíná slovem \texttt{fun}. Následují argumenty funkce v hran
 <block> ::= \emphasis{\{} <statement>* \emphasis{\}}
 \end{grammar}
 
-Příkazem může být výraz, jenž má být vyhodnocen, přiřazení, příkaz \texttt{if} nebo cyklus \texttt{while}. Přiřazení se zapíše jako jméno proměnné, do níž má být přiřazeno, znak rovná se a výraz, jehož hodnota bude přiřazena. Příkaz \texttt{if} začíná slovem \texttt{if} následovaným podmínkou a blokem kódu; za blokem můžou následovat další části, jež začínají slovy \texttt{else if} a rovněž pokračují podmínkou a blokem; na konci podmínky může být slovo \texttt{else} následované blokem, který se provede, pokud žádná z předchozích podmínek nebyla splněna. Cyklus \texttt{while} začíná slovem \texttt{while} následovaným podmínkou a blokem kódu. Podmínka je výraz, který vrací logickou hodnotu.
+Příkazem může být výraz, jenž má být vyhodnocen, přiřazení, příkaz \texttt{if} nebo cyklus \texttt{while}. Příkaz \texttt{if} začíná slovem \texttt{if} následovaným výrazem (podmínkou) a blokem příkazů; za blokem můžou následovat další části, jež začínají slovy \texttt{else if} a rovněž pokračují podmínkou a blokem příkazů; poté může následovat slovo \texttt{else} následované blokem, který se provede, pokud žádná z předchozích podmínek nebyla splněna. Cyklus \texttt{while} začíná slovem \texttt{while} následovaným výrazem (podmínkou) a blokem příkazů.
 \begin{grammar}
 <statement> ::= <expression> | <assignment> | <if> | <while>
-
-<assignment> ::= <name> \emphasis{=} <expression>
 
 <if> ::= \emphasis{if} <condition> <block> (\emphasis{else if} <condition> <block>)* (\emphasis{else} <block>)?
 
 <while> ::= \emphasis{while} <condition> <block>
-
-<condition> ::= <expression>
 \end{grammar}
 
 Nejmenší jednotkou syntaxe jsou tokeny. Token může být jedno z následujících:
@@ -197,7 +195,7 @@ Nejmenší jednotkou syntaxe jsou tokeny. Token může být jedno z následujíc
 \end{itemize}
 
 \subsection{Typový systém}
-Zyba je staticky typovaný jazyk se silnou typovou kontrolou; typy všech hodnot tedy musí být známy v čase překladu a nemůžou se implicitně konvertovat. Pro konverzi hodnoty z jednoho typu na druhý lze použít zabudované metody, pokud je programátor nechce převádět ručně. Určitou zvláštností Zyby je to, že v místě, kde je očekáván typ, se dá použít libovolná hodnota onoho typu (např. hodnota \texttt{3+4} se dá použít jako typ \texttt{int}). Jména \texttt{int}, \texttt{bool} a další tak ve skutečnosti znamenají pouze výchozí hodnoty těchto typů, nikoliv typy samotné (např. \texttt{int} je totéž jako \texttt{0}). Samozřejmě není vhodné takovým způsobem psát kód, protože by to bylo matoucí, ale ta možnost tu je. Má to ale i některé výhody, protože to činí jazyk jednodušším a navíc to umožňuje vytvářet typové aliasy úplně stejně jako se vytváří proměnné a konstanty. Ostatně tento přístup má určitou paralelu v chování některých objektově orientovaných jazyků, které umožňují volat statické metody jak na třídě, tak i na objektu; i v nich se tedy dá někdy použít hodnota (objekt) na místo typu (třídy).
+Zyba je staticky typovaný jazyk se silnou typovou kontrolou; typy všech hodnot tedy musí být známy v čase překladu a nemůžou se implicitně konvertovat. Pro konverzi hodnoty z jednoho typu na druhý lze použít zabudované metody, pokud programátor nechce konverzi implementovat ručně. Určitou zvláštností Zyby je to, že v místě, kde je očekáván typ, se dá použít libovolná hodnota onoho typu (např. hodnota \texttt{3+4} se dá použít jako typ \texttt{int}). Jména \texttt{int}, \texttt{bool} a další totiž ve skutečnosti znamenají pouze výchozí hodnoty těchto typů, nikoliv typy samotné (např. \texttt{int} je totéž jako \texttt{0}). Samozřejmě by se při psaní kódu měly používat názvy typů na místech, kde je očekáván typ, a hodnoty na místech, kde je očekávána hodnota; je sice možné to nedodržovat, ale vzniklý kód bude matoucí. Tato zvláštnost ale má i některé výhody, protože jednak činí jazyk jednodušším a navíc umožňuje vytvářet typové aliasy úplně stejně jako se vytváří proměnné a konstanty. Ostatně tento přístup má určitou paralelu v chování některých objektově orientovaných jazyků (např. C++), které umožňují volat statické metody jak na třídě, tak i na objektu; i v nich se tedy dá někdy použít hodnota (objekt) na místo typu (třídy).
 
 \subsubsection{Datové typy}
 \begin{tabular}{|m{3.5cm} m{6cm} m{5cm}|}\hline
@@ -212,7 +210,13 @@ Název & Popis & Výchozí hodnota \\\hline
 \texttt{\{N\textsubscript{0} T\textsubscript{0} \ldots{} N\textsubscript{m} T\textsubscript{m}\}} & Záznam s prvky, jejichž názvy jsou \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a typy jsou \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}} & Záznam se všemi prvky nabývajícími svých výchozích hodnot\\\hline
 \end{tabular}
 
+\subsubsection{Proměnné a konstanty}
+Proměnné i konstanty jsou jména, která zastupují určitou hodnotu. Proměnné se vytvářejí uvnitř bloku příkazů přiřazením hodnoty určitému jménu, jenž na daném místě ještě žádnou hodnotu nezastupuje, a jsou přístupné až do konce toho bloku. Argumenty lambda funkcí jsou rovněž proměnné, jejichž hodnoty se nastaví při zavolání funkce na hodnoty předaných argumentů a jsou dostupné uvnitř celé lambda funkce. Proměnnou jde změnit tím, že se do ní přiřadí nová hodnota; ta musí mít stejný typ jako předchozí hodnota proměnné, kterou nová hodnota nahradila.
+
+Konstanty se vytváří přiřazením na úrovni deklarací.
+
 \subsection{Jmenné prostory}
+
 
 \subsection{Zabudované metody}
 

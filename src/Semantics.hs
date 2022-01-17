@@ -26,7 +26,7 @@ data Value
   | PhpValue deriving (Eq, Show)
 
 analyseType :: Scope.Scope -> (Integer, Parser.Value) -> Fallible Lang.Type
-analyseType scope expr = fmap fst $ analyseValue scope expr
+analyseType scope value = fmap fst $ analyseValue scope value
 
 collectGlobal :: Scope.Scope -> (Integer, Parser.Declaration) -> Fallible Scope.Scope
 collectGlobal scope (_, Parser.Declaration name (line, Parser.Lambda args returned body)) = do
@@ -88,7 +88,7 @@ analyseValue scope (line, Parser.Lambda args returnType block) = do
   argTypes <- mapM (analyseType scope . snd) args
   let args' = zip (map fst args) argTypes
   returnType' <- analyseType scope returnType
-  innerScope <- foldlM (\scope (name, type') -> fmap fst $ Scope.add False line name (Scope.Variable type') scope) scope args'
+  innerScope <- foldlM (\scope' (name, type') -> fmap fst $ Scope.add False line name (Scope.Variable type') scope') scope args'
   block' <- analyseBlock innerScope block
   case reverse block' of
     Value (type', _) : _ | returnType' `elem` [type', Lang.Void] -> Right (Lang.Function argTypes returnType', Lambda args' block')
@@ -99,12 +99,12 @@ analyseValue scope (line, Parser.Record fields) = do
   Right (Lang.Record $ Map.map fst fields', Record $ fields')
 
 analyseStatement :: Scope.Scope -> (Integer, Parser.Statement) -> Fallible (Statement, Scope.Scope)
-analyseStatement scope (line, Parser.Value expr) = fmap ((`pair` scope) . Value) $ analyseValue scope expr
+analyseStatement scope (line, Parser.Value value) = fmap ((`pair` scope) . Value) $ analyseValue scope value
 
-analyseStatement scope (line, Parser.Assignment name expr) = do
-  value@(type', _) <- analyseValue scope expr
+analyseStatement scope (line, Parser.Assignment name value) = do
+  value'@(type', _) <- analyseValue scope value
   (scope', added) <- Scope.add True line name (Scope.Variable type') scope
-  Right . (`pair` scope') $ (if added then Initialization else Assignment) name value
+  Right ((if added then Initialization else Assignment) name value', scope')
 
 analyseStatement scope (line, Parser.IfChain ifs else') = do
   ifChain <- mapM (\(cond, block) -> analyseValue scope cond >>= (\cond' -> fmap (pair cond') $ analyseBlock scope block)) ifs
@@ -125,11 +125,11 @@ analyseBlock scope statements = tailRecM if' then' else' ([], scope, statements)
 
 analyseDeclaration :: Map.Map String Scope.Scope -> Scope.Scope -> (Integer, Parser.Declaration) -> Fallible (Scope.Scope, [(String, (Lang.Type, Value))])
 analyseDeclaration files scope (line, Parser.Import name path) = fmap ((`pair` []) . fst) $ Scope.add False line name (Scope.Namespace $ files Map.! path) scope
-analyseDeclaration _ scope (_, Parser.Declaration name expression@(_, Parser.Lambda _ _ _)) = fmap (pair scope . (:[]) . pair name) $ analyseValue scope expression
-analyseDeclaration _ scope (line, Parser.Declaration name expression) = do
-  expression@(type', _) <- analyseValue scope expression
+analyseDeclaration _ scope (_, Parser.Declaration name value@(_, Parser.Lambda _ _ _)) = fmap (pair scope . (:[]) . pair name) $ analyseValue scope value
+analyseDeclaration _ scope (line, Parser.Declaration name value) = do
+  value'@(type', _) <- analyseValue scope value
   scope' <- fmap fst $ Scope.add False line name (Scope.Constant type') scope
-  Right (scope', [(name, expression)])
+  Right (scope', [(name, value')])
 
 analyseDeclaration files scope (line, Parser.Php name path imported) = do
   imported' <- mapM (fmap (Scope.Constant . fst) . analyseValue scope) imported
