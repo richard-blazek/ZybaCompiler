@@ -40,17 +40,21 @@ startToken line char
   | isWhite char = Right (line, Empty)
   | otherwise = err line $ "Invalid character: " ++ [char]
 
+afterInt :: Integer -> Integer -> Integer -> Integer -> Char -> Fallible [(Integer, Token)]
+afterInt _ line radix n '.' = Right [(line, LiteralReal radix n 0)]
+afterInt _ line radix n 'b' = if between 0 1 n then Right [(line, LiteralBool $ n == 1)] else err line $ "Invalid bool value " ++ show n
+afterInt _ line radix n 'r' = if radix == 10 then Right [(line, LiteralInt n 0)] else err line "Specifying radix twice"
+afterInt newLine line radix n c
+  | isDigit radix c = Right [(line, LiteralInt radix $ n * radix + parseDigit c)]
+  | otherwise = fmap (: [(line, LiteralInt radix n)]) $ startToken newLine c
+
 buildToken :: [(Integer, Token)] -> Char -> Fallible [(Integer, Token)]
 buildToken tokens@((line, _) : _) char = case tokens of
-  (_, Comment) : rest | char == '\n' -> Right $ (line', Empty) : rest
-  (_, Comment) : rest -> Right $ (line', Comment) : rest
+  (_, Comment) : rest -> Right $ (line', if char == '\n' then Empty else Comment) : rest
   (_, Empty) : (_, LiteralText s) : rest | char == '"' -> Right $ (line', LiteralText $ '"' : reverse s) : rest
   (_, LiteralText s) : rest | char == '"' -> Right $ (line', Empty) : (line, LiteralText $ reverse s) : rest
   (_, LiteralText s) : rest -> Right $ (line', LiteralText $ char : s) : rest
-  (_, LiteralInt radix n) : rest | isDigit radix char -> Right $ (line', LiteralInt radix $ n * radix + parseDigit char) : rest
-  (_, LiteralInt radix n) : rest | char == '.' -> Right $ (line', LiteralReal radix n 0) : rest
-  (_, LiteralInt radix n) : rest | char == 'b' && between 0 1 n -> Right $ (line', LiteralBool (n == 1)) : rest
-  (_, LiteralInt 10 n) : rest | (n /= 10) && (char == 'r') -> Right $ (line', LiteralInt n 0) : rest
+  (_, LiteralInt radix n) : rest -> fmap (++ rest) $ afterInt line' line radix n char
   (_, LiteralReal radix n exp) : rest | isDigit radix char -> Right $ (line', LiteralReal radix (radix * n + parseDigit char) $ exp + 1) : rest
   (_, Name name) : rest | isAlnum char -> Right $ (line', Name $ name ++ [char]) : rest
   (_, Operator s) : rest | isOperator char -> Right $ (line', Operator $ s ++ [char]) : rest
