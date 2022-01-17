@@ -194,6 +194,13 @@ Nejmenší jednotkou syntaxe jsou tokeny. Token může být jedno z následujíc
 \item \textbf{Oddělovač} je jeden znak; některý ze znaků \uv{\texttt{()[]\{\}.:}}.
 \end{itemize}
 
+\subsection{Proměnné a konstanty}
+Proměnné i konstanty jsou jména, která zastupují určitou hodnotu. Proměnné se vytvářejí uvnitř bloku příkazů přiřazením hodnoty určitému jménu, jenž na daném místě ještě žádnou hodnotu nezastupuje, a jsou přístupné až do konce toho bloku. Argumenty lambda funkcí jsou rovněž proměnné, jejichž hodnoty se nastaví při zavolání funkce na hodnoty předaných argumentů a jsou dostupné uvnitř celé lambda funkce. Proměnnou jde změnit tím, že se do ní přiřadí nová hodnota; ta musí mít stejný typ jako předchozí hodnota proměnné, kterou nová hodnota nahradila.
+
+Konstanty se vytváří přiřazením na úrovni deklarací a je dostupná od přiřazení až po konec souboru. Pokud přiřazenou hodnotou je lambda funkce, je konstanta přístupná v celém souboru (tj. už před přiřazením a i v těle oné lambda funkce). Jednou vytvořené konstantě už není možné přiřadit novou hodnotu.
+
+\subsubsection{Jmenné prostory}
+
 \subsection{Typový systém}
 Zyba je staticky typovaný jazyk se silnou typovou kontrolou; typy všech hodnot tedy musí být známy v čase překladu a nemůžou se implicitně konvertovat. Pro konverzi hodnoty z jednoho typu na druhý lze použít zabudované metody, pokud programátor nechce konverzi implementovat ručně. Určitou zvláštností Zyby je to, že v místě, kde je očekáván typ, se dá použít libovolná hodnota onoho typu (např. hodnota \texttt{3+4} se dá použít jako typ \texttt{int}). Jména \texttt{int}, \texttt{bool} a další totiž ve skutečnosti znamenají pouze výchozí hodnoty těchto typů, nikoliv typy samotné (např. \texttt{int} je totéž jako \texttt{0}). Samozřejmě by se při psaní kódu měly používat názvy typů na místech, kde je očekáván typ, a hodnoty na místech, kde je očekávána hodnota; je sice možné to nedodržovat, ale vzniklý kód bude matoucí. Tato zvláštnost ale má i některé výhody, protože jednak činí jazyk jednodušším a navíc umožňuje vytvářet typové aliasy úplně stejně jako se vytváří proměnné a konstanty. Ostatně tento přístup má určitou paralelu v chování některých objektově orientovaných jazyků (např. C++), které umožňují volat statické metody jak na třídě, tak i na objektu; i v nich se tedy dá někdy použít hodnota (objekt) na místo typu (třídy).
 
@@ -209,14 +216,6 @@ Název & Popis & Výchozí hodnota \\\hline
 \texttt{R.fun[T\textsubscript{0} \ldots{} T\textsubscript{m}]} & Funkce přebírající argumenty typů \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}} a vracející \texttt{R} & Funkce přebírající libovolné argumenty typů \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}} vracející vždy výchozí hodnotu typu \texttt{R}\\\hline
 \texttt{\{N\textsubscript{0} T\textsubscript{0} \ldots{} N\textsubscript{m} T\textsubscript{m}\}} & Záznam s prvky, jejichž názvy jsou \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a typy jsou \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}} & Záznam se všemi prvky nabývajícími svých výchozích hodnot\\\hline
 \end{tabular}
-
-\subsubsection{Proměnné a konstanty}
-Proměnné i konstanty jsou jména, která zastupují určitou hodnotu. Proměnné se vytvářejí uvnitř bloku příkazů přiřazením hodnoty určitému jménu, jenž na daném místě ještě žádnou hodnotu nezastupuje, a jsou přístupné až do konce toho bloku. Argumenty lambda funkcí jsou rovněž proměnné, jejichž hodnoty se nastaví při zavolání funkce na hodnoty předaných argumentů a jsou dostupné uvnitř celé lambda funkce. Proměnnou jde změnit tím, že se do ní přiřadí nová hodnota; ta musí mít stejný typ jako předchozí hodnota proměnné, kterou nová hodnota nahradila.
-
-Konstanty se vytváří přiřazením na úrovni deklarací.
-
-\subsection{Jmenné prostory}
-
 
 \subsection{Zabudované metody}
 

@@ -3,39 +3,38 @@ This is the source code of my compiler of my Zyba language. The language transpi
 
 Code example:
 ```
-; It should be obvious what this function does
-factorial fun[n: int] int {
-    i = 1
+# It should be obvious what this function does
+factorial = fun[n: int] int {
     result = 1
-    while i <= n {
+    while n > 1 {
         result = result * n
-        i = i + 1
+        n = n - 1
     }
     result
 }
 
-; Zyba uses 1b and 0b for boolean values, but if you want, you can define your own true and false constants
-true 1b
-false 0b
+# Zyba uses 1b and 0b for boolean values, but if you want, you can define your own true and false constants
+true = 1b
+false = 0b
 
-; More constants
-maths {
+# More constants
+maths = {
     pi    3
     e     3
     three 3
 }
 
-circleArea fun[radius: real] real {
+circleArea = fun[radius: real] real {
     radius * radius * maths.pi
 }
 
-isPrime fun[n: int] bool {
+isPrime = fun[n: int] bool {
     prime = 1b
     if n < 2 {
         prime = 0b
     } else {
         i = 2
-        while i < n & prime {
+        while i * i <= n & prime {
             prime = n % i != 0
             i = i + 1
         }
@@ -43,7 +42,7 @@ isPrime fun[n: int] bool {
     prime
 }
 
-sum fun[n: int.list] int {
+sum = fun[n: int.list] int {
     total = 0
     i = 0
     while i < n.size {
@@ -53,7 +52,7 @@ sum fun[n: int.list] int {
     total
 }
 
-range fun[n: int] int.list {
+range = fun[n: int] int.list {
     result = int.list
     i = 0
     while i < n {
@@ -63,7 +62,7 @@ range fun[n: int] int.list {
     result
 }
 
-concat fun[a: int.list.list] int.list {
+concat = fun[a: int.list.list] int.list {
     result = int.list
     i = 0
     while i < a.size {
@@ -73,7 +72,7 @@ concat fun[a: int.list.list] int.list {
     result
 }
 
-merge fun[a: int.list, b: int.list] int.list {
+merge = fun[a: int.list, b: int.list] int.list {
     result = int.list
     i = 0
     while (i < a.size) & (i < b.size) {
@@ -83,17 +82,17 @@ merge fun[a: int.list, b: int.list] int.list {
     result
 }
 
-; Linear congruential pseudo-random generator
-a 1103515245
-c 12345 + int
-m 256r10000
+# Linear congruential pseudo-random generator
+a = 1103515245
+c = 12345 + int
+m = 256r10000
 
-next fun[x: int]int {
+next = fun[x: int]int {
 	x * a + c % m
 }
 
-seed fun[s: int] int.fun {
-	fun[]int {
+seed = fun[s: int] int.fun {
+	fun[] int {
 		s = next[s]
 		s
 	}
