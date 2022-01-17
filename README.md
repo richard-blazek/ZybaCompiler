@@ -2,7 +2,7 @@
 This is the source code of my compiler of my Zyba language. The language transpiles into PHP and could be eventually used as a substitute of PHP for developing web applications. However, neither the compiler nor the language are complete. Also, please note that the tests are obsolete and don't even compile.
 
 Code example:
-```
+```python
 # It should be obvious what this function does
 factorial = fun[n: int] int {
     result = 1
@@ -88,14 +88,14 @@ c = 12345 + int
 m = 256r10000
 
 next = fun[x: int]int {
-	x * a + c % m
+    x * a + c % m
 }
 
 seed = fun[s: int] int.fun {
-	fun[] int {
-		s = next[s]
-		s
-	}
+    fun[] int {
+        s = next[s]
+        s
+    }
 }
 
 ```
