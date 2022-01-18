@@ -124,6 +124,8 @@ genValue qual this (Lambda args block, Lang.Function _ returnType') = header ++ 
         captures = intercalate "," $ Set.map ('&' :) $ Lang.removeBuiltins $ capturesOfBlock qual this (Set.fromList argNames) block
         header = "(function(" ++ intercalate "," argNames ++ ")" ++ (if null captures then "" else "use(" ++ captures ++ ")")
 genValue qual this (Access obj field, _) = genValue qual this obj ++ "[\"" ++ field ++ "\"]"
+genValue qual this (PhpValue name, Lang.Function _ _) = name
+genValue qual this (PhpValue name, _) = '$' : name
 
 genDeclaration :: (String -> String) -> String -> String -> TypedValue -> String
 genDeclaration qual this name value = qual this ++ name ++ "=" ++ genValue qual this value ++ ";"

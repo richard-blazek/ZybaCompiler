@@ -23,7 +23,7 @@ data Value
   | Call TypedValue [TypedValue]
   | Builtin Lang.Builtin [TypedValue]
   | Access TypedValue String
-  | PhpValue deriving (Eq, Show)
+  | PhpValue String deriving (Eq, Show)
 
 type TypedValue = (Value, Lang.Type)
 
@@ -134,9 +134,9 @@ analyseDeclaration _ scope (line, export, Parser.Declaration name value) = do
   Right (scope', [(name, value')])
 
 analyseDeclaration files scope (line, export, Parser.Php name path imported) = do
-  imported' <- mapM (fmap (Scope.Constant True . snd) . analyseValue scope) imported
-  (scope', _) <- Scope.add False line name (Scope.Namespace export $ Scope.scope path imported') scope
-  Right (scope', [])
+  imported' <- mapM (fmap snd . analyseValue scope) imported
+  (scope', _) <- Scope.add False line name (Scope.Namespace export $ Scope.scope path $ Map.map (Scope.Constant True) imported') scope
+  Right (scope', Map.assocs $ Map.mapWithKey ((,) . PhpValue) imported')
 
 analyse :: Map.Map String Scope.Scope -> String -> Parser.File -> Fallible (Scope.Scope, [(String, TypedValue)])
 analyse files path (Parser.File declarations) = do
