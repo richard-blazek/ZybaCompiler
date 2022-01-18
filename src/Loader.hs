@@ -25,8 +25,8 @@ loadFile ZybaLang path = do
   parsed@(Parser.File declarations) <- wrap $ Lexer.tokenize content >>= Parser.parse
   let (zybas, phps) = map2 catMaybes catMaybes $ unzip $ map import' declarations
   return $ LoadedFile (Zyba parsed) zybas phps
-  where import' (_, Parser.Import _ imported) = (Just imported, Nothing)
-        import' (_, Parser.Php _ imported _) = (Nothing, Just imported)
+  where import' (_, _, Parser.Import _ imported) = (Just imported, Nothing)
+        import' (_, _, Parser.Php _ imported _) = (Nothing, Just imported)
         import' _ = (Nothing, Nothing)
 
 lookupCache :: Lang -> Cache -> String -> FallibleIO (Cache, LoadedFile)
@@ -58,7 +58,7 @@ listOfImportedFiles path = do
   deps <- loadDependencies Map.empty [path] Map.empty 
   return $ orderDependencies $ deps Map.! path
 
-type Declarations = (String, [(String, (Lang.Type, Semantics.Value))])
+type Declarations = (String, [(String, Semantics.TypedValue)])
 analyseAll :: Map.Map String Scope.Scope -> [String] -> [Declarations] -> [(String, File)] -> Fallible ([String], [Declarations])
 analyseAll _ phps zybas [] = return $ (reverse phps, reverse zybas)
 analyseAll known phps zybas ((_, Php content) : paths) = analyseAll known (content : phps) zybas paths

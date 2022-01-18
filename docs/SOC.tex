@@ -44,8 +44,8 @@
 \fancyfoot{}
 \fancyfoot[R]{\thepage}
 \fancyfoot[L]{Kapitola \thesection}
-\setlength{\parindent}{0pt}
-\setlength{\parskip}{0.8em}
+\setlength\parindent{0em}
+\setlength\parskip{0.8em}
 \def\arraystretch{1.2}
 
 \begin{document}
@@ -123,6 +123,7 @@ Syntaxe Zyby je stejně jako u řady dalších jazyků (např. C++, Java, C\#, J
 
 Následuje popis prvků syntaxe a její formální popis v rozšířené Backus-Naurově formě.
 
+\subsubsection{Deklarace}
 Soubor v Zybě se skládá z deklarací. Každá deklarace buď přiřadí určité globální konstantě hodnotu určitého výrazu, nebo importuje konstanty deklarované v jiném souboru.
 \begin{grammar}
 <file> ::= <declaration>*
@@ -143,6 +144,7 @@ Importovat lze jak ze Zyby tak i z PHP. Import ze Zyby vyžaduje cestu k souboru
 <record> ::= \emphasis{\{} (<name> <expression>)* \emphasis{\}}
 \end{grammar}
 
+\subsubsection{Výrazy}
 Výraz tvoří jeden či více podvýrazů oddělených binárními operátory. Podvýraz tvoří jednotka, kterou můžou následovat volání funkce a přístupy k prvkům záznamu nebo jmenného prostoru. Volání funkce tvoří několik výrazů v hranatých závorkách; přístup k prvku tvoří tečka následovaná jménem. Zabudované metody, které budou podrobněji popsány později, se volají způsobem, který kombinuje syntaxi přístupu a syntaxi volání funkce, ale z hlediska gramatiky se nejedná o zvláštní případ.
 \begin{grammar}
 <expression> ::= <call> (<operator> <call>)*
@@ -165,6 +167,7 @@ Jednotek je několik druhů: výraz v závorkách; literál celého čísla, re�
 <unit> ::= <lambda>
 \end{grammar}
 
+\subsubsection{Funkce a příkazy}
 Lambda funkce začíná slovem \texttt{fun}. Následují argumenty funkce v hranatých závorkách, výraz specifikující typ navrácené hodnoty a blok, který tvoří několik příkazů ve složených závorkách. Argumenty funkce, pokud nějaké jsou, se zapisují po skupinách, z nichž každá se skládá z názvů jednoho či více argumentů následovaných dvojtečkou a výrazem specifikujícím typ těchto argumentů.
 \begin{grammar}
 <lambda> ::= \emphasis{fun} \emphasis{[} <arguments> \emphasis{]} <expression> <block>
@@ -183,6 +186,7 @@ Příkazem může být výraz, jenž má být vyhodnocen, přiřazení, příkaz
 <while> ::= \emphasis{while} <condition> <block>
 \end{grammar}
 
+\subsubsection{Tokeny}
 Nejmenší jednotkou syntaxe jsou tokeny. Token může být jedno z následujících:
 \begin{itemize}
 \item \textbf{Jméno} je posloupnost znaků, jež obsahuje pouze číslice, malá a velká písmena latinky a podtržítka a jejíž první znak není číslice.
@@ -194,12 +198,39 @@ Nejmenší jednotkou syntaxe jsou tokeny. Token může být jedno z následujíc
 \item \textbf{Oddělovač} je jeden znak; některý ze znaků \uv{\texttt{()[]\{\}.:}}.
 \end{itemize}
 
+\subsubsection{Příklad}
+\begin{verbatim}
+# Toto je komentář
+# Deklarace konstant
+a = 1103515245
+# 12345 zapsané v osmičkové soustavě
+c = 8r30071
+# Tady využíváme literály v soustavě o základu 256
+# Číslice 36 až 255 neexistují, ale toto číslo je nepotřebuje
+m = 256r10000
+# Pokud je poslední příkaz ve funkci vyhodnocení výrazu,
+# vrátí se hodnota toho výrazu
+next = fun[x: int] int {
+    x * a + c % m
+}
+# Zápis funkce s více argumenty
+mocnina = fun[zaklad exp: int] int {
+    result = 1
+    while exp > 0 {
+    	result = result * zaklad
+    	exp = exp - 1
+    }
+    result
+}
+\end{verbatim}
+
 \subsection{Proměnné a konstanty}
 Proměnné i konstanty jsou jména, která zastupují určitou hodnotu. Proměnné se vytvářejí uvnitř bloku příkazů přiřazením hodnoty určitému jménu, jenž na daném místě ještě žádnou hodnotu nezastupuje, a jsou přístupné až do konce toho bloku. Argumenty lambda funkcí jsou rovněž proměnné, jejichž hodnoty se nastaví při zavolání funkce na hodnoty předaných argumentů a jsou dostupné uvnitř celé lambda funkce. Proměnnou jde změnit tím, že se do ní přiřadí nová hodnota; ta musí mít stejný typ jako předchozí hodnota proměnné, kterou nová hodnota nahradila.
 
 Konstanty se vytváří přiřazením na úrovni deklarací a je dostupná od přiřazení až po konec souboru. Pokud přiřazenou hodnotou je lambda funkce, je konstanta přístupná v celém souboru (tj. už před přiřazením a i v těle oné lambda funkce). Jednou vytvořené konstantě už není možné přiřadit novou hodnotu.
 
 \subsubsection{Jmenné prostory}
+Proměnné
 
 \subsection{Typový systém}
 Zyba je staticky typovaný jazyk se silnou typovou kontrolou; typy všech hodnot tedy musí být známy v čase překladu a nemůžou se implicitně konvertovat. Pro konverzi hodnoty z jednoho typu na druhý lze použít zabudované metody, pokud programátor nechce konverzi implementovat ručně. Určitou zvláštností Zyby je to, že v místě, kde je očekáván typ, se dá použít libovolná hodnota onoho typu (např. hodnota \texttt{3+4} se dá použít jako typ \texttt{int}). Jména \texttt{int}, \texttt{bool} a další totiž ve skutečnosti znamenají pouze výchozí hodnoty těchto typů, nikoliv typy samotné (např. \texttt{int} je totéž jako \texttt{0}). Samozřejmě by se při psaní kódu měly používat názvy typů na místech, kde je očekáván typ, a hodnoty na místech, kde je očekávána hodnota; je sice možné to nedodržovat, ale vzniklý kód bude matoucí. Tato zvláštnost ale má i některé výhody, protože jednak činí jazyk jednodušším a navíc umožňuje vytvářet typové aliasy úplně stejně jako se vytváří proměnné a konstanty. Ostatně tento přístup má určitou paralelu v chování některých objektově orientovaných jazyků (např. C++), které umožňují volat statické metody jak na třídě, tak i na objektu; i v nich se tedy dá někdy použít hodnota (objekt) na místo typu (třídy).
@@ -207,7 +238,7 @@ Zyba je staticky typovaný jazyk se silnou typovou kontrolou; typy všech hodnot
 \subsubsection{Datové typy}
 \begin{tabular}{|m{3.5cm} m{6cm} m{5cm}|}\hline
 Název & Popis & Výchozí hodnota \\\hline
-\texttt{int} & Celé číslo & Nula (\texttt{0})\\\hline
+\texttt{int} & Celé číslo, 32bitové nebo 64bitové v závislosti na systému & Nula (\texttt{0})\\\hline
 \texttt{real} & Reálné číslo & Nula jako reálné číslo (\texttt{0.0})\\\hline
 \texttt{bool} & Logická hodnota & Nepravda (\texttt{0b})\\\hline
 \texttt{text} & Textový řetězec & Prázdný text (\texttt{\quote{}})\\\hline

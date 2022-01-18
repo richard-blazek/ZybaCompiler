@@ -103,11 +103,11 @@ getResultType line builtin args = case (builtin, args) of
   (Join, [Vector v, Text]) -> getResultType line AsText [v]
   _ -> err line $ "Builtin " ++ show builtin ++ " does not accept arguments of types " ++ join ", " args
 
-builtinCall :: Integer -> String -> [Type] -> Fallible (Type, Builtin)
+builtinCall :: Integer -> String -> [Type] -> Fallible (Builtin, Type)
 builtinCall line name args = do
   builtin <- Map.lookup name builtins ?? err line ("Builtin " ++ name ++ " does not exist")
   returnType <- getResultType line builtin args
-  Right (returnType, builtin)
+  Right (builtin, returnType)
 
 fieldAccess :: Integer -> String -> Type -> Fallible Type
 fieldAccess line name (Record fields) = Map.lookup name fields ?? err line ("The record does not have a field " ++ name)
