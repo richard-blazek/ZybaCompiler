@@ -156,7 +156,7 @@ Výraz tvoří jeden či více podvýrazů oddělených binárními operátory. 
 <access> ::= \emphasis{.} <name>
 \end{grammar}
 
-Jednotek je několik druhů: výraz v závorkách; literál celého čísla, reálného čísla, logické hodnoty či textu; záznam nebo lambda funkce.
+Jednotek je několik druhů: výraz v závorkách; literál celého čísla, reálného čísla, logické hodnoty či text; záznam nebo lambda funkce.
 \begin{grammar}
 <unit> ::= \emphasis{(} <expression> \emphasis{)}
 
@@ -227,11 +227,11 @@ mocnina = fun[zaklad exp: int] int {
 \subsection{Kontext}
 Každé jméno v kódu překladač vyhodnoduje v určitém kontextu, který zahrnuje všechna jména, jež na daném místě v kódu označují nějakou proměnnou, konstantu či jmenný prostor. Proměnné i konstanty jsou jména zastupující určitou hodnotu. Jmenný prostor je kolekce obsahující další proměnné, konstanty a jmenné prostory, k nimž se přistupuje skrz onen jmenný prostor.
 
-Proměnná se vytváří uvnitř bloku příkazů přiřazením hodnoty určitému jménu, jenž na daném místě ještě žádnou hodnotu nezastupuje, a je přístupné až do konce toho bloku. Argumenty lambda funkcí jsou rovněž proměnné, jejichž hodnoty se nastaví při zavolání funkce na hodnoty předaných argumentů a jsou dostupné uvnitř celé lambda funkce. Proměnnou jde změnit tím, že se do ní přiřadí nová hodnota; ta musí mít stejný typ jako předchozí hodnota proměnné, kterou nová hodnota nahradila.
+Proměnná se vytváří uvnitř bloku příkazů přiřazením hodnoty určitému jménu, jenž na daném místě ještě nic neoznačuje, a je přístupné až do konce toho bloku. Argumenty lambda funkcí jsou rovněž proměnné, jejichž hodnoty se nastaví při zavolání funkce na hodnoty předaných argumentů a jsou dostupné uvnitř celé lambda funkce. Proměnnou jde změnit tím, že se do ní přiřadí nová hodnota; ta musí mít stejný typ jako předchozí hodnota proměnné, kterou nová hodnota nahradila.
 
-Konstanta se deklaruje přiřazením na úrovni souboru, tedy vně všech bloků příkazů, a je dostupná od přiřazení až po konec souboru. Pokud přiřazenou hodnotou je lambda funkce, je konstanta přístupná v celém souboru, tedy už před přiřazením a dokonce i v těle té lambda funkce samotné. Jednou vytvořené konstantě už není možné přiřadit novou hodnotu.
+Konstanta se deklaruje přiřazením na úrovni souboru, tedy vně všech bloků příkazů, a je dostupná od přiřazení až po konec souboru. Pokud přiřazenou hodnotou je lambda funkce, je konstanta přístupná v celém souboru, tedy už před přiřazením a dokonce i v těle té lambda funkce samotné. Jednou vytvořené konstantě už není možné přiřadit novou hodnotu a není možné vytvořit ani jmenný prostor se stejným názvem.
 
-Jmenný prostor vzniká při importu z jiného souboru a obsahuje všechny exportované konstanty a jmenné prostory deklarované v onom souboru. Od dotyčného importu do konce souboru přes něj lze přistupovat k jeho prvkům pomocí již zmiňované syntaxe \texttt{prostor.prvek}. Obsahuje-li jmenný prostor další exportované jmenné prostory, lze přístupy zřetězit a přistupovat i k jejich prvkům: \texttt{prostor1.prostor2.prostor3.prvek}.
+Jmenný prostor vzniká při importu z jiného souboru a obsahuje všechny exportované konstanty a jmenné prostory deklarované v onom souboru. Od dotyčného importu do konce souboru přes něj lze přistupovat k jeho prvkům pomocí již zmiňované syntaxe \texttt{prostor.prvek}. Obsahuje-li jmenný prostor další exportované jmenné prostory, lze přístupy zřetězit a přistupovat i k jejich prvkům: \texttt{prostor1.prostor2.prostor3.prvek}. Žádné dva jmenné prostory nemůžou 
 
 \subsection{Typový systém}
 Zyba je staticky typovaný jazyk se silnou typovou kontrolou; typy všech hodnot tedy musí být známy v čase překladu a nemůžou se implicitně konvertovat. Pro konverzi hodnoty z jednoho typu na druhý lze použít zabudované metody, pokud programátor nechce konverzi implementovat ručně. Určitou zvláštností Zyby je to, že v místě, kde je očekáván typ, se dá použít libovolná hodnota onoho typu (např. hodnota \texttt{3+4} se dá použít jako typ \texttt{int}). Jména \texttt{int}, \texttt{bool} a další totiž ve skutečnosti znamenají pouze výchozí hodnoty těchto typů, nikoliv typy samotné (např. \texttt{int} je totéž jako \texttt{0}). Samozřejmě by se při psaní kódu měly používat názvy typů na místech, kde je očekáván typ, a hodnoty na místech, kde je očekávána hodnota; je sice možné to nedodržovat, ale vzniklý kód bude matoucí. Tato zvláštnost ale má i některé výhody, protože jednak činí jazyk jednodušším a navíc umožňuje vytvářet typové aliasy úplně stejně jako se vytváří proměnné a konstanty. Ostatně tento přístup má určitou paralelu v chování některých objektově orientovaných jazyků (např. C++\cite{cpp}), které umožňují volat statické metody jak na třídě, tak i na objektu; i v nich se tedy dá někdy použít hodnota (objekt) na místo typu (třídy).
@@ -239,6 +239,7 @@ Zyba je staticky typovaný jazyk se silnou typovou kontrolou; typy všech hodnot
 \subsubsection{Datové typy}
 \begin{tabular}{|m{3.5cm} m{6cm} m{5cm}|}\hline
 Název & Popis & Výchozí hodnota \\\hline
+\texttt{void} & Prázdná hodnota, návratový typ funkcí, které nic nevracejí & Bezvýznamná hodnota\\\hline
 \texttt{int} & Celé číslo, 32bitové nebo 64bitové v závislosti na systému & Nula (\texttt{0})\\\hline
 \texttt{real} & Reálné číslo & Nula jako reálné číslo (\texttt{0.0})\\\hline
 \texttt{bool} & Logická hodnota & Nepravda (\texttt{0b})\\\hline
@@ -249,8 +250,12 @@ Název & Popis & Výchozí hodnota \\\hline
 \texttt{\{N\textsubscript{0} T\textsubscript{0} \ldots{} N\textsubscript{m} T\textsubscript{m}\}} & Záznam s prvky, jejichž názvy jsou \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a typy jsou \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}} & Záznam se všemi prvky nabývajícími svých výchozích hodnot\\\hline
 \end{tabular}
 
+Funkce se vytváří pomocí syntaxe lambda funkce, jež specifikuje typy argumentů a návratové hodnoty a obsahuje kód, který se při zavolání funkce vykoná. Pokud je poslední příkaz v lambda funkci vyhodnocení výrazu, navrácená hodnota je hodnota onoho výrazu, jinak se vrátí prázdná hodnota (typu \texttt{void}). Funkce se volá pomocí hranatých závorek, předají se jí argumenty odpovídajících typů a výsledkem volání funkce je hodnota, již funkce vrátila.
+
+Záznam se vytváří stejným způsobem jako se značí typ záznamu, jen se píší hodnoty jeho prvků a ne typy. Zápis \texttt{\{N\textsubscript{0} H\textsubscript{0} \ldots{} N\textsubscript{m} H\textsubscript{m}\}} vytvoří záznam, jehož prvky budou mít názvy \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a nabývají hodnot \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}}. K prvkům záznamu se přistupuje pomocí tečky (např. \texttt{zaznam.prvek}), přičemž obsahuje-li záznam další záznamy, lze přístupy řetězit stejně jako u jmenných prostorů.
+
 \subsubsection{Zabudované metody}
-Výše zmiňované typy mají různé svoje zabudované metody.
+Datové typy mají svoje zabudované metody. To jsou zvláštní výrazy, jež něco vykonají a vrátí nějakou hodnotu.
 
 \section{Konstrukce překladače}
 
