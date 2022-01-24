@@ -145,7 +145,7 @@ Importovat lze jak ze Zyby tak i z PHP. Import ze Zyby vyžaduje cestu k souboru
 \end{grammar}
 
 \subsubsection{Výrazy}
-Výraz tvoří jeden či více podvýrazů oddělených binárními operátory. Podvýraz tvoří jednotka, kterou můžou následovat volání funkce a přístupy k prvkům záznamu nebo jmenného prostoru. Volání funkce tvoří několik výrazů v hranatých závorkách; přístup k prvku tvoří tečka následovaná jménem. Zabudované metody, které budou podrobněji popsány později, se volají způsobem, který kombinuje syntaxi přístupu a syntaxi volání funkce, ale z hlediska gramatiky se nejedná o zvláštní případ.
+Výraz tvoří jeden či více podvýrazů oddělených binárními operátory. Podvýraz tvoří jednotka, kterou můžou následovat volání funkce a přístupy k prvkům záznamu nebo jmenného prostoru. Volání funkce tvoří několik výrazů v hranatých závorkách; přístup k prvku tvoří tečka následovaná jménem. Zabudované metody se volají způsobem, který kombinuje syntaxi přístupu a syntaxi volání funkce: \texttt{argument1.metoda[argument2 \ldots{} argument\textsubscript{N}}, přičemž mají-li jen jeden argument, je možné závorky vynechat.
 \begin{grammar}
 <expression> ::= <call> (<operator> <call>)*
 
@@ -194,7 +194,7 @@ Nejmenší jednotkou syntaxe jsou tokeny. Token může být jedno z následujíc
 \item \textbf{Literál reálného čísla} začíná jako literál celého čísla, ale pokračuje desetinnou tečkou po které můžou následovat další číslice. Rovněž lze používat libovolnou číselnou soustavu.
 \item \textbf{Literál logické hodnoty} je \texttt{1b} pro pravdu a \texttt{0b} pro nepravdu. Je to totiž kratší než tradiční \texttt{true} a \texttt{false} a navíc je zápis obou hodnot stejně dlouhý.
 \item \textbf{Literál textu} je posloupnost znaků v uvozovkách. Patří do něj všechny znaky mezi nimi, tedy i konce řádků a speciální znaky, ale je-li potřeba zapsat znak uvozovek, musí se zdvojit, aby nedošlo k ukončení literálu.
-\item \textbf{Operátor} je libovolná poslounost znaků \uv{\texttt{+-*/\%\&|\textasciitilde\circumflex<>=!}}. Operátory jsou zabudované metody, takže jestli dotyčný operátor skutečně něco znamená se posoudí až při vyhodnocování zabudovaných metod.
+\item \textbf{Operátor} je libovolná poslounost znaků \uv{\texttt{+-*/\%\&|\textasciitilde\circumflex<>=!}}. Jestli dotyčný operátor opravdu existuje a lze jej aplikovat na tyto argumenty se posoudí až při vyhodnocování sémantiky.
 \item \textbf{Oddělovač} je jeden znak; některý ze znaků \uv{\texttt{()[]\{\}.:}}.
 \end{itemize}
 
@@ -254,8 +254,8 @@ Funkce se vytváří pomocí syntaxe lambda funkce, jež specifikuje typy argume
 
 Záznam se vytváří stejným způsobem jako se značí typ záznamu, jen se píší hodnoty jeho prvků a ne typy. Zápis \texttt{\{N\textsubscript{0} H\textsubscript{0} \ldots{} N\textsubscript{m} H\textsubscript{m}\}} vytvoří záznam, jehož prvky budou mít názvy \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a nabývají hodnot \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}}. K prvkům záznamu se přistupuje pomocí tečky (např. \texttt{zaznam.prvek}), přičemž obsahuje-li záznam další záznamy, lze přístupy řetězit stejně jako u jmenných prostorů.
 
-\subsubsection{Zabudované metody}
-Datové typy mají svoje zabudované metody. To jsou zvláštní výrazy, jež něco vykonají a vrátí nějakou hodnotu.
+\subsubsection{Zabudované metody a operátory}
+Datové typy mají svoje zabudované metody a operátory. Obojí jsou zvláštní výrazy, jež něco vykonají a vrátí nějakou hodnotu, ale liší se syntaxí. Syntaxe volání zabudovaných metod i operátorů již byla popsáná výše.
 
 \section{Konstrukce překladače}
 
