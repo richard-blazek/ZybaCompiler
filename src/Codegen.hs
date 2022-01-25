@@ -96,18 +96,24 @@ genBuiltin Lang.Sort [array, compare] _ = array ++ "->usortV(" ++ compare ++ ")"
 genBuiltin Lang.Join [array, separator] [Lang.Vector Lang.Text, Lang.Text] = "implode(" ++ separator ++ "," ++ array ++ "->a)"
 genBuiltin Lang.Join [array, separator] [Lang.Vector v, Lang.Text] = "implode(" ++ separator ++ ",array_map(" ++ array ++ "->a,'json_encode'))"
 
-genStatement :: (String -> String) -> String -> Statement -> String
-genStatement qual this (Value value) = genValue qual this value ++ ";"
-genStatement qual this (Initialization name value) = qual this ++ name ++ "=" ++ genValue qual this value ++ ";"
-genStatement qual this (Assignment name value) = qual this ++ name ++ "=" ++ genValue qual this value ++ ";"
-genStatement qual this (While condition block) = "while(" ++ genValue qual this condition ++ "){" ++ genBlock qual this False block ++ "}"
-genStatement qual this (IfChain chain else') = intercalate "else " (map genIf chain) ++ "else{" ++ genBlock qual this False else' ++ "}"
+genStatement :: (String -> String) -> String -> Bool -> Statement -> String
+genStatement qual this return (Value value) = (if return then "return " else "") ++ genValue qual this value ++ ";"
+genStatement qual this _ (Initialization name value) = qual this ++ name ++ "=" ++ genValue qual this value ++ ";"
+genStatement qual this _ (Assignment name value) = qual this ++ name ++ "=" ++ genValue qual this value ++ ";"
+genStatement qual this _ (While condition block) = "while(" ++ genValue qual this condition ++ "){" ++ genBlock qual this False block ++ "}"
+genStatement qual this _ (Return value) = "return " ++ genValue qual this value ++ ";"
+genStatement qual this _ (IfChain chain else') = intercalate "else " (map genIf chain) ++ "else{" ++ genBlock qual this False else' ++ "}"
   where genIf (cond, block) = "if(" ++ genValue qual this cond ++ "){" ++ genBlock qual this False block ++ "}"
+genStatement qual this _ (For name count block) = "for(" ++ i ++ "=0;" ++ i ++ "<=" ++ genValue qual this count ++ ";++" ++ i ++ "){" ++ genBlock qual this False block ++ "}"
+  where i = qual this ++ name
+genStatement qual this _ (Foreach valueName key iterable block) = case key of
+  Nothing -> "foreach(" ++ genValue qual this iterable ++ " as " ++ qual this ++ valueName ++ "){" ++ genBlock qual this False block ++ "}"
+  Just keyName -> "foreach(" ++ genValue qual this iterable ++ " as " ++ qual this ++ valueName ++ "=>" ++ qual this ++ keyName ++ "){" ++ genBlock qual this False block ++ "}"
 
 genBlock :: (String -> String) -> String -> Bool -> [Statement] -> String
 genBlock _ _ _ [] = ""
-genBlock qual this True [statement@(Value (_, type'))] | type' /= Lang.Void = "return " ++ genStatement qual this statement
-genBlock qual this return (statement : statements) = genStatement qual this statement ++ genBlock qual this return statements
+genBlock qual this True [statement@(Value (_, type'))] = genStatement qual this (type' /= Lang.Void) statement
+genBlock qual this return (statement : statements) = genStatement qual this False statement ++ genBlock qual this return statements
 
 genValue :: (String -> String) -> String -> TypedValue -> String
 genValue _ _ (Literal (Bool b), _) = if b then "TRUE" else "FALSE"
