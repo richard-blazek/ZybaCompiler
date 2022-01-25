@@ -1,4 +1,4 @@
-module Functions (zipMaps, map2, (??), intercalate, join, pad, mapCatFoldlM, tailRecM, tailRec2M, fmap2, split, follow, leaf) where
+module Functions (zipMaps, map2, (??), intercalate, join, pad, mapCatFoldlM, tailRecM, tailRec2M, fmap2, sequence2, split, after, leaf) where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.Map.Merge.Strict as Merge
@@ -12,6 +12,9 @@ map2 f g (a, b) = (f a, g b)
 
 fmap2 :: Functor f => (a -> c) -> (b -> d) -> f (a, b) -> f (c, d)
 fmap2 f g = fmap (map2 f g)
+
+sequence2 :: Monad m => (a -> m c) -> (b -> m d) -> a -> b -> m (c, d)
+sequence2 fa fb a b = fa a >>= (`fmap` (fb b)) . (,)
 
 infixr 2 ??
 (??) :: Monad m => Maybe a -> m a -> m a
@@ -47,8 +50,8 @@ split = splitTail []
         splitTail acc [x] = (acc, Just x)
         splitTail acc (x1 : x2 : xs) = splitTail ((x1, x2) : acc) xs
 
-follow :: Monad m => (a -> m (b, a)) -> (a -> m (c, a)) -> a -> m ((b, c), a)
-follow f g x = do
+after :: Monad m => (a -> m (b, a)) -> (a -> m (c, a)) -> a -> m ((b, c), a)
+after f g x = do
   (a, y) <- f x
   (b, z) <- g y
   return ((a, b), z)

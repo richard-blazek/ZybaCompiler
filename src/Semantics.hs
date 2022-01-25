@@ -5,15 +5,18 @@ import qualified Parser
 import qualified Scope
 import qualified Language as Lang
 import Data.Foldable (foldlM)
-import Functions (mapCatFoldlM, tailRecM, fmap2, (??))
+import Functions (mapCatFoldlM, tailRecM, fmap2, map2, (??), sequence2)
 import Fallible (Fallible, err, assert, dropLeft)
 
 data Statement
   = Value TypedValue
   | Initialization String TypedValue
   | Assignment String TypedValue
+  | IfChain [(TypedValue, [Statement])] [Statement]
   | While TypedValue [Statement]
-  | IfChain [(TypedValue, [Statement])] [Statement] deriving (Eq, Show)
+  | For String TypedValue [Statement]
+  | Foreach String (Maybe String) TypedValue [Statement]
+  | Return TypedValue deriving (Eq, Show)
 
 data Value
   = Literal Parser.Literal
@@ -30,14 +33,14 @@ type TypedValue = (Value, Lang.Type)
 analyseType :: Scope.Scope -> (Integer, Parser.Value) -> Fallible Lang.Type
 analyseType scope value = fmap snd $ analyseValue scope value
 
-collectGlobal :: Scope.Scope -> (Integer, Bool, Parser.Declaration) -> Fallible Scope.Scope
+collectGlobal :: Scope.Scope -> (Integer, Scope.Visibility, Parser.Declaration) -> Fallible Scope.Scope
 collectGlobal scope (_, export, Parser.Declaration name (line, Parser.Lambda args returned body)) = do
   argTypes <- mapM (analyseType scope . snd) args
   returnType <- analyseType scope returned
-  fmap fst $ Scope.add False line name (Scope.Constant export $ Lang.Function argTypes returnType) scope
+  Scope.addGlobal line export name (Lang.Function argTypes returnType) scope
 collectGlobal scope _ = Right scope
 
-collectGlobals :: String -> [(Integer, Bool, Parser.Declaration)] -> Fallible Scope.Scope
+collectGlobals :: String -> [(Integer, Scope.Visibility, Parser.Declaration)] -> Fallible Scope.Scope
 collectGlobals = foldlM collectGlobal . Scope.empty
 
 analyseCall :: Integer -> [TypedValue] -> TypedValue -> Fallible TypedValue
@@ -90,53 +93,81 @@ analyseValue scope (line, Parser.Lambda args returnType block) = do
   argTypes <- mapM (analyseType scope . snd) args
   let args' = zip (map fst args) argTypes
   returnType' <- analyseType scope returnType
-  innerScope <- foldlM (\scope' (name, type') -> fmap fst $ Scope.add False line name (Scope.Variable type') scope') scope args'
-  block' <- analyseBlock innerScope block
+  innerScope <- foldlM (\scope' (name, type') -> Scope.addLocal line Scope.Variable name type' scope') scope args'
+  block' <- analyseBlock innerScope returnType' block
+  let fn = (Lambda args' block', Lang.Function argTypes returnType')
   case reverse block' of
-    Value (_, type') : _ | returnType' `elem` [type', Lang.Void] -> Right (Lambda args' block', Lang.Function argTypes returnType')
+    Return _ : _ -> Right fn
+    Value (_, type') : _ | type' == returnType' -> Right fn
+    _ | returnType' == Lang.Void -> Right fn
     _ -> err line $ "Function must return a value of type " ++ show returnType'
 
 analyseValue scope (line, Parser.Record fields) = do
   fields' <- mapM (analyseValue scope) fields
   Right (Record $ fields', Lang.Record $ Map.map snd fields')
 
-analyseStatement :: Scope.Scope -> (Integer, Parser.Statement) -> Fallible (Statement, Scope.Scope)
-analyseStatement scope (line, Parser.Value value) = fmap (flip (,) scope . Value) $ analyseValue scope value
-
-analyseStatement scope (line, Parser.Assignment name value) = do
+analyseStatement :: Scope.Scope -> Lang.Type -> (Integer, Parser.Statement) -> Fallible (Statement, Scope.Scope)
+analyseStatement scope returnType (line, Parser.Value value) = fmap (flip (,) scope . Value) $ analyseValue scope value
+analyseStatement scope returnType (line, Parser.Assignment name value) = do
   value'@(_, type') <- analyseValue scope value
-  (scope', added) <- Scope.add True line name (Scope.Variable type') scope
+  (scope', added) <- Scope.setLocal line Scope.Variable name type' scope
   Right ((if added then Initialization else Assignment) name value', scope')
 
-analyseStatement scope (line, Parser.IfChain if' else') = do
-  if'' <- mapM (\(cond, block) -> analyseValue scope cond >>= (\cond' -> fmap ((,) cond') $ analyseBlock scope block)) if'
-  else'' <- analyseBlock scope else'
-  assert (all ((== Lang.Bool) . snd . fst) if'') line $ "Condition must have a bool type"
+analyseStatement scope returnType (line, Parser.IfChain if' else') = do
+  if'' <- mapM (\(cond, block) -> sequence2 (analyseValue scope) (analyseBlock scope returnType) cond block >>= uncurry checkCond) if'
+  else'' <- analyseBlock scope returnType else'
   Right (IfChain if'' else'', scope)
+  where checkCond cond@(_, type') block = assert (type' == Lang.Bool) line "Condition must have a bool type" >> return (cond, block)
 
-analyseStatement scope (line, Parser.While condition body) = do
-  cond <- analyseValue scope condition
-  body <- analyseBlock scope body
-  Right (While cond body, scope)
+analyseStatement scope returnType (line, Parser.While cond body) = do
+  cond'@(_, type') <- analyseValue scope cond
+  assert (type' == Lang.Bool) line $ "Condition must have a bool type"
+  body' <- analyseBlock scope returnType body
+  Right (While cond' body', scope)
 
-analyseBlock :: Scope.Scope -> [(Integer, Parser.Statement)] -> Fallible [Statement]
-analyseBlock scope statements = tailRecM if' then' else' ([], scope, statements)
+analyseStatement scope returnType (line, Parser.For value count body) = do
+  count'@(_, type') <- analyseValue scope count
+  assert (type' == Lang.Int) line $ "Number of repetitions must have an int type"
+  innerScope <- Scope.addLocal line Scope.Constant value Lang.Int scope
+  body' <- analyseBlock innerScope returnType body
+  Right (For value count' body', scope)
+
+analyseStatement scope returnType (line, Parser.Foreach valueName keyName iterable body) = do
+  iterable'@(_, type') <- analyseValue scope iterable
+  iteratingVariables <- variables type' keyName
+  innerScope <- foldlM (\scope' (name, type') -> Scope.addLocal line Scope.Variable name type' scope') scope iteratingVariables
+  body' <- analyseBlock innerScope returnType body
+  Right (Foreach valueName keyName iterable' body', scope)
+  where variables (Lang.Vector valueType) (Just keyName) = Right [(valueName, valueType), (keyName, Lang.Int)]
+        variables (Lang.Vector valueType) Nothing = Right [(valueName, valueType)]
+        variables (Lang.Dictionary keyType valueType) (Just keyName) = Right [(valueName, valueType), (keyName, keyType)]
+        variables (Lang.Dictionary _ valueType) Nothing = Right [(valueName, valueType)]
+        variables _ _ = err line "Iterable must be a vector or a dictionary"
+
+analyseStatement scope returnType (line, Parser.Return value) = do
+  value'@(_, type') <- analyseValue scope value
+  assert (type' == returnType) line $ "Return value must have type " ++ show returnType
+  Right (Return value', scope)
+
+analyseBlock :: Scope.Scope -> Lang.Type -> [(Integer, Parser.Statement)] -> Fallible [Statement]
+analyseBlock scope returnType statements = tailRecM if' then' else' ([], scope, statements)
   where if' (_, _, statements) = Right $ null statements
         then' (result, _, _) = Right $ reverse result
-        else' (result, scope, statement : statements) = fmap (\(analysed, sc) -> (analysed : result, sc, statements)) $ analyseStatement scope statement
+        else' (result, scope, statement : statements) = fmap (\(analysed, sc) -> (analysed : result, sc, statements)) $ analyseStatement scope returnType statement
 
-analyseDeclaration :: Map.Map String Scope.Scope -> Scope.Scope -> (Integer, Bool, Parser.Declaration) -> Fallible (Scope.Scope, [(String, TypedValue)])
-analyseDeclaration files scope (line, export, Parser.Import name path) = fmap (flip (,) [] . fst) $ Scope.add False line name (Scope.Namespace export $ files Map.! path) scope
+analyseDeclaration :: Map.Map String Scope.Scope -> Scope.Scope -> (Integer, Scope.Visibility, Parser.Declaration) -> Fallible (Scope.Scope, [(String, TypedValue)])
+analyseDeclaration files scope (line, export, Parser.Import name path) = fmap (flip (,) []) $ Scope.addNamespace line export name (files Map.! path) scope
 analyseDeclaration _ scope (_, export, Parser.Declaration name value@(_, Parser.Lambda _ _ _)) = fmap ((,) scope . (:[]) . (,) name) $ analyseValue scope value
 analyseDeclaration _ scope (line, export, Parser.Declaration name value) = do
   value'@(_, type') <- analyseValue scope value
-  scope' <- fmap fst $ Scope.add False line name (Scope.Constant export type') scope
+  scope' <- Scope.addGlobal line export name type' scope
   Right (scope', [(name, value')])
 
 analyseDeclaration files scope (line, export, Parser.Php name path imported) = do
-  imported' <- mapM (fmap snd . analyseValue scope) imported
-  (scope', _) <- Scope.add False line name (Scope.Namespace export $ Scope.scope path $ Map.map (Scope.Constant True) imported') scope
-  Right (scope', Map.assocs $ Map.mapWithKey ((,) . PhpValue) imported')
+  imported' <- fmap Map.assocs $ mapM (fmap snd . analyseValue scope) imported
+  importedScope <- foldlM (\scope (name, type') -> Scope.addGlobal line Scope.Exported name type' scope) (Scope.empty path) imported'
+  scope' <- Scope.addNamespace line export name importedScope scope
+  Right (scope', map (\(k, t) -> (k, (PhpValue k, t))) imported')
 
 analyse :: Map.Map String Scope.Scope -> String -> Parser.File -> Fallible (Scope.Scope, [(String, TypedValue)])
 analyse files path (Parser.File declarations) = do

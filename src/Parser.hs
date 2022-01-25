@@ -2,10 +2,11 @@ module Parser (Value (..), Statement (..), Declaration (..), Literal (..), File 
 
 import qualified Lexer
 import qualified Data.Map.Strict as Map
-import Functions (intercalate, tailRecM, tailRec2M, fmap2, follow)
+import qualified Scope
+import Functions (intercalate, tailRecM, tailRec2M, fmap2, after)
 import Fallible (Fallible (..), err, assert)
 
-newtype File = File [(Integer, Bool, Declaration)] deriving (Show, Eq)
+newtype File = File [(Integer, Scope.Visibility, Declaration)] deriving (Show, Eq)
 
 data Declaration
   = Declaration String (Integer, Value)
@@ -15,9 +16,11 @@ data Declaration
 data Statement
   = Value (Integer, Value)
   | Assignment String (Integer, Value)
+  | IfChain [((Integer, Value), [(Integer, Statement)])] [(Integer, Statement)]
   | While (Integer, Value) [(Integer, Statement)]
-  | For String (Maybe String) (Integer, Value) [(Integer, Statement)]
-  | IfChain [((Integer, Value), [(Integer, Statement)])] [(Integer, Statement)] deriving (Show, Eq)
+  | For String (Integer, Value) [(Integer, Statement)]
+  | Foreach String (Maybe String) (Integer, Value) [(Integer, Statement)]
+  | Return (Integer, Value) deriving (Show, Eq)
 
 data Literal = Int Integer | Real Double | Text String | Bool Bool deriving (Show, Eq)
 
@@ -76,7 +79,7 @@ parseArguments tokens = tailRecM if' then' else' ([], [], tokens)
 parseLambda :: Integer -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Value), [(Integer, Lexer.Token)])
 parseLambda line tokens = do
   tokens' <- expect (Lexer.Separator '[') tokens
-  ((args, (returnType, block)), tokens'') <- follow parseArguments (follow parseValue parseBlock) tokens'
+  ((args, (returnType, block)), tokens'') <- after parseArguments (after parseValue parseBlock) tokens'
   Right ((line, Lambda args returnType block), tokens'')
 
 parseCall :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Value), [(Integer, Lexer.Token)])
@@ -95,7 +98,7 @@ parseValue tokens = parseCall tokens >>= uncurry (tailRec2M if' id id else')
 
 parseIf :: Integer -> [((Integer, Value), [(Integer, Statement)])] -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Statement), [(Integer, Lexer.Token)])
 parseIf line chain tokens = do
-  (pair, tokens') <- follow parseValue parseBlock tokens
+  (pair, tokens') <- after parseValue parseBlock tokens
   let chain' = pair : chain
   case tokens' of
     (_, Lexer.Name "else") : (_, Lexer.Name "if") : tokens'' -> parseIf line chain' tokens''
@@ -104,24 +107,28 @@ parseIf line chain tokens = do
       Right ((line, IfChain (reverse chain') $ elseBlock), tokens''')
     _ -> Right ((line, IfChain (reverse chain') []), tokens')
 
-parseStatement :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Statement), [(Integer, Lexer.Token)])
-parseStatement ((line, Lexer.Name "if") : tokens) = parseIf line [] tokens
-parseStatement ((line, Lexer.Name "while") : tokens) = do
-  ((condition, block), tokens') <- follow parseValue parseBlock tokens
-  Right ((line, While condition block), tokens')
+parseBlock :: [(Integer, Lexer.Token)] -> Fallible ([(Integer, Statement)], [(Integer, Lexer.Token)])
+parseBlock tokens = expect (Lexer.Separator '{') tokens >>= parseMany parseStatement (Lexer.Separator '}')
 
+parseBlockWith :: Integer -> ((Integer, Value) -> [(Integer, Statement)] -> a) -> [(Integer, Lexer.Token)] -> Fallible ((Integer, a), [(Integer, Lexer.Token)])
+parseBlockWith line fn tokens = fmap2 ((,) line . uncurry fn) id $ after parseValue parseBlock tokens
+
+parseStatement :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Statement), [(Integer, Lexer.Token)])
 parseStatement ((line, Lexer.Name name) : (_, Lexer.Operator "=") : tokens) = do
   (value, tokens') <- parseValue tokens
   Right ((line, Assignment name value), tokens')
 
+parseStatement ((line, Lexer.Name "if") : tokens) = parseIf line [] tokens
+parseStatement ((line, Lexer.Name "while") : tokens) = parseBlockWith line While tokens
+parseStatement ((line, Lexer.Name "for") : (_, Lexer.Name value) : (_, Lexer.Operator "<") : tokens) = parseBlockWith line (For value) tokens
+parseStatement ((line, Lexer.Name "for") : (_, Lexer.Name value) : (_, Lexer.Operator ":") : tokens) = parseBlockWith line (Foreach value Nothing) tokens
+parseStatement ((line, Lexer.Name "for") : (_, Lexer.Name key) : (_, Lexer.Name value) : (_, Lexer.Operator ":") : tokens) = parseBlockWith line (Foreach value $ Just key) tokens
+parseStatement ((line, Lexer.Name "return") : tokens) = fmap2 ((,) line . Return) id $ parseValue tokens
 parseStatement tokens@((line, _):_) = fmap2 ((,) line . Value) id $ parseValue tokens
 
-parseBlock :: [(Integer, Lexer.Token)] -> Fallible ([(Integer, Statement)], [(Integer, Lexer.Token)])
-parseBlock tokens = expect (Lexer.Separator '{') tokens >>= parseMany parseStatement (Lexer.Separator '}')
-
-parseDeclaration :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Bool, Declaration), [(Integer, Lexer.Token)])
+parseDeclaration :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Scope.Visibility, Declaration), [(Integer, Lexer.Token)])
 parseDeclaration tokens@((line, Lexer.Name name) : _) = do
-  let (tokens', export) = if name == "export" then (tail tokens, True) else (tokens, False)
+  let (tokens', export) = if name == "export" then (tail tokens, Scope.Exported) else (tokens, Scope.Private)
   fmap2 ((,,) line export) id $ case tokens' of
     (_, Lexer.Name "import") : (_, Lexer.Name name) : (_, Lexer.LiteralText path) : tokens'' -> Right (Import name path, tokens'')
     (_, Lexer.Name "import") : (_, Lexer.Name "php") : (_, Lexer.Name name) : (_, Lexer.LiteralText path) : tokens'' -> do
