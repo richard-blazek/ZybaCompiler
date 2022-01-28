@@ -2,13 +2,17 @@ module Language (Type (..), Builtin (..), builtinCall, fieldAccess, removeBuilti
 
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import Fallible (Fallible (..), err, assert)
+import Fallible (Fallible (..), err, assert, assertJust)
 import Functions (join, split, (??), zipMaps)
 
 data Type = Void | Int | Bool | Real | Text | Function [Type] Type | Dictionary Type Type | Vector Type | Record (Map.Map String Type) deriving (Eq, Show)
-data Builtin = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not
-  | AsInt | AsReal | AsBool | AsText | Fun | Dict | List | Set | Get | Has | Size | Concat | Append | Sized | Sort
-  | Join deriving (Eq, Ord)
+data Builtin = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not | AsInt | AsReal | AsBool | AsText
+  | Fun | Dict | List | Set | Get | Has | Count | Concat | Pad | Sort | Join
+  -- To be done:
+  | Insert | Erase | Append | Slice | Remove | Find | AsList | AsDict | Map | Filter | Fold | Keys | Values | Flat | Shuffle | Sample | Chars
+  | Split | EscapeHtml | UnescapeHtml | EscapeUrl | UnescapeUrl | Replace | Hash | IsHashOf | NeedsRehash | StartsWith | EndsWith | Contains | Lower | Upper
+  | Capitalize | Trim | ReadFile | WriteFile | Db
+  deriving (Eq, Ord)
 
 instance Show Builtin where
   show builtin = builtinsReversed Map.! builtin
@@ -17,8 +21,12 @@ instance Show Builtin where
 builtins :: Map.Map String Builtin
 builtins = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("/", Div), ("//", IntDiv), ("%", Rem), ("&", And), ("|", Or), ("^", Xor), ("==", Eq), ("!=", Neq),
   ("<", Lt), (">", Gt), ("<=", Le), (">=", Ge), ("**", Pow), ("not", Not), ("asInt", AsInt), ("asReal", AsReal), ("asBool", AsBool), ("asText", AsText),
-  ("fun", Fun), ("dict", Dict), ("list", List), ("set", Set), ("get", Get), ("has", Has), ("size", Size), ("concat", Concat), ("append", Append), ("sized", Sized),
-  ("sort", Sort), ("join", Join)]
+  ("fun", Fun), ("dict", Dict), ("list", List), ("set", Set), ("get", Get), ("has", Has), ("count", Count), ("concat", Concat), ("pad", Pad), ("sort", Sort),
+  ("join", Join), ("insert", Insert), ("erase", Erase), ("append", Append), ("slice", Slice), ("remove", Remove), ("find", Find), ("asList", AsList), ("asDict", AsDict),
+  ("map", Map), ("filter", Filter), ("fold", Fold), ("keys", Keys), ("values", Values), ("flat", Flat), ("shuffle", Shuffle), ("sample", Sample), ("chars", Chars),
+  ("split", Split), ("escapeHtml", EscapeHtml), ("unescapeHtml", UnescapeHtml), ("escapeUrl", EscapeUrl), ("unescapeUrl", UnescapeUrl), ("replace", Replace), ("hash", Hash),
+  ("isHashOf", IsHashOf), ("needsRehash", NeedsRehash), ("startsWith", StartsWith), ("endsWith", EndsWith), ("contains", Contains), ("lower", Lower), ("upper", Upper),
+  ("capitalize", Capitalize), ("trim", Trim), ("readFile", ReadFile), ("writeFile", WriteFile), ("db", Db)]
 
 builtinsSet :: Set.Set String
 builtinsSet = Map.keysSet builtins
@@ -45,6 +53,8 @@ getResultType line builtin args = case (builtin, args) of
   (Rem, [a, b]) | all (`elem` [Int, Real]) [a, b] -> Right Real
   (And, [Int, Int]) -> Right Int
   (And, [Bool, Bool]) -> Right Bool
+  (And, [Dictionary k1 v1, Dictionary k2 v2]) | v1 == v2 && k1 == k2 -> Right $ Dictionary k1 v1
+  (And, [Record f1, Record f2]) -> Right $ Record $ Map.intersection f2 f1
   (Or, [Int, Int]) -> Right Int
   (Or, [Bool, Bool]) -> Right Bool
   (Or, [Dictionary k1 v1, Dictionary k2 v2]) | v1 == v2 && k1 == k2 -> Right $ Dictionary k1 v1
@@ -92,15 +102,90 @@ getResultType line builtin args = case (builtin, args) of
   (Set, [Vector value, Int, assigned]) | assigned == value -> Right Void
   (Set, [Dictionary key value, index, assigned]) | index == key && assigned == value -> Right Void
   (Has, [Dictionary key value, index]) | index == key -> Right Bool
-  (Size, [Text]) -> Right Int
-  (Size, [Vector _]) -> Right Int
-  (Size, [Dictionary _ _]) -> Right Int
+  (Count, [Text]) -> Right Int
+  (Count, [Vector _]) -> Right Int
+  (Count, [Dictionary _ _]) -> Right Int
+  (Count, [Text, Function [Text] Bool]) -> Right Int
+  (Count, [Vector v, Function [v2] Bool]) | v == v2 -> Right Int
+  (Count, [Dictionary _ v, Function [v2] Bool]) | v == v2 -> Right Int
   (Concat, Vector v : args) | all (`elem` [Vector v, v]) args -> Right $ Vector v
-  (Append, Vector v : args) | all (`elem` [Vector v, v]) args -> Right Void
-  (Sized, [Vector v, Int]) -> Right $ Vector v
-  (Sized, [Vector v, Int, v2]) | v2 == v -> Right $ Vector v
+  (Pad, [Vector v, Int]) -> Right $ Vector v
+  (Pad, [Vector v, Int, v2]) | v2 == v -> Right $ Vector v
+  (Pad, [Vector v, Int, v2, Bool]) | v2 == v -> Right $ Vector v
+  (Pad, [Text, Int]) -> Right Text
+  (Pad, [Text, Int, Text]) -> Right Text
+  (Pad, [Text, Int, Text, Bool]) -> Right Text
   (Sort, Vector v : args) | args `elem` [[], [Bool], [Function [v, v] Int]] -> Right Void
   (Join, [Vector v, Text]) -> getResultType line AsText [v]
+
+  (Insert, [Vector v, Int, v2]) | v == v2 -> Right Void
+  (Insert, [Vector v, Int, Vector v2]) | v == v2 -> Right Void
+  (Erase, [Vector v, Int]) -> Right Void
+  (Erase, [Vector v, Int, Int]) -> Right Void
+  (Erase, [Dictionary k _, k2]) | k == k2 -> Right Void
+  (Append, Vector v : args) | all (`elem` [Vector v, v]) args -> Right Void
+  (Slice, [Vector v, Int]) -> Right $ Vector v
+  (Slice, [Vector v, Int, Int]) -> Right $ Vector v
+  (Remove, [Vector v, v2]) | v == v2 -> Right Void
+  (Remove, [Dictionary k v, v2]) | v == v2 -> Right Void
+  (Find, [Vector v, v2]) | v == v2 -> Right Int
+  (Find, [Dictionary k v, v2]) | v == v2 -> Right k
+  (AsList, [Text]) -> Right $ Vector Text
+  (AsList, [Dictionary k v]) -> Right $ Record $ Map.fromList [("key", k), ("value", v)]
+  (AsDict, [Vector v]) -> do
+    fields <- fieldsOf v
+    key <- assertJust (Map.lookup "key" fields) line "Missing key field"
+    value <- assertJust (Map.lookup "value" fields) line "Missing value field"
+    getResultType line Dict [key, value]
+    where fieldsOf (Record fields) = Right fields
+          fieldsOf _ = err line "Cannot convert non-record to dictionary"
+  (Map, (Function args returnType : collections@(_ : _))) -> do
+    types <- mapM itemType collections
+    assert (args == types) line $ "Values of lists must have types " ++ join ", " args
+    Right returnType
+    where itemType Text = Right Text
+          itemType (Vector v) = Right v
+          itemType (Dictionary _ v) = Right v
+          itemType type' = err line $ "Expected a list or dict, got: " ++ show type'
+  (Filter, [Text, Function [Text] Bool]) -> Right Text
+  (Filter, [Vector v, Function [v2] Bool]) | v == v2 -> Right $ Vector v
+  (Filter, [Dictionary k v, Function [v2] Bool]) | v == v2 -> Right $ Dictionary k v
+  (Fold, [Text, s, Function [s2, Text] s3]) | s == s2 && s2 == s3 -> Right s
+  (Fold, [Vector v, s, Function [s2, v2] s3]) | s == s2 && s2 == s3 && v == v2 -> Right s
+  (Fold, [Dictionary k v, s, Function [s2, v2] s3]) | s == s2 && s2 == s3 && v == v2 -> Right s
+  (Keys, [Vector s]) -> Right $ Vector Int
+  (Keys, [Dictionary k v]) -> Right $ Vector k
+  (Values, [Vector s]) -> Right $ Vector s
+  (Values, [Dictionary k v]) -> Right $ Vector v
+  (Flat, [Vector (Vector v)]) -> Right $ Vector v
+  (Shuffle, [Vector v]) -> Right $ Vector v
+  (Sample, [Vector v, Int]) -> Right $ Vector v
+  (Chars, [Text]) -> Right $ Vector Text
+  (Split, [Text, Text]) -> Right $ Vector Text
+  (EscapeHtml, [Text]) -> Right Text
+  (UnescapeHtml, [Text]) -> Right Text
+  (EscapeUrl, [Text]) -> Right Text
+  (UnescapeUrl, [Text]) -> Right Text
+  (Replace, [Text, Text, Text]) -> Right Text
+  (Hash, [Text]) -> Right Text
+  (IsHashOf, [Text, Text]) -> Right Bool
+  (NeedsRehash, [Text]) -> Right Bool
+  (StartsWith, [Text, Text]) -> Right Bool
+  (EndsWith, [Text, Text]) -> Right Bool
+  (Contains, [Text, Text]) -> Right Bool
+  (Contains, [Vector v, v2]) | v == v2 -> Right Bool
+  (Contains, [Dictionary k v, v2]) | v == v2 -> Right Bool
+  (Lower, [Text]) -> Right Text
+  (Upper, [Text]) -> Right Text
+  (Capitalize, [Text]) -> Right Text
+  (Trim, [Text]) -> Right Text
+  (Db, Text : Text : Text : args) -> do
+    let pairs = divide args
+
+    Right Void
+    where divide [] = []
+          divide (sql : each@(Function _ Void) : rest) = (sql, Just each) : divide rest
+          divide (sql : rest) = (sql, Nothing) : divide rest
   _ -> err line $ "Builtin " ++ show builtin ++ " does not accept arguments of types " ++ join ", " args
 
 builtinCall :: Integer -> String -> [Type] -> Fallible (Builtin, Type)

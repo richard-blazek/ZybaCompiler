@@ -52,9 +52,11 @@ genBuiltin Lang.Rem [a, b] [Lang.Int, Lang.Int] = "(" ++ a ++ "%" ++ b ++ ")"
 genBuiltin Lang.Rem [a, b] [_, _] = "fmod(" ++ a ++ "," ++ b ++ ")"
 genBuiltin Lang.And [a, b] [Lang.Int, Lang.Int] = "(" ++ a ++ "&" ++ b ++ ")"
 genBuiltin Lang.And [a, b] [_, _] = "(" ++ a ++ "&&" ++ b ++ ")"
+genBuiltin Lang.Or [a, b] [Lang.Dictionary _ _, Lang.Dictionary _ _] = a ++ "->inters(" ++ b ++ ")"
+genBuiltin Lang.Or [a, b] [Lang.Record _, Lang.Record _] = a ++ "->inters(" ++ b ++ ")"
 genBuiltin Lang.Or [a, b] [Lang.Int, Lang.Int] = "(" ++ a ++ "||" ++ b ++ ")"
-genBuiltin Lang.Or [a, b] [Lang.Dictionary _ _, Lang.Dictionary _ _] = a ++ "->unionD(" ++ b ++ ")"
-genBuiltin Lang.Or [a, b] [Lang.Record _, Lang.Record f2] = a ++ "->unionR(" ++ b ++ ",array(" ++ intercalate "," (Map.keys f2) ++ "))"
+genBuiltin Lang.Or [a, b] [Lang.Dictionary _ _, Lang.Dictionary _ _] = a ++ "->union(" ++ b ++ ")"
+genBuiltin Lang.Or [a, b] [Lang.Record _, Lang.Record _] = a ++ "->union(" ++ b ++ ")"
 genBuiltin Lang.Or [a, b] [Lang.Bool, Lang.Bool] = "(" ++ a ++ "||" ++ b ++ ")"
 genBuiltin Lang.Xor [a, b] [Lang.Bool, Lang.Bool] = "(" ++ a ++ "!==" ++ b ++ ")"
 genBuiltin Lang.Xor [a, b] [Lang.Int, Lang.Int] = "(" ++ a ++ "^" ++ b ++ ")"
@@ -83,13 +85,19 @@ genBuiltin Lang.Get [array, key] [Lang.Dictionary _ _, _] = array ++ "->getD(" +
 genBuiltin Lang.Set [array, key, value] [Lang.Vector _, _, _] = array ++ "->setV(" ++ key ++ "," ++ value ++ ")"
 genBuiltin Lang.Set [array, key, value] [Lang.Dictionary _ _, _, _] = array ++ "->setD(" ++ key ++ "," ++ value ++ ")"
 genBuiltin Lang.Has [array, key] [Lang.Dictionary _ _, _] = array ++ "->hasD(" ++ key ++ ")"
-genBuiltin Lang.Size [text] [Lang.Text] = "mb_strlen(" ++ text ++ ")"
-genBuiltin Lang.Size [array] [Lang.Vector _] = "count(" ++ array ++ "->a)"
-genBuiltin Lang.Size [array] [Lang.Dictionary _ _] = "count(" ++ array ++ "->a)"
+genBuiltin Lang.Count [text] [Lang.Text] = "mb_strlen(" ++ text ++ ",'UTF-8')"
+genBuiltin Lang.Count [array] [Lang.Vector _] = "count(" ++ array ++ "->a)"
+genBuiltin Lang.Count [array] [Lang.Dictionary _ _] = "count(" ++ array ++ "->a)"
+genBuiltin Lang.Count [text, predicate] [Lang.Text, _] = "z1count(mb_str_split(" ++ text ++ ",1,'UTF-8')," ++ predicate ++ ")"
+genBuiltin Lang.Count [array, predicate] [Lang.Vector _, _] = "z1count(" ++ array ++ "->a," ++ predicate ++ ")"
+genBuiltin Lang.Count [array, predicate] [Lang.Dictionary _ _, _] = "z1count(" ++ array ++ "->a," ++ predicate ++ ")"
 genBuiltin Lang.Concat (array : args) (Lang.Vector v : types) = array ++ "->concat(" ++ intercalate "," (map (asArrayArgument v) $ zip types args) ++ ")"
-genBuiltin Lang.Append (array : args) (Lang.Vector v : types) = array ++ "->append(" ++ intercalate "," (map (asArrayArgument v) $ zip types args) ++ ")"
-genBuiltin Lang.Sized [array, size] [Lang.Vector v, Lang.Int] = array ++ "->sized(" ++ size ++ "," ++ genDefault v ++ ")"
-genBuiltin Lang.Sized [array, size, value] [Lang.Vector _, Lang.Int, _] = array ++ "->sized(" ++ size ++ "," ++ value ++ ")"
+genBuiltin Lang.Pad [array, size] [Lang.Vector v, _] = array ++ "->pad(" ++ size ++ "," ++ genDefault v ++ ")"
+genBuiltin Lang.Pad [array, size, value] [Lang.Vector _, _, _] = array ++ "->pad(" ++ size ++ "," ++ value ++ ")"
+genBuiltin Lang.Pad [array, size, value, padLeft] [Lang.Vector _, _, _] = array ++ "->pad(" ++ size ++ "," ++ value ++ "," ++ padLeft ++ ")"
+genBuiltin Lang.Pad [text, size] [Lang.Text, _] = "str_pad(" ++ text ++ "," ++ size ++ ",' ')"
+genBuiltin Lang.Pad [text, size, value] [Lang.Text, _, _] = "str_pad(" ++ text ++ "," ++ size ++ "," ++ value ++ ")"
+genBuiltin Lang.Pad [text, size, value, padLeft] [Lang.Text, _, _, _] = "str_pad(" ++ text ++ "," ++ size ++ "," ++ value ++ "," ++ padLeft ++ "?STR_PAD_LEFT:STR_PAD_RIGHT)"
 genBuiltin Lang.Sort [array] _ = array ++ "->sort(FALSE)"
 genBuiltin Lang.Sort [array, reversed] [Lang.Vector _, Lang.Bool] = array ++ "->sortV(" ++ reversed ++ ")"
 genBuiltin Lang.Sort [array, compare] _ = array ++ "->usortV(" ++ compare ++ ")"
@@ -130,7 +138,6 @@ genValue qual this (Lambda args block, Lang.Function _ returnType') = header ++ 
         captures = intercalate "," $ Set.map ('&' :) $ Lang.removeBuiltins $ capturesOfBlock qual this (Set.fromList argNames) block
         header = "(function(" ++ intercalate "," argNames ++ ")" ++ (if null captures then "" else "use(" ++ captures ++ ")")
 genValue qual this (Access obj field, _) = genValue qual this obj ++ "[\"" ++ field ++ "\"]"
-genValue qual this (PhpValue name, Lang.Function _ _) = name
 genValue qual this (PhpValue name, _) = '$' : name
 
 genDeclaration :: (String -> String) -> String -> String -> TypedValue -> String
@@ -138,6 +145,14 @@ genDeclaration qual this name value = qual this ++ name ++ "=" ++ genValue qual 
 
 preamble :: [String] -> String
 preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "real=0.0;", "bool=FALSE;", "text='';", "void=NULL;"]) quals) ++ "\
+\session_start();\
+\function z1count($a,$p){\
+  \$r=0;\
+  \foreach($a as $v){\
+    \$r=(int)($r+$p($v));\
+  \}\
+  \return $r;\
+\}\
 \class z1array implements JsonSerializable{\
   \public $a;\
   \public static function n($a) {\
@@ -171,26 +186,22 @@ preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "
   \public function hasD($k){\
     \return array_key_exists($k,$this->a);\
   \}\
-  \public function unionD($x){\
+  \public function union($x){\
     \return z1array::n($x->a+$this->a);\
+  \}\
+  \public function inters($x){\
+    \return z1array::n(array_intersect_key($x->a,$this->a));\
   \}\
   \public function concat(...$a){\
     \return z1array::n(array_merge($this->a, ...$a));\
   \}\
-  \public function append(...$a){\
-    \$this->a=array_merge($this->a, ...$a);\
-  \}\
-  \public function unionR($x,$k){\
-    \return z1array::n(array_intersect_key($x->a,$k)+$this->a);\
-  \}\
-  \public function sized($n,$v){\
-    \if($n<0){\
-      \die('Cannot resize an array to a negative size '.$n);\
+  \public function pad($n,$v,$l=FALSE){\
+    \$c=count($this->a);\
+    \if($n<=$c){\
+      \$b=$this->a;\
+      \return z1array::n($b);\
     \}\
-    \if($n<count($this->a)){\
-      \return z1array::n(array_slice($this->a,0,$n));\
-    \}\
-    \return z1array::n(array_pad($this->a,$n,$v));\
+    \return z1array::n(array_pad($this->a,$l?-$n:$n,$v));\
   \}\
   \public function sortV($r){\
     \if($r){\
