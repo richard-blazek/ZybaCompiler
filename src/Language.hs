@@ -5,13 +5,13 @@ import qualified Data.Set as Set
 import Fallible (Fallible (..), err, assert, assertJust)
 import Functions (join, split, (??), zipMaps)
 
-data Type = Void | Int | Bool | Real | Text | Function [Type] Type | Dictionary Type Type | Vector Type | Record (Map.Map String Type) deriving (Eq, Show)
+data Type = Void | Int | Bool | Real | Text | Db | Function [Type] Type | Dictionary Type Type | Vector Type | Record (Map.Map String Type) deriving (Eq, Show)
 data Builtin = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not | AsInt | AsReal | AsBool | AsText
   | Fun | Dict | List | Set | Get | Has | Count | Concat | Pad | Sort | Join
   -- To be done:
   | Insert | Erase | Append | Slice | Remove | Find | AsList | AsDict | Map | Filter | Fold | Keys | Values | Flat | Shuffle | Sample | Chars
   | Split | EscapeHtml | UnescapeHtml | EscapeUrl | UnescapeUrl | Replace | Hash | IsHashOf | NeedsRehash | StartsWith | EndsWith | Contains | Lower | Upper
-  | Capitalize | Trim | ReadFile | WriteFile | Db
+  | Capitalize | Trim | ReadFile | WriteFile | Connect | Query
   deriving (Eq, Ord)
 
 instance Show Builtin where
@@ -26,13 +26,13 @@ builtins = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("/", Div), ("//", 
   ("map", Map), ("filter", Filter), ("fold", Fold), ("keys", Keys), ("values", Values), ("flat", Flat), ("shuffle", Shuffle), ("sample", Sample), ("chars", Chars),
   ("split", Split), ("escapeHtml", EscapeHtml), ("unescapeHtml", UnescapeHtml), ("escapeUrl", EscapeUrl), ("unescapeUrl", UnescapeUrl), ("replace", Replace), ("hash", Hash),
   ("isHashOf", IsHashOf), ("needsRehash", NeedsRehash), ("startsWith", StartsWith), ("endsWith", EndsWith), ("contains", Contains), ("lower", Lower), ("upper", Upper),
-  ("capitalize", Capitalize), ("trim", Trim), ("readFile", ReadFile), ("writeFile", WriteFile), ("db", Db)]
+  ("capitalize", Capitalize), ("trim", Trim), ("readFile", ReadFile), ("writeFile", WriteFile), ("connect", Connect), ("query", Query)]
 
 builtinsSet :: Set.Set String
 builtinsSet = Map.keysSet builtins
 
 constants :: Map.Map String Type
-constants = Map.fromList [("int", Int), ("bool", Bool), ("real", Real), ("text", Text), ("void", Void)]
+constants = Map.fromList [("int", Int), ("bool", Bool), ("real", Real), ("text", Text), ("void", Void), ("db", Db)]
 
 removeBuiltins :: Set.Set String -> Set.Set String
 removeBuiltins = (`Set.difference` builtinsSet)
@@ -133,20 +133,20 @@ getResultType line builtin args = case (builtin, args) of
   (AsList, [Text]) -> Right $ Vector Text
   (AsList, [Dictionary k v]) -> Right $ Record $ Map.fromList [("key", k), ("value", v)]
   (AsDict, [Vector v]) -> do
+    let fieldsOf (Record fields) = Right fields
+        fieldsOf type' = err line $ "Expected a record, got " ++ show type'
     fields <- fieldsOf v
     key <- assertJust (Map.lookup "key" fields) line "Missing key field"
     value <- assertJust (Map.lookup "value" fields) line "Missing value field"
     getResultType line Dict [key, value]
-    where fieldsOf (Record fields) = Right fields
-          fieldsOf _ = err line "Cannot convert non-record to dictionary"
   (Map, (Function args returnType : collections@(_ : _))) -> do
+    let itemType Text = Right Text
+        itemType (Vector v) = Right v
+        itemType (Dictionary _ v) = Right v
+        itemType type' = err line $ "Expected a list or dict, got: " ++ show type'
     types <- mapM itemType collections
     assert (args == types) line $ "Values of lists must have types " ++ join ", " args
     Right returnType
-    where itemType Text = Right Text
-          itemType (Vector v) = Right v
-          itemType (Dictionary _ v) = Right v
-          itemType type' = err line $ "Expected a list or dict, got: " ++ show type'
   (Filter, [Text, Function [Text] Bool]) -> Right Text
   (Filter, [Vector v, Function [v2] Bool]) | v == v2 -> Right $ Vector v
   (Filter, [Dictionary k v, Function [v2] Bool]) | v == v2 -> Right $ Dictionary k v
@@ -179,13 +179,8 @@ getResultType line builtin args = case (builtin, args) of
   (Upper, [Text]) -> Right Text
   (Capitalize, [Text]) -> Right Text
   (Trim, [Text]) -> Right Text
-  (Db, Text : Text : Text : args) -> do
-    let pairs = divide args
-
-    Right Void
-    where divide [] = []
-          divide (sql : each@(Function _ Void) : rest) = (sql, Just each) : divide rest
-          divide (sql : rest) = (sql, Nothing) : divide rest
+  (Connect, [Text, Text, Text]) -> Right Db
+  (Query, Db : type' : Text : args) | all (`elem` [Text, Int, Bool, Real]) args -> Right type'
   _ -> err line $ "Builtin " ++ show builtin ++ " does not accept arguments of types " ++ join ", " args
 
 builtinCall :: Integer -> String -> [Type] -> Fallible (Builtin, Type)
@@ -196,4 +191,4 @@ builtinCall line name args = do
 
 fieldAccess :: Integer -> String -> Type -> Fallible Type
 fieldAccess line name (Record fields) = Map.lookup name fields ?? err line ("The record does not have a field " ++ name)
-fieldAccess line name _ = err line $ "It is not a record; therefore it cannot have a field " ++ name
+fieldAccess line name type' = err line $ "It is " ++ show type' ++ ", not a record; therefore it cannot have a field " ++ name
