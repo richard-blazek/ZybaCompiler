@@ -40,7 +40,7 @@ asArrayArgument itemType (type', arg) = "[" ++ arg ++ "]"
 genBuiltin :: Lang.Builtin -> [String] -> [Lang.Type] -> String
 genBuiltin Lang.Add [a, b] [Lang.Int, Lang.Int] = "(int)(" ++ a ++ "+" ++ b ++ ")"
 genBuiltin Lang.Add [a, b] [Lang.Text, Lang.Text] = "(" ++ a ++ "." ++ b ++ ")"
-genBuiltin Lang.Add [a, b] [Lang.Vector _, Lang.Vector _] = a ++ "->concat(" ++ b ++ ")"
+genBuiltin Lang.Add [a, b] [Lang.Vector _, Lang.Vector _] = a ++ "->concatV(" ++ b ++ ")"
 genBuiltin Lang.Add [a, b] [_, _] = "(" ++ a ++ "+" ++ b ++ ")"
 genBuiltin Lang.Sub [a, b] [Lang.Int, Lang.Int] = "(int)(" ++ a ++ "-" ++ b ++ ")"
 genBuiltin Lang.Sub [a, b] [_, _] = "(" ++ a ++ "-" ++ b ++ ")"
@@ -52,11 +52,11 @@ genBuiltin Lang.Rem [a, b] [Lang.Int, Lang.Int] = "(" ++ a ++ "%" ++ b ++ ")"
 genBuiltin Lang.Rem [a, b] [_, _] = "fmod(" ++ a ++ "," ++ b ++ ")"
 genBuiltin Lang.And [a, b] [Lang.Int, Lang.Int] = "(" ++ a ++ "&" ++ b ++ ")"
 genBuiltin Lang.And [a, b] [_, _] = "(" ++ a ++ "&&" ++ b ++ ")"
-genBuiltin Lang.Or [a, b] [Lang.Dictionary _ _, Lang.Dictionary _ _] = a ++ "->inters(" ++ b ++ ")"
-genBuiltin Lang.Or [a, b] [Lang.Record _, Lang.Record _] = a ++ "->inters(" ++ b ++ ")"
+genBuiltin Lang.Or [a, b] [Lang.Dictionary _ _, Lang.Dictionary _ _] = a ++ "->interD(" ++ b ++ ")"
+genBuiltin Lang.Or [a, b] [Lang.Record _, Lang.Record _] = a ++ "->interD(" ++ b ++ ")"
 genBuiltin Lang.Or [a, b] [Lang.Int, Lang.Int] = "(" ++ a ++ "||" ++ b ++ ")"
-genBuiltin Lang.Or [a, b] [Lang.Dictionary _ _, Lang.Dictionary _ _] = a ++ "->union(" ++ b ++ ")"
-genBuiltin Lang.Or [a, b] [Lang.Record _, Lang.Record _] = a ++ "->union(" ++ b ++ ")"
+genBuiltin Lang.Or [a, b] [Lang.Dictionary _ _, Lang.Dictionary _ _] = a ++ "->unionD(" ++ b ++ ")"
+genBuiltin Lang.Or [a, b] [Lang.Record _, Lang.Record _] = a ++ "->unionD(" ++ b ++ ")"
 genBuiltin Lang.Or [a, b] [Lang.Bool, Lang.Bool] = "(" ++ a ++ "||" ++ b ++ ")"
 genBuiltin Lang.Xor [a, b] [Lang.Bool, Lang.Bool] = "(" ++ a ++ "!==" ++ b ++ ")"
 genBuiltin Lang.Xor [a, b] [Lang.Int, Lang.Int] = "(" ++ a ++ "^" ++ b ++ ")"
@@ -80,9 +80,10 @@ genBuiltin Lang.AsText [a] [_] = "json_encode(" ++ a ++ ")"
 genBuiltin Lang.Dict (_ : _ : args) _ = "z1array::n([" ++ intercalate "," (map (\(k, v) -> k ++ "=>" ++ v) $ fst $ split args) ++ "])"
 genBuiltin Lang.List (_ : args) _ = "z1array::n([" ++ intercalate "," args ++ "])"
 genBuiltin Lang.Fun _ (returned : args) = genDefault $ Lang.Function args returned
-genBuiltin Lang.Get [array, key] [Lang.Vector _, _] = array ++ "->getV(" ++ key ++ ")"
+genBuiltin Lang.Get [array, index] [Lang.Vector _, _] = array ++ "->getV(" ++ index ++ ")"
+genBuiltin Lang.Get [array, index, length] [_, _, _] = array ++ "->sliceV(" ++ index ++ "," ++ length ++ ")"
 genBuiltin Lang.Get [array, key] [Lang.Dictionary _ _, _] = array ++ "->getD(" ++ key ++ ")"
-genBuiltin Lang.Set [array, key, value] [Lang.Vector _, _, _] = array ++ "->setV(" ++ key ++ "," ++ value ++ ")"
+genBuiltin Lang.Set [array, index, value] [Lang.Vector _, _, _] = array ++ "->setV(" ++ index ++ "," ++ value ++ ")"
 genBuiltin Lang.Set [array, key, value] [Lang.Dictionary _ _, _, _] = array ++ "->setD(" ++ key ++ "," ++ value ++ ")"
 genBuiltin Lang.Has [array, key] [Lang.Dictionary _ _, _] = array ++ "->hasD(" ++ key ++ ")"
 genBuiltin Lang.Count [text] [Lang.Text] = "mb_strlen(" ++ text ++ ",'UTF-8')"
@@ -91,10 +92,10 @@ genBuiltin Lang.Count [array] [Lang.Dictionary _ _] = "count(" ++ array ++ "->a)
 genBuiltin Lang.Count [text, predicate] [Lang.Text, _] = "z1count(mb_str_split(" ++ text ++ ",1,'UTF-8')," ++ predicate ++ ")"
 genBuiltin Lang.Count [array, predicate] [Lang.Vector _, _] = "z1count(" ++ array ++ "->a," ++ predicate ++ ")"
 genBuiltin Lang.Count [array, predicate] [Lang.Dictionary _ _, _] = "z1count(" ++ array ++ "->a," ++ predicate ++ ")"
-genBuiltin Lang.Concat (array : args) (Lang.Vector v : types) = array ++ "->concat(" ++ intercalate "," (map (asArrayArgument v) $ zip types args) ++ ")"
-genBuiltin Lang.Pad [array, size] [Lang.Vector v, _] = array ++ "->pad(" ++ size ++ "," ++ genDefault v ++ ")"
-genBuiltin Lang.Pad [array, size, value] [Lang.Vector _, _, _] = array ++ "->pad(" ++ size ++ "," ++ value ++ ")"
-genBuiltin Lang.Pad [array, size, value, padLeft] [Lang.Vector _, _, _] = array ++ "->pad(" ++ size ++ "," ++ value ++ "," ++ padLeft ++ ")"
+genBuiltin Lang.Concat (array : args) (Lang.Vector v : types) = array ++ "->concatV(" ++ intercalate "," (map (asArrayArgument v) $ zip types args) ++ ")"
+genBuiltin Lang.Pad [array, size] [Lang.Vector v, _] = array ++ "->padV(" ++ size ++ "," ++ genDefault v ++ ")"
+genBuiltin Lang.Pad [array, size, value] [Lang.Vector _, _, _] = array ++ "->padV(" ++ size ++ "," ++ value ++ ")"
+genBuiltin Lang.Pad [array, size, value, padLeft] [Lang.Vector _, _, _] = array ++ "->padV(" ++ size ++ "," ++ value ++ "," ++ padLeft ++ ")"
 genBuiltin Lang.Pad [text, size] [Lang.Text, _] = "str_pad(" ++ text ++ "," ++ size ++ ",' ')"
 genBuiltin Lang.Pad [text, size, value] [Lang.Text, _, _] = "str_pad(" ++ text ++ "," ++ size ++ "," ++ value ++ ")"
 genBuiltin Lang.Pad [text, size, value, padLeft] [Lang.Text, _, _, _] = "str_pad(" ++ text ++ "," ++ size ++ "," ++ value ++ "," ++ padLeft ++ "?STR_PAD_LEFT:STR_PAD_RIGHT)"
@@ -103,6 +104,20 @@ genBuiltin Lang.Sort [array, reversed] [Lang.Vector _, Lang.Bool] = array ++ "->
 genBuiltin Lang.Sort [array, compare] _ = array ++ "->usortV(" ++ compare ++ ")"
 genBuiltin Lang.Join [array, separator] [Lang.Vector Lang.Text, Lang.Text] = "implode(" ++ separator ++ "," ++ array ++ "->a)"
 genBuiltin Lang.Join [array, separator] [Lang.Vector v, Lang.Text] = "implode(" ++ separator ++ ",array_map(" ++ array ++ "->a,'json_encode'))"
+genBuiltin Lang.Insert [array, index, values] [Lang.Vector v, _, Lang.Vector v2] | v == v2 = array ++ "->insertV(" ++ index ++ "," ++ values ++ "->a)"
+genBuiltin Lang.Insert [array, index, value] [Lang.Vector _, _, _] = array ++ "->insertV(" ++ index ++ ",[" ++ value ++ "])"
+genBuiltin Lang.Erase [array, index] [Lang.Vector _, _] = array ++ "->eraseV(" ++ index ++ ",1)"
+genBuiltin Lang.Erase [array, index, length] [Lang.Vector _, _, _] = array ++ "->eraseV(" ++ index ++ "," ++ length ++ ")"
+genBuiltin Lang.Erase [array, index] [Lang.Dictionary _ _, _] = "unset(" ++ array ++ "->a[" ++ index ++ "])"
+genBuiltin Lang.Append (array : args) (Lang.Vector v : types) = array ++ "->appendV(" ++ intercalate "," (map (asArrayArgument v) $ zip types args) ++ ")"
+genBuiltin Lang.Remove [array, value] [Lang.Vector _, _] = array ++ "->remove(" ++ value ++ ")"
+genBuiltin Lang.Remove [array, value] [Lang.Dictionary _ _, _] = array ++ "->remove(" ++ value ++ ")"
+genBuiltin Lang.Find [array, value] [Lang.Vector _, _] = array ++ "->find(" ++ value ++ ",-1)"
+genBuiltin Lang.Find [array, value] [Lang.Dictionary k _, _] = array ++ "->find(" ++ value ++ "," ++ genDefault k ++ ")"
+genBuiltin Lang.AsList [text] [Lang.Text] = "str_split(" ++ text ++ ")"
+genBuiltin Lang.AsList [array] [Lang.Dictionary _ _] = array ++ "->asList()"
+genBuiltin Lang.AsDict [array] [Lang.Vector _] = array ++ "->asDict()"
+genBuiltin Lang.Map (fn : arrays) _ = "array_map(" ++ fn ++ "," ++ intercalate "," (map (++ "->a") arrays) ++ ")"
 
 genStatement :: (String -> String) -> String -> Bool -> Statement -> String
 genStatement qual this return (Value value) = (if return then "return " else "") ++ genValue qual this value ++ ";"
@@ -160,23 +175,29 @@ preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "
     \$z->a=$a;\
     \return $z;\
   \}\
+  \public function jsonSerialize(){\
+    \return $this->a;\
+  \}\
   \public function getV($i){\
     \$c=count($this->a);\
-    \if($c==0){\
-      \die('An empty array cannot have an index '.$i);\
+    \if(i>=$c||i<0){\
+      \die('List of size '.$c.' does not have the index '.$i);\
     \}\
-    \return $this->a[(($i%$c)+$c)%$c];\
+    \return $this->a[$i];\
   \}\
   \public function setV($i,$v){\
     \$c=count($this->a);\
-    \if($c==0){\
-      \die('An empty array cannot have an index '.$i);\
+    \if($i>$c){\
+      \array_splice($this->a,count($this->a),0,array_fill(0,$i-$c+1,$v));\
+    \}else if($i<0){\
+      \array_splice($this->a,0,0,array_fill(0,-$i,$v));\
+    \}else{\
+      \$this->a[$i]=$v;\
     \}\
-    \$this->a[(($i%$c)+$c)%$c]=$v;\
   \}\
   \public function getD($i){\
     \if(!array_key_exists($i,$this->a)){\
-      \die('Map does not contain the key '.$i);\
+      \die('Dict does not contain the key '.$i);\
     \}\
     \return $this->a[$i];\
   \}\
@@ -186,16 +207,16 @@ preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "
   \public function hasD($k){\
     \return array_key_exists($k,$this->a);\
   \}\
-  \public function union($x){\
+  \public function unionD($x){\
     \return z1array::n($x->a+$this->a);\
   \}\
-  \public function inters($x){\
+  \public function interD($x){\
     \return z1array::n(array_intersect_key($x->a,$this->a));\
   \}\
-  \public function concat(...$a){\
+  \public function concatV(...$a){\
     \return z1array::n(array_merge($this->a, ...$a));\
   \}\
-  \public function pad($n,$v,$l=FALSE){\
+  \public function padV($n,$v,$l=FALSE){\
     \$c=count($this->a);\
     \if($n<=$c){\
       \$b=$this->a;\
@@ -213,8 +234,58 @@ preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "
   \public function usortV($c){\
     \usort($this->a,$c);\
   \}\
-  \public function jsonSerialize(){\
-    \return $this->a;\
+  \public function insertV($i,$v){\
+    \$n=count($v);\
+    \if($n>0){\
+      \$c=count($this->a);\
+      \if($i>$c){\
+        \array_splice($this->a,$c,0,array_pad($v,-($i-$c+$n),$v[0]));\
+      \}else if($i<0){\
+        \array_splice($this->a,0,0,array_pad($v,(-$i+$n),$v[$n-1]));\
+      \}else{\
+        \array_splice($this->a,$i,0,$v);\
+      \}\
+    \}\
+  \}\
+  \public function eraseV($i,$l){\
+    \if($i<0){\
+      \$l+=$i;\
+      \$i=0;\
+    \}\
+    \array_splice($this->a,$i,$l<0?0:$l);\
+  \}\
+  \public function appendV(...$a){\
+    \array_push($this->a,array_merge(...$a));\
+  \}\
+  \public function sliceV($i,$l){\
+    \if($i<0){\
+      \$l+=$i;\
+      \$i=0;\
+    \}\
+    \return array_slice($this->a,$i,$l<0?0:$l);\
+  \}\
+  \public function remove($v){\
+    \if(($k=array_search($v,$this->a))!==false){\
+     \unset($this->a[$k]);\
+    \}\
+  \}\
+  \public function find($v,$d){\
+    \$s=array_search($v,$this->a);\
+    \return $s===false?$d:$s;\
+  \}\
+  \public function asList(){\
+    \$r=[];\
+    \foreach($this->a as $k=>$v){\
+      \$r[]=z1array::n(['key'=>$k,'value'=>$v]);\
+    \}\
+    \return z1array::n($r);\
+  \}\
+  \public function asDict($a){\
+    \$r=[];\
+    \foreach($this->a as $v){\
+      \$r[$v->a['key']]=$v->a['value'];\
+    \}\
+    \return z1array::n($r);\
   \}\
 \}?>"
 

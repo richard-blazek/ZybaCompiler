@@ -8,8 +8,7 @@ import Functions (join, split, (??), zipMaps)
 data Type = Void | Int | Bool | Real | Text | Db | Function [Type] Type | Dictionary Type Type | Vector Type | Record (Map.Map String Type) deriving (Eq, Show)
 data Builtin = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not | AsInt | AsReal | AsBool | AsText
   | Fun | Dict | List | Set | Get | Has | Count | Concat | Pad | Sort | Join
-  -- To be done:
-  | Insert | Erase | Append | Slice | Remove | Find | AsList | AsDict | Map | Filter | Fold | Keys | Values | Flat | Shuffle | Sample | Chars
+  | Insert | Erase | Append | Remove | Find | AsList | AsDict | Map | Filter | Fold | Keys | Values | Flat | Shuffle | Sample | Chars
   | Split | EscapeHtml | UnescapeHtml | EscapeUrl | UnescapeUrl | Replace | Hash | IsHashOf | NeedsRehash | StartsWith | EndsWith | Contains | Lower | Upper
   | Capitalize | Trim | ReadFile | WriteFile | Connect | Query
   deriving (Eq, Ord)
@@ -22,7 +21,7 @@ builtins :: Map.Map String Builtin
 builtins = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("/", Div), ("//", IntDiv), ("%", Rem), ("&", And), ("|", Or), ("^", Xor), ("==", Eq), ("!=", Neq),
   ("<", Lt), (">", Gt), ("<=", Le), (">=", Ge), ("**", Pow), ("not", Not), ("asInt", AsInt), ("asReal", AsReal), ("asBool", AsBool), ("asText", AsText),
   ("fun", Fun), ("dict", Dict), ("list", List), ("set", Set), ("get", Get), ("has", Has), ("count", Count), ("concat", Concat), ("pad", Pad), ("sort", Sort),
-  ("join", Join), ("insert", Insert), ("erase", Erase), ("append", Append), ("slice", Slice), ("remove", Remove), ("find", Find), ("asList", AsList), ("asDict", AsDict),
+  ("join", Join), ("insert", Insert), ("erase", Erase), ("append", Append), ("remove", Remove), ("find", Find), ("asList", AsList), ("asDict", AsDict),
   ("map", Map), ("filter", Filter), ("fold", Fold), ("keys", Keys), ("values", Values), ("flat", Flat), ("shuffle", Shuffle), ("sample", Sample), ("chars", Chars),
   ("split", Split), ("escapeHtml", EscapeHtml), ("unescapeHtml", UnescapeHtml), ("escapeUrl", EscapeUrl), ("unescapeUrl", UnescapeUrl), ("replace", Replace), ("hash", Hash),
   ("isHashOf", IsHashOf), ("needsRehash", NeedsRehash), ("startsWith", StartsWith), ("endsWith", EndsWith), ("contains", Contains), ("lower", Lower), ("upper", Upper),
@@ -88,20 +87,21 @@ getResultType line builtin args = case (builtin, args) of
   (AsText, [Dictionary k v]) -> getResultType line AsText [v]
   (AsText, [Record fields]) -> mapM (getResultType line AsText . (:[])) (Map.elems fields) >> Right Text
   (Fun, returned : args) -> Right $ Function args returned
-  (List, value : args) -> do
-    assert (all (== value) args) line "All values must have the specified type"
-    Right $ Vector value
-  (Dict, key : value : args) -> do
-    assert (key `elem` [Int, Text]) line "Map keys must be either int or text"
+  (List, v : args) -> do
+    assert (all (== v) args) line "All values must have the specified type"
+    Right $ Vector v
+  (Dict, k : v : args) -> do
+    assert (k `elem` [Int, Text]) line "Map keys must be either int or text"
     let (pairs, leftover) = split args
     assert (leftover == Nothing) line "Missing value for the last key"
-    assert (all (== (key, value)) pairs) line "All keys and values must have the specified type"
-    Right $ Dictionary key value
-  (Get, [Vector value, Int]) -> Right value
-  (Get, [Dictionary key value, index]) | index == key -> Right value
-  (Set, [Vector value, Int, assigned]) | assigned == value -> Right Void
-  (Set, [Dictionary key value, index, assigned]) | index == key && assigned == value -> Right Void
-  (Has, [Dictionary key value, index]) | index == key -> Right Bool
+    assert (all (== (k, v)) pairs) line "All keys and values must have the specified type"
+    Right $ Dictionary k v
+  (Get, [Vector v, Int]) -> Right v
+  (Get, [Vector v, Int, Int]) -> Right $ Vector v
+  (Get, [Dictionary k v, index]) | index == k -> Right v
+  (Set, [Vector v, Int, assigned]) | assigned == v -> Right Void
+  (Set, [Dictionary k v, index, assigned]) | index == k && assigned == v -> Right Void
+  (Has, [Dictionary k v, index]) | index == k -> Right Bool
   (Count, [Text]) -> Right Int
   (Count, [Vector _]) -> Right Int
   (Count, [Dictionary _ _]) -> Right Int
@@ -117,15 +117,12 @@ getResultType line builtin args = case (builtin, args) of
   (Pad, [Text, Int, Text, Bool]) -> Right Text
   (Sort, Vector v : args) | args `elem` [[], [Bool], [Function [v, v] Int]] -> Right Void
   (Join, [Vector v, Text]) -> getResultType line AsText [v]
-
   (Insert, [Vector v, Int, v2]) | v == v2 -> Right Void
   (Insert, [Vector v, Int, Vector v2]) | v == v2 -> Right Void
   (Erase, [Vector v, Int]) -> Right Void
   (Erase, [Vector v, Int, Int]) -> Right Void
   (Erase, [Dictionary k _, k2]) | k == k2 -> Right Void
   (Append, Vector v : args) | all (`elem` [Vector v, v]) args -> Right Void
-  (Slice, [Vector v, Int]) -> Right $ Vector v
-  (Slice, [Vector v, Int, Int]) -> Right $ Vector v
   (Remove, [Vector v, v2]) | v == v2 -> Right Void
   (Remove, [Dictionary k v, v2]) | v == v2 -> Right Void
   (Find, [Vector v, v2]) | v == v2 -> Right Int
@@ -147,6 +144,7 @@ getResultType line builtin args = case (builtin, args) of
     types <- mapM itemType collections
     assert (args == types) line $ "Values of lists must have types " ++ join ", " args
     Right returnType
+
   (Filter, [Text, Function [Text] Bool]) -> Right Text
   (Filter, [Vector v, Function [v2] Bool]) | v == v2 -> Right $ Vector v
   (Filter, [Dictionary k v, Function [v2] Bool]) | v == v2 -> Right $ Dictionary k v
