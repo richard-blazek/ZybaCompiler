@@ -87,11 +87,9 @@ genBuiltin Lang.Set [array, index, value] [Lang.Vector _, _, _] = array ++ "->se
 genBuiltin Lang.Set [array, key, value] [Lang.Dictionary _ _, _, _] = array ++ "->setD(" ++ key ++ "," ++ value ++ ")"
 genBuiltin Lang.Has [array, key] [Lang.Dictionary _ _, _] = array ++ "->hasD(" ++ key ++ ")"
 genBuiltin Lang.Count [text] [Lang.Text] = "mb_strlen(" ++ text ++ ",'UTF-8')"
-genBuiltin Lang.Count [array] [Lang.Vector _] = "count(" ++ array ++ "->a)"
-genBuiltin Lang.Count [array] [Lang.Dictionary _ _] = "count(" ++ array ++ "->a)"
+genBuiltin Lang.Count [array] _ = "count(" ++ array ++ "->a)"
 genBuiltin Lang.Count [text, predicate] [Lang.Text, _] = "z1count(mb_str_split(" ++ text ++ ",1,'UTF-8')," ++ predicate ++ ")"
-genBuiltin Lang.Count [array, predicate] [Lang.Vector _, _] = "z1count(" ++ array ++ "->a," ++ predicate ++ ")"
-genBuiltin Lang.Count [array, predicate] [Lang.Dictionary _ _, _] = "z1count(" ++ array ++ "->a," ++ predicate ++ ")"
+genBuiltin Lang.Count [array, predicate] _ = "z1count(" ++ array ++ "->a," ++ predicate ++ ")"
 genBuiltin Lang.Concat (array : args) (Lang.Vector v : types) = array ++ "->concatV(" ++ intercalate "," (map (asArrayArgument v) $ zip types args) ++ ")"
 genBuiltin Lang.Pad [array, size] [Lang.Vector v, _] = array ++ "->padV(" ++ size ++ "," ++ genDefault v ++ ")"
 genBuiltin Lang.Pad [array, size, value] [Lang.Vector _, _, _] = array ++ "->padV(" ++ size ++ "," ++ value ++ ")"
@@ -114,10 +112,21 @@ genBuiltin Lang.Remove [array, value] [Lang.Vector _, _] = array ++ "->remove(" 
 genBuiltin Lang.Remove [array, value] [Lang.Dictionary _ _, _] = array ++ "->remove(" ++ value ++ ")"
 genBuiltin Lang.Find [array, value] [Lang.Vector _, _] = array ++ "->find(" ++ value ++ ",-1)"
 genBuiltin Lang.Find [array, value] [Lang.Dictionary k _, _] = array ++ "->find(" ++ value ++ "," ++ genDefault k ++ ")"
-genBuiltin Lang.AsList [text] [Lang.Text] = "str_split(" ++ text ++ ")"
+genBuiltin Lang.AsList [text] [Lang.Text] = "z1array::n(mb_str_split(" ++ text ++ ",1,'UTF-8'))"
 genBuiltin Lang.AsList [array] [Lang.Dictionary _ _] = array ++ "->asList()"
 genBuiltin Lang.AsDict [array] [Lang.Vector _] = array ++ "->asDict()"
-genBuiltin Lang.Map (fn : arrays) _ = "array_map(" ++ fn ++ "," ++ intercalate "," (map (++ "->a") arrays) ++ ")"
+genBuiltin Lang.Map (fn : arrays) _ = "z1array::n(array_map(" ++ fn ++ "," ++ intercalate "," (map (++ "->a") arrays) ++ "))"
+genBuiltin Lang.Filter [text, pred] [Lang.Text, _] = "implode('',array_filter(mb_str_split(" ++ text ++ ",1,'UTF-8')," ++ pred ++ "))"
+genBuiltin Lang.Filter [array, pred] _ = "z1array::n(array_filter(" ++ array ++ "," ++ pred ++ "))"
+genBuiltin Lang.Fold [text, seed, op] [Lang.Text, _] = "array_reduce(mb_str_split(" ++ text ++ ",1,'UTF-8')," ++ op ++ "," ++ seed ++ ")"
+genBuiltin Lang.Fold [array, seed, op] _ = "array_reduce(" ++ array ++ "->a," ++ op ++ "," ++ seed ++ ")"
+genBuiltin Lang.Keys [array] _ = "z1array::n(array_keys(" ++ array ++ "->a))"
+genBuiltin Lang.Values [array] _ = "z1array::n(array_values(" ++ array ++ "->a))"
+genBuiltin Lang.Flat [array] _ = "z1array::n(array_merge(...(" ++ array ++ "->a)))"
+genBuiltin Lang.Shuffle [array] _ = "shuffle(" ++ array ++ "->a)"
+genBuiltin Lang.Contains [text, element] [Lang.Text, _] = "(strpos(" ++ text ++ "," ++ element ++ ")!==FALSE)"
+genBuiltin Lang.Contains [array, element] _ = "(array_search(" ++ element ++ "," ++ array ++ "->a)!==FALSE)"
+genBuiltin Lang.Split [text, separator] _ = "z1array::n(mb_split(preg_quote(" ++ separator ++ ")," ++ text ++ "))"
 
 genStatement :: (String -> String) -> String -> Bool -> Statement -> String
 genStatement qual this return (Value value) = (if return then "return " else "") ++ genValue qual this value ++ ";"
@@ -161,6 +170,8 @@ genDeclaration qual this name value = qual this ++ name ++ "=" ++ genValue qual 
 preamble :: [String] -> String
 preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "real=0.0;", "bool=FALSE;", "text='';", "void=NULL;"]) quals) ++ "\
 \session_start();\
+\mb_internal_encoding('UTF-8');\
+\mb_regex_encoding('UTF-8');\
 \function z1count($a,$p){\
   \$r=0;\
   \foreach($a as $v){\

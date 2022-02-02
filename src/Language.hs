@@ -8,7 +8,7 @@ import Functions (join, split, (??), zipMaps)
 data Type = Void | Int | Bool | Real | Text | Db | Function [Type] Type | Dictionary Type Type | Vector Type | Record (Map.Map String Type) deriving (Eq, Show)
 data Builtin = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not | AsInt | AsReal | AsBool | AsText
   | Fun | Dict | List | Set | Get | Has | Count | Concat | Pad | Sort | Join
-  | Insert | Erase | Append | Remove | Find | AsList | AsDict | Map | Filter | Fold | Keys | Values | Flat | Shuffle | Sample | Chars
+  | Insert | Erase | Append | Remove | Find | AsList | AsDict | Map | Filter | Fold | Keys | Values | Flat | Shuffle
   | Split | EscapeHtml | UnescapeHtml | EscapeUrl | UnescapeUrl | Replace | Hash | IsHashOf | NeedsRehash | StartsWith | EndsWith | Contains | Lower | Upper
   | Capitalize | Trim | ReadFile | WriteFile | Connect | Query
   deriving (Eq, Ord)
@@ -22,7 +22,7 @@ builtins = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("/", Div), ("//", 
   ("<", Lt), (">", Gt), ("<=", Le), (">=", Ge), ("**", Pow), ("not", Not), ("asInt", AsInt), ("asReal", AsReal), ("asBool", AsBool), ("asText", AsText),
   ("fun", Fun), ("dict", Dict), ("list", List), ("set", Set), ("get", Get), ("has", Has), ("count", Count), ("concat", Concat), ("pad", Pad), ("sort", Sort),
   ("join", Join), ("insert", Insert), ("erase", Erase), ("append", Append), ("remove", Remove), ("find", Find), ("asList", AsList), ("asDict", AsDict),
-  ("map", Map), ("filter", Filter), ("fold", Fold), ("keys", Keys), ("values", Values), ("flat", Flat), ("shuffle", Shuffle), ("sample", Sample), ("chars", Chars),
+  ("map", Map), ("filter", Filter), ("fold", Fold), ("keys", Keys), ("values", Values), ("flat", Flat), ("shuffle", Shuffle),
   ("split", Split), ("escapeHtml", EscapeHtml), ("unescapeHtml", UnescapeHtml), ("escapeUrl", EscapeUrl), ("unescapeUrl", UnescapeUrl), ("replace", Replace), ("hash", Hash),
   ("isHashOf", IsHashOf), ("needsRehash", NeedsRehash), ("startsWith", StartsWith), ("endsWith", EndsWith), ("contains", Contains), ("lower", Lower), ("upper", Upper),
   ("capitalize", Capitalize), ("trim", Trim), ("readFile", ReadFile), ("writeFile", WriteFile), ("connect", Connect), ("query", Query)]
@@ -98,10 +98,10 @@ getResultType line builtin args = case (builtin, args) of
     Right $ Dictionary k v
   (Get, [Vector v, Int]) -> Right v
   (Get, [Vector v, Int, Int]) -> Right $ Vector v
-  (Get, [Dictionary k v, index]) | index == k -> Right v
+  (Get, [Dictionary k v, k2]) | k == k2 -> Right v
   (Set, [Vector v, Int, assigned]) | assigned == v -> Right Void
-  (Set, [Dictionary k v, index, assigned]) | index == k && assigned == v -> Right Void
-  (Has, [Dictionary k v, index]) | index == k -> Right Bool
+  (Set, [Dictionary k v, k2, assigned]) | k == k2 && assigned == v -> Right Void
+  (Has, [Dictionary k v, k2]) | k == k2 -> Right Bool
   (Count, [Text]) -> Right Int
   (Count, [Vector _]) -> Right Int
   (Count, [Dictionary _ _]) -> Right Int
@@ -144,22 +144,23 @@ getResultType line builtin args = case (builtin, args) of
     types <- mapM itemType collections
     assert (args == types) line $ "Values of lists must have types " ++ join ", " args
     Right returnType
-
   (Filter, [Text, Function [Text] Bool]) -> Right Text
   (Filter, [Vector v, Function [v2] Bool]) | v == v2 -> Right $ Vector v
   (Filter, [Dictionary k v, Function [v2] Bool]) | v == v2 -> Right $ Dictionary k v
-  (Fold, [Text, s, Function [s2, Text] s3]) | s == s2 && s2 == s3 -> Right s
-  (Fold, [Vector v, s, Function [s2, v2] s3]) | s == s2 && s2 == s3 && v == v2 -> Right s
-  (Fold, [Dictionary k v, s, Function [s2, v2] s3]) | s == s2 && s2 == s3 && v == v2 -> Right s
-  (Keys, [Vector s]) -> Right $ Vector Int
+  (Fold, [Text, seed, Function [s2, Text] s3]) | seed == s2 && s2 == s3 -> Right seed
+  (Fold, [Vector v, seed, Function [s2, v2] s3]) | seed == s2 && s2 == s3 && v == v2 -> Right seed
+  (Fold, [Dictionary k v, seed, Function [s2, v2] s3]) | seed == s2 && s2 == s3 && v == v2 -> Right seed
+  (Keys, [Vector v]) -> Right $ Vector Int
   (Keys, [Dictionary k v]) -> Right $ Vector k
-  (Values, [Vector s]) -> Right $ Vector s
+  (Values, [Vector v]) -> Right $ Vector v
   (Values, [Dictionary k v]) -> Right $ Vector v
   (Flat, [Vector (Vector v)]) -> Right $ Vector v
   (Shuffle, [Vector v]) -> Right $ Vector v
-  (Sample, [Vector v, Int]) -> Right $ Vector v
-  (Chars, [Text]) -> Right $ Vector Text
+  (Contains, [Text, Text]) -> Right Bool
+  (Contains, [Vector v, v2]) | v == v2 -> Right Bool
+  (Contains, [Dictionary k v, v2]) | v == v2 -> Right Bool
   (Split, [Text, Text]) -> Right $ Vector Text
+
   (EscapeHtml, [Text]) -> Right Text
   (UnescapeHtml, [Text]) -> Right Text
   (EscapeUrl, [Text]) -> Right Text
@@ -170,9 +171,6 @@ getResultType line builtin args = case (builtin, args) of
   (NeedsRehash, [Text]) -> Right Bool
   (StartsWith, [Text, Text]) -> Right Bool
   (EndsWith, [Text, Text]) -> Right Bool
-  (Contains, [Text, Text]) -> Right Bool
-  (Contains, [Vector v, v2]) | v == v2 -> Right Bool
-  (Contains, [Dictionary k v, v2]) | v == v2 -> Right Bool
   (Lower, [Text]) -> Right Text
   (Upper, [Text]) -> Right Text
   (Capitalize, [Text]) -> Right Text
