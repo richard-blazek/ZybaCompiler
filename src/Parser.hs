@@ -136,9 +136,9 @@ parseDeclaration tokens@((line, Lexer.Name name) : _) = do
       (imports, tokens'''') <- parseFields Map.empty tokens'''
       Right (Php name path imports, tokens'''')
     (_, Lexer.Name name) : tokens'' -> do
-      tokens''' <- expect (Lexer.Separator '=') tokens''
+      tokens''' <- expect (Lexer.Operator "=") tokens''
       (value, tokens'''') <- parseValue tokens'''
-      Right (Declaration name value, tokens''')
+      Right (Declaration name value, tokens'''')
     (_, token) : _ -> err line $ "Expected a name to export but got " ++ show token
 
 parseDeclaration ((line, token) : _) = err line $ "Expected a name of declared function but got " ++ show token

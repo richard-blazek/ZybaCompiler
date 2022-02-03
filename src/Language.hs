@@ -9,8 +9,8 @@ data Type = Void | Int | Bool | Real | Text | Db | Function [Type] Type | Dictio
 data Builtin = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not | AsInt | AsReal | AsBool | AsText
   | Fun | Dict | List | Set | Get | Has | Count | Concat | Pad | Sort | Join
   | Insert | Erase | Append | Remove | Find | AsList | AsDict | Map | Filter | Fold | Keys | Values | Flat | Shuffle
-  | Split | EscapeHtml | UnescapeHtml | EscapeUrl | UnescapeUrl | Replace | Hash | IsHashOf | NeedsRehash | StartsWith | EndsWith | Contains | Lower | Upper
-  | Capitalize | Trim | ReadFile | WriteFile | Connect | Query
+  | Split | EscapeHtml | UnescapeHtml | EscapeUrl | UnescapeUrl | Replace | Hash | IsHashOf | StartsWith | EndsWith | Contains | Lower | Upper
+  | Trim | ReadFile | WriteFile | Connect | Query
   deriving (Eq, Ord)
 
 instance Show Builtin where
@@ -24,8 +24,8 @@ builtins = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("/", Div), ("//", 
   ("join", Join), ("insert", Insert), ("erase", Erase), ("append", Append), ("remove", Remove), ("find", Find), ("asList", AsList), ("asDict", AsDict),
   ("map", Map), ("filter", Filter), ("fold", Fold), ("keys", Keys), ("values", Values), ("flat", Flat), ("shuffle", Shuffle),
   ("split", Split), ("escapeHtml", EscapeHtml), ("unescapeHtml", UnescapeHtml), ("escapeUrl", EscapeUrl), ("unescapeUrl", UnescapeUrl), ("replace", Replace), ("hash", Hash),
-  ("isHashOf", IsHashOf), ("needsRehash", NeedsRehash), ("startsWith", StartsWith), ("endsWith", EndsWith), ("contains", Contains), ("lower", Lower), ("upper", Upper),
-  ("capitalize", Capitalize), ("trim", Trim), ("readFile", ReadFile), ("writeFile", WriteFile), ("connect", Connect), ("query", Query)]
+  ("isHashOf", IsHashOf), ("startsWith", StartsWith), ("endsWith", EndsWith), ("contains", Contains), ("lower", Lower), ("upper", Upper),
+  ("trim", Trim), ("readFile", ReadFile), ("writeFile", WriteFile), ("connect", Connect), ("query", Query)]
 
 builtinsSet :: Set.Set String
 builtinsSet = Map.keysSet builtins
@@ -160,7 +160,6 @@ getResultType line builtin args = case (builtin, args) of
   (Contains, [Vector v, v2]) | v == v2 -> Right Bool
   (Contains, [Dictionary k v, v2]) | v == v2 -> Right Bool
   (Split, [Text, Text]) -> Right $ Vector Text
-
   (EscapeHtml, [Text]) -> Right Text
   (UnescapeHtml, [Text]) -> Right Text
   (EscapeUrl, [Text]) -> Right Text
@@ -168,15 +167,14 @@ getResultType line builtin args = case (builtin, args) of
   (Replace, [Text, Text, Text]) -> Right Text
   (Hash, [Text]) -> Right Text
   (IsHashOf, [Text, Text]) -> Right Bool
-  (NeedsRehash, [Text]) -> Right Bool
   (StartsWith, [Text, Text]) -> Right Bool
   (EndsWith, [Text, Text]) -> Right Bool
   (Lower, [Text]) -> Right Text
   (Upper, [Text]) -> Right Text
-  (Capitalize, [Text]) -> Right Text
   (Trim, [Text]) -> Right Text
   (Connect, [Text, Text, Text]) -> Right Db
-  (Query, Db : type' : Text : args) | all (`elem` [Text, Int, Bool, Real]) args -> Right type'
+  (Query, Db : Record fields : Text : args) | all (`elem` [Text, Int, Bool, Real]) args -> Right $ Vector $ Record fields
+  (Query, Db : Void : Text : args) | all (`elem` [Text, Int, Bool, Real]) args -> Right Void
   _ -> err line $ "Builtin " ++ show builtin ++ " does not accept arguments of types " ++ join ", " args
 
 builtinCall :: Integer -> String -> [Type] -> Fallible (Builtin, Type)
