@@ -164,7 +164,7 @@ analyseDeclaration _ scope (line, export, Parser.Declaration name value) = do
   Right (scope', [(name, value')])
 
 analyseDeclaration files scope (line, export, Parser.Php name path imported) = do
-  imported' <- fmap Map.assocs $ mapM (fmap snd . analyseValue scope) imported
+  imported' <- fmap Map.toList $ mapM (fmap snd . analyseValue scope) imported
   importedScope <- foldlM (\scope (name, type') -> Scope.addGlobal line Scope.Exported name type' scope) (Scope.empty path) imported'
   scope' <- Scope.addNamespace line export name importedScope scope
   Right (scope', map (\(k, t) -> (k, (PhpValue k, t))) imported')

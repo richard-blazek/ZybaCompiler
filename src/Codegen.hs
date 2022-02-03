@@ -30,7 +30,7 @@ genDefault Lang.Text = "''"
 genDefault (Lang.Function args result) = "(function(" ++ intercalate "," (zipWith (const . ("$_" ++) . show) [0..] args) ++ "){return " ++ genDefault result ++ ";})"
 genDefault (Lang.Vector _) = "z1array::n([])"
 genDefault (Lang.Dictionary _ _) = "z1array::n([])"
-genDefault (Lang.Record fields) = "z1array::n([" ++ intercalate "," (map genAssoc $ Map.assocs fields) ++ "])"
+genDefault (Lang.Record fields) = "z1array::n([" ++ intercalate "," (map genAssoc $ Map.toList fields) ++ "])"
   where genAssoc (name, value) = "'" ++ name ++ "'=>" ++ genDefault value
 
 asArrayArgument :: Lang.Type -> (Lang.Type, String) -> String
@@ -172,7 +172,7 @@ genValue _ _ (Literal (Text s), _) = show s
 genValue qual this (Name pkg name, _) = qual pkg ++ name
 genValue qual this (Call fun args, _) = genValue qual this fun ++ "(" ++ (intercalate "," $ map (genValue qual this) args) ++ ")"
 genValue qual this (Builtin builtin args, _) = genBuiltin builtin (map (genValue qual this) args) $ map snd args
-genValue qual this (Record fields, _) = "z1array::n([" ++ intercalate "," (map genAssoc $ Map.assocs fields) ++ "])"
+genValue qual this (Record fields, _) = "z1array::n([" ++ intercalate "," (map genAssoc $ Map.toList fields) ++ "])"
   where genAssoc (name, value) = "'" ++ name ++ "'=>" ++ genValue qual this value
 genValue qual this (Lambda args block, Lang.Function _ returnType') = header ++ "{" ++ genBlock qual this (returnType' /= Lang.Void) block ++ "})"
   where argNames = map ((qual this ++) . fst) args

@@ -3,15 +3,25 @@ module Language (Type (..), Builtin (..), builtinCall, fieldAccess, removeBuilti
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Fallible (Fallible (..), err, assert, assertJust)
-import Functions (join, split, (??), zipMaps)
+import Functions (join, split, (??), zipMaps, intercalate)
 
-data Type = Void | Int | Bool | Real | Text | Db | Function [Type] Type | Dictionary Type Type | Vector Type | Record (Map.Map String Type) deriving (Eq, Show)
+data Type = Void | Int | Bool | Real | Text | Db | Function [Type] Type | Dictionary Type Type | Vector Type | Record (Map.Map String Type) deriving (Eq)
 data Builtin = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not | AsInt | AsReal | AsBool | AsText
-  | Fun | Dict | List | Set | Get | Has | Count | Concat | Pad | Sort | Join
-  | Insert | Erase | Append | Remove | Find | AsList | AsDict | Map | Filter | Fold | Keys | Values | Flat | Shuffle
-  | Split | EscapeHtml | UnescapeHtml | EscapeUrl | UnescapeUrl | Replace | Hash | IsHashOf | StartsWith | EndsWith | Contains | Lower | Upper
-  | Trim | ReadFile | WriteFile | Connect | Query
-  deriving (Eq, Ord)
+  | Fun | Dict | List | Set | Get | Has | Count | Concat | Pad | Sort | Join | Insert | Erase | Append | Remove | Find | AsList | AsDict | Map
+  | Filter | Fold | Keys | Values | Flat | Shuffle | Split | EscapeHtml | UnescapeHtml | EscapeUrl | UnescapeUrl | Replace | Hash | IsHashOf
+  | StartsWith | EndsWith | Contains | Lower | Upper | Trim | ReadFile | WriteFile | Connect | Query deriving (Eq, Ord)
+
+instance Show Type where
+  show Void = "void"
+  show Int = "int"
+  show Bool = "bool"
+  show Real = "real"
+  show Text = "text"
+  show Db = "db"
+  show (Function ts t) = show t ++ ".fun[" ++ intercalate ", " (map show ts) ++ "]" 
+  show (Dictionary k v) = show k ++ ".dict[" ++ show v ++ "]"
+  show (Vector t) = show t ++ ".list"
+  show (Record m) = "{" ++ intercalate " " (map (\(k, v) -> k ++ " " ++ show v) (Map.toList m)) ++ "}"
 
 instance Show Builtin where
   show builtin = builtinsReversed Map.! builtin
