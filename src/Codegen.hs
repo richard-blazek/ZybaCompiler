@@ -155,7 +155,7 @@ genStatement qual this _ (While condition block) = "while(" ++ genValue qual thi
 genStatement qual this _ (Return value) = "return " ++ genValue qual this value ++ ";"
 genStatement qual this _ (IfChain chain else') = intercalate "else " (map genIf chain) ++ "else{" ++ genBlock qual this False else' ++ "}"
   where genIf (cond, block) = "if(" ++ genValue qual this cond ++ "){" ++ genBlock qual this False block ++ "}"
-genStatement qual this _ (For name count block) = "for(" ++ i ++ "=0;" ++ i ++ "<=" ++ genValue qual this count ++ ";++" ++ i ++ "){" ++ genBlock qual this False block ++ "}"
+genStatement qual this _ (For name count block) = "for(" ++ i ++ "=0;" ++ i ++ "<" ++ genValue qual this count ++ ";++" ++ i ++ "){" ++ genBlock qual this False block ++ "}"
   where i = qual this ++ name
 genStatement qual this _ (Foreach valueName key iterable block) = case key of
   Nothing -> "foreach(" ++ genValue qual this iterable ++ " as " ++ qual this ++ valueName ++ "){" ++ genBlock qual this False block ++ "}"
@@ -176,14 +176,15 @@ genValue qual this (Call fun args, _) = genValue qual this fun ++ "(" ++ (interc
 genValue qual this (Builtin builtin args, _) = genBuiltin builtin (map (genValue qual this) args) $ map snd args
 genValue qual this (Record fields, _) = "z1array::n([" ++ intercalate "," (map genAssoc $ Map.toList fields) ++ "])"
   where genAssoc (name, value) = "'" ++ name ++ "'=>" ++ genValue qual this value
-genValue qual this (Lambda args block, Lang.Function _ returnType') = header ++ "{" ++ genBlock qual this (returnType' /= Lang.Void) block ++ "})"
+genValue qual this (Lambda args block, Lang.Function _ returnType') = header ++ "{" ++ genBlock qual this (returnType' /= Lang.Void) block ++ "}"
   where argNames = map ((qual this ++) . fst) args
         captured = intercalate "," $ Set.map ('&' :) $ Lang.removeBuiltins $ captures qual this (Set.fromList argNames) block []
-        header = "(function(" ++ intercalate "," argNames ++ ")" ++ (if null captured then "" else "use(" ++ captured ++ ")")
+        header = "function(" ++ intercalate "," argNames ++ ")" ++ (if null captured then "" else "use(" ++ captured ++ ")")
 genValue qual this (Access obj field, _) = genValue qual this obj ++ "[\"" ++ field ++ "\"]"
 genValue qual this (PhpValue name, _) = '$' : name
 
 genDeclaration :: (String -> String) -> String -> String -> TypedValue -> String
+genDeclaration qual this "main" value@(_, Lang.Function [] _) = qual this ++ "main=" ++ genValue qual this value ++ ";" ++ qual this ++ "main();"
 genDeclaration qual this name value = qual this ++ name ++ "=" ++ genValue qual this value ++ ";"
 
 preamble :: [String] -> String
