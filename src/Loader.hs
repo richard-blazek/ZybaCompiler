@@ -2,7 +2,6 @@ module Loader (load) where
 
 import qualified Data.Map as Map
 import qualified Data.Tree as Tree
-import qualified Lexer
 import qualified Scope
 import qualified Parser
 import qualified Semantics
@@ -22,7 +21,7 @@ loadFile :: Lang -> String -> FallibleIO LoadedFile
 loadFile PhpLang path = correct (readFile path) >>= \content -> return (LoadedFile (Php content) [] [])
 loadFile ZybaLang path = do
   content <- correct $ readFile path
-  parsed@(Parser.File declarations) <- wrap $ Lexer.tokenize content >>= Parser.parse
+  parsed@(Parser.File declarations) <- wrap $ Parser.parse content
   let (zybas, phps) = map2 catMaybes catMaybes $ unzip $ map import' declarations
   return $ LoadedFile (Zyba parsed) zybas phps
   where import' (_, _, Parser.Import _ imported) = (Just imported, Nothing)

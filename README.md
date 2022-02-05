@@ -3,12 +3,20 @@ This is the source code of my compiler of my Zyba language. The language transpi
 
 Code example:
 ```python
+generate = fun[count: int] int.list {
+	result = int.list.pad[count]
+	next = seed[666]
+	for i < count {
+		result.set[i next[]]
+	}
+	result
+}
+
 # It should be obvious what this function does
 factorial = fun[n: int] int {
     result = 1
-    while n > 1 {
-        result = result * n
-        n = n - 1
+    for i < n {
+        result = result * (i + 1)
     }
     result
 }
@@ -34,7 +42,7 @@ isPrime = fun[n: int] bool {
         prime = 0b
     } else {
         i = 2
-        while i * i <= n & prime {
+        while i < n & prime {
             prime = n % i != 0
             i = i + 1
         }
@@ -44,10 +52,8 @@ isPrime = fun[n: int] bool {
 
 sum = fun[n: int.list] int {
     total = 0
-    i = 0
-    while i < n.count {
-        total = total + n.get[i]
-        i = i + 1
+    for index value : n {
+        total = total + value
     }
     total
 }
@@ -62,12 +68,10 @@ range = fun[n: int] int.list {
     result
 }
 
-concat = fun[a: int.list.list] int.list {
+concat = fun[LoL: int.list.list] int.list {
     result = int.list
-    i = 0
-    while i < a.count {
-        result.append[a.get[i]]
-        i = i + 1
+    for item : LoL {
+        result.append[item]
     }
     result
 }

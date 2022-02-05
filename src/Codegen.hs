@@ -188,7 +188,7 @@ genDeclaration qual this "main" value@(_, Lang.Function [] _) = qual this ++ "ma
 genDeclaration qual this name value = qual this ++ name ++ "=" ++ genValue qual this value ++ ";"
 
 preamble :: [String] -> String
-preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "real=0.0;", "bool=FALSE;", "text='';", "void=NULL;"]) quals) ++ "\
+preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "real=0.0;", "bool=FALSE;", "text='';", "void=NULL;", "main=function(){};"]) quals) ++ "\
 \session_start();\
 \mb_internal_encoding('UTF-8');\
 \mb_regex_encoding('UTF-8');\
@@ -353,7 +353,10 @@ preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "
 genPkg :: (String -> String) -> String -> [(String, TypedValue)] -> String
 genPkg qual pkg decls = "<?php " ++ concat (map (uncurry $ genDeclaration qual pkg) decls) ++ "?>"
 
+genMainCalls :: [String] -> String
+genMainCalls qualified = "<?php " ++ concat (map (\q -> q ++ "main();") qualified) ++ "?>"
+
 gen :: [String] -> [(String, [(String, TypedValue)])] -> String
-gen phps pkgs = concat phps ++ preamble qualified ++ concat (map (uncurry $ genPkg (quals Map.!)) pkgs)
+gen phps pkgs = concat phps ++ preamble qualified ++ concat (map (uncurry $ genPkg (quals Map.!)) pkgs) ++ genMainCalls qualified
   where qualified = let len = length pkgs in map (("$z0" ++) . pad (length $ show len) '0' . show) [0..len-1]
         quals = Map.fromList $ zip (reverse $ map fst pkgs) qualified

@@ -1,12 +1,12 @@
-module Parser (Value (..), Statement (..), Declaration (..), Literal (..), File (..), parse) where
+module Parser (Value (..), Statement (..), Declaration (..), Literal (..), File (..), Visibility (..), parse) where
 
 import qualified Lexer
 import qualified Data.Map.Strict as Map
-import qualified Scope
 import Functions (intercalate, tailRecM, tailRec2M, fmap2, after)
 import Fallible (Fallible (..), err, assert)
 
-newtype File = File [(Integer, Scope.Visibility, Declaration)] deriving (Show, Eq)
+data Visibility = Exported | Private deriving (Eq, Show)
+newtype File = File [(Integer, Visibility, Declaration)] deriving (Show, Eq)
 
 data Declaration
   = Declaration String (Integer, Value)
@@ -126,9 +126,9 @@ parseStatement ((line, Lexer.Name "for") : (_, Lexer.Name key) : (_, Lexer.Name 
 parseStatement ((line, Lexer.Name "return") : tokens) = fmap2 ((,) line . Return) id $ parseValue tokens
 parseStatement tokens@((line, _):_) = fmap2 ((,) line . Value) id $ parseValue tokens
 
-parseDeclaration :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Scope.Visibility, Declaration), [(Integer, Lexer.Token)])
+parseDeclaration :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Visibility, Declaration), [(Integer, Lexer.Token)])
 parseDeclaration tokens@((line, Lexer.Name name) : _) = do
-  let (tokens', export) = if name == "export" then (tail tokens, Scope.Exported) else (tokens, Scope.Private)
+  let (tokens', export) = if name == "export" then (tail tokens, Exported) else (tokens, Private)
   fmap2 ((,,) line export) id $ case tokens' of
     (_, Lexer.Name "import") : (_, Lexer.Name name) : (_, Lexer.LiteralText path) : tokens'' -> Right (Import name path, tokens'')
     (_, Lexer.Name "import") : (_, Lexer.Name "php") : (_, Lexer.Name name) : (_, Lexer.LiteralText path) : tokens'' -> do
@@ -143,6 +143,6 @@ parseDeclaration tokens@((line, Lexer.Name name) : _) = do
 
 parseDeclaration ((line, token) : _) = err line $ "Expected a name of declared function but got " ++ show token
 
-parse :: [(Integer, Lexer.Token)] -> Fallible File
-parse = tailRecM (Right . null . snd) (Right . File . reverse . fst) else' . (,) []
+parse :: String -> Fallible File
+parse input = Lexer.tokenize input >>= tailRecM (Right . null . snd) (Right . File . reverse . fst) else' . (,) []
   where else' (result, tokens) = fmap2 (: result) id $ parseDeclaration tokens

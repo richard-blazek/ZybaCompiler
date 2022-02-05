@@ -7,6 +7,7 @@
 \usepackage{graphicx}
 \usepackage{fancyhdr}
 \usepackage[backend=bibtex,sorting=none]{biblatex}
+\usepackage{tikz}
 \usepackage{xcolor}
 \usepackage{float}
 \usepackage{hyperref}
@@ -19,6 +20,9 @@
 
 \addbibresource{SOC.bib}
 
+\usetikzlibrary{shapes.geometric, arrows}
+\tikzstyle{block} = [rectangle, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=blue!25]
+\tikzstyle{arrow} = [thick,<-,>=stealth]
 \def\circumflex{\char`\^}
 \def\quote #1{"#1"}
 \def\keyword #1{\color{keyword}#1\color{black}}
@@ -177,19 +181,28 @@ Lambda funkce začíná slovem \texttt{fun}. Následují argumenty funkce v hran
 <block> ::= \emphasis{\{} <statement>* \emphasis{\}}
 \end{grammar}
 
-Příkazem může být výraz, jenž má být vyhodnocen, přiřazení, příkaz \texttt{if} nebo cyklus \texttt{while}. Příkaz \texttt{if} začíná slovem \texttt{if} následovaným výrazem (podmínkou) a blokem příkazů; za blokem můžou následovat další části, jež začínají slovy \texttt{else if} a rovněž pokračují podmínkou a blokem příkazů; poté může následovat slovo \texttt{else} následované blokem, který se provede, pokud žádná z předchozích podmínek nebyla splněna. Cyklus \texttt{while} začíná slovem \texttt{while} následovaným výrazem (podmínkou) a blokem příkazů.
+Příkazem může být výraz, jenž má být vyhodnocen, přiřazení, příkazy \texttt{return} a \texttt{if} nebo cykly \texttt{while} či \texttt{for}. Příkaz \texttt{return} je slovo \texttt{return} následované výrazem, jenž má být navrácená hodnota. Příkaz \texttt{if} začíná slovem \texttt{if} následovaným výrazem (podmínkou) a blokem příkazů; za blokem můžou následovat další části, jež začínají slovy \texttt{else if} a rovněž pokračují podmínkou a blokem příkazů; poté může následovat slovo \texttt{else} následované blokem, který se provede, pokud žádná z předchozích podmínek nebyla splněna. Cyklus \texttt{while} začíná slovem \texttt{while} následovaným výrazem (podmínkou) a blokem příkazů.
 \begin{grammar}
-<statement> ::= <expression> | <assignment> | <if> | <while>
+<statement> ::= <expression> | <assignment> | <if> | <while> | <for>
+
+<return> ::= \emphasis{return} <expression>
 
 <if> ::= \emphasis{if} <condition> <block> (\emphasis{else if} <condition> <block>)* (\emphasis{else} <block>)?
 
 <while> ::= \emphasis{while} <condition> <block>
 \end{grammar}
 
+Cyklus \texttt{for} má dvě formy. První z nich se používá pro daný počet opakování, jež je specifikován nějakým výrazem, v tom případě po slově \texttt{for} následuje jméno konstanty, která udává, kolik opakování už proběhlo, operátor \texttt{\textless}, onen výraz a blok příkazů. Druhou lze použít pro iteraci přes pole (včetně asociativního), ta se zapisuje slovem \texttt{for}, po němž následují jména dvou konstant, z nichž první bude obsahovat index současného prvku a druhá jeho hodnotu, oddělovač\texttt{:}, výraz, jehož hodnotou je ono pole, a blok příkazů. První jméno je nepovinné, v tom případě se hodnota indexu nebude do žádné konstanty ukládat.
+\begin{grammar}
+<for> ::= \emphasis{for} <name> \emphasis{\textless} <expression> <block>
+
+<for> ::= \emphasis{for} <name>? <name> \emphasis{:} <expression> <block>
+\end{grammar}
+
 \subsubsection{Tokeny}
 Nejmenší jednotkou syntaxe jsou tokeny. Token může být jedno z následujících:
 \begin{itemize}
-\item \textbf{Jméno} je posloupnost znaků, jež obsahuje pouze číslice, malá a velká písmena latinky a podtržítka a jejíž první znak není číslice.
+\item \textbf{Jméno} je posloupnost znaků, jež obsahuje pouze číslice, malá a velká písmena latinky a podtržítka a jejíž první znak není číslice. Zyba nemá klíčová slova, ale některá jména (např. \texttt{if}, \texttt{fun}, \texttt{export}) mají zvláštní význam na určitých místech kódu, takže není vhodné je používat pro pojmenování vlastních proměnných.
 \item \textbf{Literál celého čísla} je buď posloupnost dekadických číslic tvořící číslo, nebo posloupnost dekadických číslic, udávající základ číselné soustavy, a po ní znak \texttt{r} a posloupnost číslic z oné číselné soustavy, písmena A až Z bez ohledu na velikost se považují za číslice 10 až 35. Lze používat i soustavy o základu vyšším než 36, ale není v nich možné zapsat všechna čísla protože pro ně nejsou další číslice.
 \item \textbf{Literál reálného čísla} začíná jako literál celého čísla, ale pokračuje desetinnou tečkou po které můžou následovat další číslice. Rovněž lze používat libovolnou číselnou soustavu.
 \item \textbf{Literál logické hodnoty} je \texttt{1b} pro pravdu a \texttt{0b} pro nepravdu. Je to totiž kratší než tradiční \texttt{true} a \texttt{false} a navíc je zápis obou hodnot stejně dlouhý.
@@ -220,7 +233,7 @@ mocnina = fun[zaklad exp: int] int {
     	result = result * zaklad
     	exp = exp - 1
     }
-    result
+    return result
 }
 \end{verbatim}
 
@@ -229,7 +242,7 @@ Každé jméno v kódu překladač vyhodnoduje v určitém kontextu, který zahr
 
 Proměnná se vytváří uvnitř bloku příkazů přiřazením hodnoty určitému jménu, jenž na daném místě ještě nic neoznačuje, a je přístupné až do konce toho bloku. Argumenty lambda funkcí jsou rovněž proměnné, jejichž hodnoty se nastaví při zavolání funkce na hodnoty předaných argumentů a jsou dostupné uvnitř celé lambda funkce. Proměnnou jde změnit tím, že se do ní přiřadí nová hodnota; ta musí mít stejný typ jako předchozí hodnota proměnné, kterou nová hodnota nahradila.
 
-Konstanta se deklaruje přiřazením na úrovni souboru, tedy vně všech bloků příkazů, a je dostupná od přiřazení až po konec souboru. Pokud přiřazenou hodnotou je lambda funkce, je konstanta přístupná v celém souboru, tedy už před přiřazením a dokonce i v těle té lambda funkce samotné. Jednou vytvořené konstantě už není možné přiřadit novou hodnotu a není možné vytvořit ani jmenný prostor se stejným názvem.
+Konstanta se deklaruje buď přiřazením na úrovni souboru (vně všech bloků), tehdy je dostupná od přiřazení až po konec souboru, nebo vzniká v cyklu \texttt{for} a je přístupná uvnitř jeho bloku. Přiřadíme-li na úrovni souboru konstantě lambda funkci, bude konstanta přístupná v celém souboru, nejen po přiřazení. Jednou vytvořené konstantě už není možné přiřadit novou hodnotu a není možné vytvořit ani jmenný prostor se stejným názvem, ale konstanta vytvořená v cyklu \texttt{for} má novou hodnotu při každé iteraci.
 
 Jmenný prostor vzniká při importu z jiného souboru a obsahuje všechny exportované konstanty a jmenné prostory deklarované v onom souboru. Od dotyčného importu do konce souboru přes něj lze přistupovat k jeho prvkům pomocí již zmiňované syntaxe \texttt{prostor.prvek}. Obsahuje-li jmenný prostor další exportované jmenné prostory, lze přístupy zřetězit a přistupovat i k jejich prvkům: \texttt{prostor1.prostor2.prostor3.prvek}. Žádné dva jmenné prostory nemůžou 
 
@@ -250,7 +263,7 @@ Název & Popis & Výchozí hodnota \\\hline
 \texttt{\{N\textsubscript{0} T\textsubscript{0} \ldots{} N\textsubscript{m} T\textsubscript{m}\}} & Záznam s prvky, jejichž názvy jsou \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a typy jsou \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}} & Záznam se všemi prvky nabývajícími svých výchozích hodnot\\\hline
 \end{tabular}
 
-Funkce se vytváří pomocí syntaxe lambda funkce, jež specifikuje typy argumentů a návratové hodnoty a obsahuje kód, který se při zavolání funkce vykoná. Pokud je poslední příkaz v lambda funkci vyhodnocení výrazu, navrácená hodnota je hodnota onoho výrazu, jinak se vrátí prázdná hodnota (typu \texttt{void}). Funkce se volá pomocí hranatých závorek, předají se jí argumenty odpovídajících typů a výsledkem volání funkce je hodnota, již funkce vrátila.
+Funkce se vytváří pomocí syntaxe lambda funkce, jež specifikuje typy argumentů a návratové hodnoty a obsahuje kód, který se při zavolání funkce vykoná. Pokud se program dostane k příkazu \texttt{return}, funkce skončí a vrátí hodnotu předanou tomuto příkazu. Poslední výraz ve funkci, jejíž návratový typ není \texttt{void}, musí být \texttt{return} nebo vyhodnocení výrazu, které na tomto místě znamená, že funkce výsledek tohoto výrazu vrátí. Funkce se volá pomocí hranatých závorek, předají se jí argumenty odpovídajících typů a výsledkem volání funkce je hodnota, již funkce vrátila.
 
 Záznam se vytváří stejným způsobem jako se značí typ záznamu, jen se píší hodnoty jeho prvků a ne typy. Zápis \texttt{\{N\textsubscript{0} H\textsubscript{0} \ldots{} N\textsubscript{m} H\textsubscript{m}\}} vytvoří záznam, jehož prvky budou mít názvy \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a nabývají hodnot \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}}. K prvkům záznamu se přistupuje pomocí tečky (např. \texttt{zaznam.prvek}), přičemž obsahuje-li záznam další záznamy, lze přístupy řetězit stejně jako u jmenných prostorů.
 
@@ -258,6 +271,64 @@ Záznam se vytváří stejným způsobem jako se značí typ záznamu, jen se p�
 Datové typy mají svoje zabudované metody a operátory. Obojí jsou zvláštní výrazy, jež něco vykonají a vrátí nějakou hodnotu, ale liší se syntaxí. Syntaxe volání zabudovaných metod i operátorů již byla popsáná výše.
 
 \section{Konstrukce překladače}
+Překladač je napsaný v jazyce Haskell a jeho kód je rozdělený do několika modulů.
+\begin{figure}[H]
+\begin{center}
+	\begin{tikzpicture}[node distance=2cm]
+		\node (functions) [block] {Functions};
+		\node (fallible) [block, right of=functions, xshift=2cm] {Fallible};
+		\node (scope) [block, below of=functions, xshift=2cm] {Scope};
+		\node (parser) [block, above of=functions] {Parser};
+		\node (lexer) [block, above of=fallible] {Lexer};
+		\node (codegen) [block, left of=functions, xshift=\minus4cm] {Codegen};
+		\node (language) [block, above of=codegen, xshift=2cm]{Language};
+		\node (semantics) [block, below of=functions, xshift=\minus4cm] {Semantics};
+		\node (loader) [block, below of=semantics, xshift=2cm] {Loader};
+		\node (main) [block, left of=loader, xshift=\minus2cm] {Main};
+		\draw [arrow] (fallible) -- (lexer);
+		\draw [arrow] (fallible) -- (parser);
+		\draw [arrow] (functions) -- (parser);
+		\draw [arrow] (lexer) -- (parser);
+		\draw [arrow] (functions) -- (language);
+		\draw [arrow] (fallible) -- (language);
+		\draw [arrow] (fallible) -- (scope);
+		\draw [arrow] (language) -- (scope);
+		\draw [arrow] (parser) -- (scope);
+		\draw [arrow] (parser) -- (semantics);
+		\draw [arrow] (scope) -- (semantics);
+		\draw [arrow] (language) -- (semantics);
+		\draw [arrow] (functions) -- (semantics);
+		\draw [arrow] (fallible) -- (semantics);
+		\draw [arrow] (parser) -- (loader);
+		\draw [arrow] (scope) -- (loader);
+		\draw [arrow] (language) -- (loader);
+		\draw [arrow] (functions) -- (loader);
+		\draw [arrow] (fallible) -- (loader);
+		\draw [arrow] (semantics) -- (loader);
+		\draw [arrow] (language) -- (codegen);
+		\draw [arrow] (semantics) -- (codegen);
+		\draw [arrow] (parser) -- (codegen);
+		\draw [arrow] (functions) -- (codegen);
+		\draw [arrow] (loader) -- (main);
+		\draw [arrow] (codegen) -- (main);
+		\draw [arrow] (fallible) -- (main);
+	\end{tikzpicture}
+	\caption{Graf závislostí mezi moduly}
+	\label{projects}
+\end{center}
+\end{figure}
+
+Modul \texttt{Functions} obsahuje jen pomocné funkce, které nemají nic společného s logikou tohoto konkrétního programu, jedná se o různé funkce pro práci s textem, seznamy a monádami. Modul \texttt{Fallible} definuje stejnojmennou monádu, její transformátor a funkce pro práci s nimi, což slouží k práci s chybami při překladu.
+
+Lexikální analyzátor pro Zybu implementuje modul \texttt{Lexer}, jehož funkce \texttt{tokenize} dostane na vstupu text a vrátí seznam dvojic \texttt{(Integer, Token)}, jež reprezentují tokeny a čísla řádků, na nichž se tokeny nacházely (kvůli generování chybových hlášek). Typ \texttt{Token} je algebraický datový typ, jehož konstruktory odpovídají typům tokenů zmiňovaných v sekci Syntaxe.
+
+Syntaktická analýza se odehrává v modulu \texttt{Parser}, jehož funkce \texttt{parse} přijímá text, funkcí \texttt{tokenize} jej rozdělí na tokeny a pak sestaví syntaktický strom. Výsledkem je hodnota typu \texttt{File}, který obsahuje seznam trojic \texttt{(Integer, Visibility, Declaration)}, kde první prvek je opět číslo řádku, druhý je viditelnost deklarace (tj. zda je deklarace exportovaná) a třetí je samotná deklarace. Dále modul obsahuje algebraické datové typy \texttt{Declaration}, pro reprezentaci deklarací, \texttt{Visibility}, která udává, zda je deklarace exportovaná, \texttt{Statement}, který reprezentuje příkaz (a má konstruktor pro každý typ příkazu), \texttt{Value} reprezentující výraz a \texttt{Literal}, který obsahuje hodnotu literálů.
+
+V modulu \texttt{Language} jsou definované zabudované metody a operátory (algebraický typ \texttt{Builtin}), typy (algebraický typ \texttt{Type}) a funkce pro práci s nimi. Další modul, \texttt{Scope}, obsahuje stejnojmenný typ, který reprezentuje kontext pro proměnné, konstanty a jmenné prostory, funkce pro jejich přidávání do kontextu a pro zjišťování obsahu kontextu. Typ \texttt{Scope} totiž neexportuje konstruktor, takže z jiných modulů lze k jeho obsahu přistupovat jen pomocí těchto funkcí.
+
+Tyto dva moduly se využívají při sémantické analýze v modulu \texttt{Semantics}. Jeho hlavní funkce \texttt{analyse} přijímá jednak hodnotu typu \texttt{File}, která obsahuje syntaktický strom analyzovaného souboru, ale taky mapu \texttt{Map String Scope}, jež obsahuje kontexty s exportovanými deklaracemi z již analyzovaných souborů překládaného programu, a \texttt{String} obsahující cestu k právě analyzovanému souboru. Výsledkem analýzy je dvojice \texttt{(Scope, [(String, TypedValue)])}, jejíž první prvek je kontext, který se případně předá této funkci při analýze dalších souborů, druhým prvkem je seznam konstant deklarovaných v tomto souboru.
+
+Správu importů a spojení syntaktické a sémantické analýzy zajišťuje modul \texttt{Loader}. Obsahuje funkci \texttt{load}
 
 \section{Závěr}
 
