@@ -86,7 +86,7 @@ parseCall :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Value), [(Integer, 
 parseCall tokens = parseFactor tokens >>= uncurry (tailRec2M if' id id else')
   where if' fun tokens = Right $ null tokens || snd (head tokens) `notElem` [Lexer.Separator '[', Lexer.Separator '.', Lexer.Separator ':']
         else' fun ((line, Lexer.Separator '[') : tokens) = fmap2 ((,) line . Call fun) id $ parseValues tokens
-        else' (line, Name names) ((_, Lexer.Separator '.') : (_, Lexer.Name name) : tokens) = Right ((line, Name $ names ++ [name]), tokens)
+        else' (line, Name names) ((_, Lexer.Separator '.') : (_, Lexer.Name name) : tokens) = Right ((line, Name $ name : names), tokens)
         else' obj ((line, Lexer.Separator '.') : (_, Lexer.Name name) : tokens) = Right ((line, Access obj name), tokens)
         else' obj ((line, Lexer.Separator c) : _) = err line $ "Expected field or builtin name after " ++ [c]
         parseValues = parseMany parseValue $ Lexer.Separator ']'
@@ -121,8 +121,8 @@ parseStatement ((line, Lexer.Name name) : (_, Lexer.Operator "=") : tokens) = do
 parseStatement ((line, Lexer.Name "if") : tokens) = parseIf line [] tokens
 parseStatement ((line, Lexer.Name "while") : tokens) = parseBlockWith line While tokens
 parseStatement ((line, Lexer.Name "for") : (_, Lexer.Name value) : (_, Lexer.Operator "<") : tokens) = parseBlockWith line (For value) tokens
-parseStatement ((line, Lexer.Name "for") : (_, Lexer.Name value) : (_, Lexer.Operator ":") : tokens) = parseBlockWith line (Foreach value Nothing) tokens
-parseStatement ((line, Lexer.Name "for") : (_, Lexer.Name key) : (_, Lexer.Name value) : (_, Lexer.Operator ":") : tokens) = parseBlockWith line (Foreach value $ Just key) tokens
+parseStatement ((line, Lexer.Name "for") : (_, Lexer.Name value) : (_, Lexer.Separator ':') : tokens) = parseBlockWith line (Foreach value Nothing) tokens
+parseStatement ((line, Lexer.Name "for") : (_, Lexer.Name key) : (_, Lexer.Name value) : (_, Lexer.Separator ':') : tokens) = parseBlockWith line (Foreach value $ Just key) tokens
 parseStatement ((line, Lexer.Name "return") : tokens) = fmap2 ((,) line . Return) id $ parseValue tokens
 parseStatement tokens@((line, _):_) = fmap2 ((,) line . Value) id $ parseValue tokens
 

@@ -5,21 +5,23 @@ import qualified Data.Map.Strict as Map
 import qualified Language as Lang
 import Semantics (Value (..), TypedValue, Statement (..))
 import Parser (Literal (..))
-import Functions (intercalate, split, pad)
+import Functions (intercalate, split, pad, map2)
+import Data.Maybe (catMaybes)
 
-capturesOfBlock :: (String -> String) -> String -> Set.Set String -> [Statement] -> Set.Set String
-capturesOfBlock _ _ _ [] = Set.empty
-capturesOfBlock qual this skip (Value value : rest) = capturesOfValue qual this skip value
-capturesOfBlock qual this skip (Initialization name value : rest) = Set.union (capturesOfValue qual this skip value) $ capturesOfBlock qual this (Set.insert name skip) rest
-capturesOfBlock qual this skip (Assignment _ value : rest) = Set.union (capturesOfValue qual this skip value) $ capturesOfBlock qual this skip rest
-capturesOfBlock qual this skip (While condition block : rest) = Set.unions [capturesOfValue qual this skip condition, capturesOfBlock qual this skip block, capturesOfBlock qual this skip rest]
-capturesOfBlock qual this skip (IfChain chains else' : rest) = Set.unions [Set.unions $ map (\(cond, block) -> Set.union (capturesOfValue qual this skip cond) $ capturesOfBlock qual this skip block) chains, capturesOfBlock qual this skip else', capturesOfBlock qual this skip rest]
-
-capturesOfValue :: (String -> String) -> String -> Set.Set String -> TypedValue -> Set.Set String
-capturesOfValue qual _ skip (Name pkg name, _) = Set.difference (Set.singleton $ qual pkg ++ name) skip
-capturesOfValue qual this skip (Lambda args body, _) = capturesOfBlock qual this (Set.union skip $ Set.fromList $ map ((qual this ++) . fst) args) body
-capturesOfValue qual this skip (Call fun args, _) = Set.unions $ map (capturesOfValue qual this skip) $ fun : args
-capturesOfValue _ _ skip _ = Set.empty
+captures :: (String -> String) -> String -> Set.Set String -> [Statement] -> [Value] -> Set.Set String
+captures qual this skip [] [] = Set.empty
+captures qual this skip stms (Name pkg name : vals) = let n = qual pkg ++ name in (if Set.member n skip then id else Set.insert n) $ captures qual this skip stms vals
+captures qual this skip stms (Lambda args body : vals) = Set.unions [captures qual this skip stms vals, captures qual this (Set.union skip $ Set.fromList $ map ((qual this ++) . fst) args) body []]
+captures qual this skip stms (Call fun args : vals) = captures qual this skip stms (map fst args ++ (fst fun : vals))
+captures qual this skip stms (_ : vals) = captures qual this skip stms vals
+captures qual this skip (Value value : stms) [] = captures qual this skip stms [fst value]
+captures qual this skip (Initialization name value : stms) [] = let n = qual this ++ name in Set.insert n $ captures qual this (Set.insert n skip) stms [fst value]
+captures qual this skip (Assignment _ value : stms) [] = captures qual this skip stms [fst value]
+captures qual this skip (Return value : stms) [] = captures qual this skip stms [fst value]
+captures qual this skip (IfChain chains else' : stms) [] = Set.unions $ map (uncurry (flip (captures qual this skip)) . map2 ((:[]) . fst) id) chains
+captures qual this skip (While condition block : stms) [] = Set.unions [captures qual this skip stms [fst condition], captures qual this skip block []]
+captures qual this skip (For name value block : stms) [] = Set.unions [captures qual this skip stms [fst value], captures qual this (Set.insert (qual this ++ name) skip) block []]
+captures qual this skip (Foreach name key value block : stms) [] = Set.unions [captures qual this skip stms [fst value], captures qual this (Set.union skip $ Set.fromList $ map (qual this ++) $ catMaybes [Just name, key]) block []]
 
 genDefault :: Lang.Type -> String
 genDefault Lang.Void = "NULL"
@@ -176,8 +178,8 @@ genValue qual this (Record fields, _) = "z1array::n([" ++ intercalate "," (map g
   where genAssoc (name, value) = "'" ++ name ++ "'=>" ++ genValue qual this value
 genValue qual this (Lambda args block, Lang.Function _ returnType') = header ++ "{" ++ genBlock qual this (returnType' /= Lang.Void) block ++ "})"
   where argNames = map ((qual this ++) . fst) args
-        captures = intercalate "," $ Set.map ('&' :) $ Lang.removeBuiltins $ capturesOfBlock qual this (Set.fromList argNames) block
-        header = "(function(" ++ intercalate "," argNames ++ ")" ++ (if null captures then "" else "use(" ++ captures ++ ")")
+        captured = intercalate "," $ Set.map ('&' :) $ Lang.removeBuiltins $ captures qual this (Set.fromList argNames) block []
+        header = "(function(" ++ intercalate "," argNames ++ ")" ++ (if null captured then "" else "use(" ++ captured ++ ")")
 genValue qual this (Access obj field, _) = genValue qual this obj ++ "[\"" ++ field ++ "\"]"
 genValue qual this (PhpValue name, _) = '$' : name
 
@@ -199,10 +201,10 @@ preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "
 \function z1chars($s){\
   \return mb_str_split($s,1,'UTF-8');\
 \}\
-\function z1startswith($h,$n) {\
+\function z1startswith($h,$n){\
   \return substr_compare($h,$n,0,strlen($n))===0;\
 \}\
-\function z1endswith($h,$n) {\
+\function z1endswith($h,$n){\
   \return substr_compare($h,$n,-strlen($n))===0;\
 \}\
 \function z1dbconnect($s,$u,$p){\

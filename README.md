@@ -45,7 +45,7 @@ isPrime = fun[n: int] bool {
 sum = fun[n: int.list] int {
     total = 0
     i = 0
-    while i < n.size {
+    while i < n.count {
         total = total + n.get[i]
         i = i + 1
     }
@@ -65,7 +65,7 @@ range = fun[n: int] int.list {
 concat = fun[a: int.list.list] int.list {
     result = int.list
     i = 0
-    while i < a.size {
+    while i < a.count {
         result.append[a.get[i]]
         i = i + 1
     }
@@ -75,7 +75,7 @@ concat = fun[a: int.list.list] int.list {
 merge = fun[a: int.list, b: int.list] int.list {
     result = int.list
     i = 0
-    while (i < a.size) & (i < b.size) {
+    while (i < a.count) & (i < b.count) {
         result.append[a.get[i] b.get[i]]
         i = i + 1
     }

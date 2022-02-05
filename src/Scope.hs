@@ -15,17 +15,17 @@ scope = Scope
 empty :: String -> Scope
 empty = (`Scope` Map.map (Global Private) Lang.constants)
 
-getWith :: Bool -> Integer -> [String] -> Scope -> Fallible (Lang.Type, String, [String])
+getWith :: Bool -> Integer -> [String] -> Scope -> Fallible (Lang.Type, String, String, [String])
 getWith onlyExported line (name : names) (Scope path scope) = case Map.lookup name scope of
   Just (Namespace Private _) | onlyExported -> err line $ "File '" ++ path ++ "' does not export " ++ name
   Just (Global Private _) | onlyExported -> err line $ "File '" ++ path ++ "' does not export " ++ name
   Nothing -> err line $ "File '" ++ path ++ "' does not contain " ++ path
   Just (Namespace _ _) | null names -> err line $ "Identifier '" ++ name ++ "' denotes a namespace, not a value"
   Just (Namespace _ scope') -> getWith True line names scope'
-  Just (Global _ type') -> Right (type', path, names)
-  Just (Local _ type') -> Right (type', path, names)
+  Just (Global _ type') -> Right (type', name, path, names)
+  Just (Local _ type') -> Right (type', name, path, names)
 
-get :: Integer -> [String] -> Scope -> Fallible (Lang.Type, String, [String])
+get :: Integer -> [String] -> Scope -> Fallible (Lang.Type, String, String, [String])
 get = getWith False
 
 add :: Integer -> Bool -> String -> Entry -> Scope -> Fallible (Scope, Bool)

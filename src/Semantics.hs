@@ -51,8 +51,7 @@ analyseCall line args callee@(_, type') = case type' of
   where types = map snd args
 
 analyseBuiltin :: Scope.Scope -> (Integer, Parser.Value) -> [TypedValue] -> Maybe TypedValue
-analyseBuiltin scope (line, Parser.Name names@(_ : _ : _)) args = do
-  let (builtin, obj) = (last names, init names)
+analyseBuiltin scope (line, Parser.Name (builtin : obj@(_ : _))) args = do
   obj' <- dropLeft $ analyseValue scope (line, Parser.Name obj)
   (builtin', type') <- dropLeft $ Lang.builtinCall line builtin $ map snd (obj' : args)
   Just (Builtin builtin' (obj' : args), type')
@@ -76,8 +75,8 @@ analyseValue scope (_, Parser.Literal lit@(Parser.Text _)) = Right (Literal lit,
 analyseValue scope (_, Parser.Literal lit@(Parser.Bool _)) = Right (Literal lit, Lang.Bool)
 analyseValue scope (line, Parser.Access obj name) = analyseValue scope obj >>= analyseAccess line scope [name]
 
-analyseValue scope (line, Parser.Name names@(name : _)) = do
-  (type', path, remaining) <- Scope.get line names scope
+analyseValue scope (line, Parser.Name names) = do
+  (type', name, path, remaining) <- Scope.get line (reverse names) scope
   analyseAccess line scope remaining (Name path name, type')
 
 analyseValue scope (line, Parser.Call callee args) = do
