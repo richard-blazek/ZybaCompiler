@@ -57,13 +57,12 @@ listOfImportedFiles path = do
   deps <- loadDependencies Map.empty [path] Map.empty 
   return $ orderDependencies $ deps Map.! path
 
-type Declarations = (String, [(String, Semantics.TypedValue)])
-analyseAll :: Map.Map String Scope.Scope -> [String] -> [Declarations] -> [(String, File)] -> Fallible ([String], [Declarations])
+analyseAll :: Map.Map String Scope.Scope -> [String] -> [(String, [Semantics.Declaration])] -> [(String, File)] -> Fallible ([String], [(String, [Semantics.Declaration])])
 analyseAll _ phps zybas [] = return $ (reverse phps, reverse zybas)
 analyseAll known phps zybas ((_, Php content) : paths) = analyseAll known (content : phps) zybas paths
 analyseAll known phps zybas ((path, Zyba parsed) : paths) = do
   (scope, declarations) <- Semantics.analyse known path parsed
   analyseAll (Map.insert path scope known) phps ((path, declarations) : zybas) paths
 
-load :: String -> FallibleIO ([String], [Declarations])
+load :: String -> FallibleIO ([String], [(String, [Semantics.Declaration])])
 load path = listOfImportedFiles path >>= wrap . analyseAll Map.empty [] []

@@ -1,4 +1,4 @@
-module Semantics (analyse, Value (..), Statement (..), TypedValue) where
+module Semantics (analyse, Value (..), Statement (..), TypedValue, Declaration) where
 
 import qualified Data.Map.Strict as Map
 import qualified Parser
@@ -29,6 +29,7 @@ data Value
   | PhpValue String deriving (Eq, Show)
 
 type TypedValue = (Value, Lang.Type)
+type Declaration = (String, TypedValue)
 
 analyseType :: Scope.Scope -> (Integer, Parser.Value) -> Fallible Lang.Type
 analyseType scope value = fmap snd $ analyseValue scope value
@@ -154,7 +155,7 @@ analyseBlock scope returnType statements = tailRecM if' then' else' ([], scope, 
         then' (result, _, _) = Right $ reverse result
         else' (result, scope, statement : statements) = fmap (\(analysed, sc) -> (analysed : result, sc, statements)) $ analyseStatement scope returnType statement
 
-analyseDeclaration :: Map.Map String Scope.Scope -> Scope.Scope -> (Integer, Parser.Visibility, Parser.Declaration) -> Fallible (Scope.Scope, [(String, TypedValue)])
+analyseDeclaration :: Map.Map String Scope.Scope -> Scope.Scope -> (Integer, Parser.Visibility, Parser.Declaration) -> Fallible (Scope.Scope, [Declaration])
 analyseDeclaration files scope (line, export, Parser.Import name path) = fmap (flip (,) []) $ Scope.addNamespace line export name (files Map.! path) scope
 analyseDeclaration _ scope (_, export, Parser.Declaration name value@(_, Parser.Lambda _ _ _)) = fmap ((,) scope . (:[]) . (,) name) $ analyseValue scope value
 analyseDeclaration _ scope (line, export, Parser.Declaration name value) = do
@@ -168,7 +169,7 @@ analyseDeclaration files scope (line, export, Parser.Php name path imported) = d
   scope' <- Scope.addNamespace line export name importedScope scope
   Right (scope', map (\(k, t) -> (k, (PhpValue k, t))) imported')
 
-analyse :: Map.Map String Scope.Scope -> String -> Parser.File -> Fallible (Scope.Scope, [(String, TypedValue)])
+analyse :: Map.Map String Scope.Scope -> String -> Parser.File -> Fallible (Scope.Scope, [Declaration])
 analyse files path (Parser.File declarations) = do
   globalScope <- collectGlobals path declarations
   mapCatFoldlM (analyseDeclaration files) globalScope declarations

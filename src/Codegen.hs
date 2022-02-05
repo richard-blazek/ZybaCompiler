@@ -3,7 +3,7 @@ module Codegen (gen) where
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
 import qualified Language as Lang
-import Semantics (Value (..), TypedValue, Statement (..))
+import Semantics (Value (..), Declaration, Statement (..))
 import Parser (Literal (..))
 import Functions (intercalate, split, pad, map2)
 import Data.Maybe (catMaybes)
@@ -166,7 +166,7 @@ genBlock _ _ _ [] = ""
 genBlock qual this True [statement@(Value (_, type'))] = genStatement qual this (type' /= Lang.Void) statement
 genBlock qual this return (statement : statements) = genStatement qual this False statement ++ genBlock qual this return statements
 
-genValue :: (String -> String) -> String -> TypedValue -> String
+genValue :: (String -> String) -> String -> (Value, Lang.Type) -> String
 genValue _ _ (Literal (Bool b), _) = if b then "TRUE" else "FALSE"
 genValue _ _ (Literal (Int i), _) = show i
 genValue _ _ (Literal (Real r), _) = show r
@@ -183,9 +183,8 @@ genValue qual this (Lambda args block, Lang.Function _ returnType') = header ++ 
 genValue qual this (Access obj field, _) = genValue qual this obj ++ "[\"" ++ field ++ "\"]"
 genValue qual this (PhpValue name, _) = '$' : name
 
-genDeclaration :: (String -> String) -> String -> String -> TypedValue -> String
-genDeclaration qual this "main" value@(_, Lang.Function [] _) = qual this ++ "main=" ++ genValue qual this value ++ ";" ++ qual this ++ "main();"
-genDeclaration qual this name value = qual this ++ name ++ "=" ++ genValue qual this value ++ ";"
+genDeclaration :: (String -> String) -> String -> Declaration -> String
+genDeclaration qual this (name, value) = qual this ++ name ++ "=" ++ genValue qual this value ++ ";"
 
 preamble :: [String] -> String
 preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "real=0.0;", "bool=FALSE;", "text='';", "void=NULL;", "main=function(){};"]) quals) ++ "\
@@ -350,13 +349,13 @@ preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "
   \}\
 \}?>"
 
-genPkg :: (String -> String) -> String -> [(String, TypedValue)] -> String
-genPkg qual pkg decls = "<?php " ++ concat (map (uncurry $ genDeclaration qual pkg) decls) ++ "?>"
+genPkg :: (String -> String) -> String -> [Declaration] -> String
+genPkg qual pkg decls = "<?php " ++ concat (map (genDeclaration qual pkg) decls) ++ "?>"
 
 genMainCalls :: [String] -> String
-genMainCalls qualified = "<?php " ++ concat (map (\q -> q ++ "main();") qualified) ++ "?>"
+genMainCalls qualified = "<?php " ++ concat (map (\q -> q ++ "main();") $ reverse qualified) ++ "?>"
 
-gen :: [String] -> [(String, [(String, TypedValue)])] -> String
+gen :: [String] -> [(String, [Declaration])] -> String
 gen phps pkgs = concat phps ++ preamble qualified ++ concat (map (uncurry $ genPkg (quals Map.!)) pkgs) ++ genMainCalls qualified
   where qualified = let len = length pkgs in map (("$z0" ++) . pad (length $ show len) '0' . show) [0..len-1]
         quals = Map.fromList $ zip (reverse $ map fst pkgs) qualified
