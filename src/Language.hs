@@ -19,7 +19,7 @@ instance Show Type where
   show Text = "text"
   show Db = "db"
   show (Function ts t) = show t ++ ".fun[" ++ intercalate ", " (map show ts) ++ "]" 
-  show (Dictionary k v) = show k ++ ".dict[" ++ show v ++ "]"
+  show (Dictionary k v) = show v ++ ".dict[" ++ show k ++ "]"
   show (Vector t) = show t ++ ".list"
   show (Record m) = "{" ++ intercalate " " (map (\(k, v) -> k ++ " " ++ show v) (Map.toList m)) ++ "}"
 
@@ -100,7 +100,7 @@ getResultType line builtin args = case (builtin, args) of
   (List, v : args) -> do
     assert (all (== v) args) line "All values must have the specified type"
     Right $ Vector v
-  (Dict, k : v : args) -> do
+  (Dict, v : k : args) -> do
     assert (k `elem` [Int, Text]) line "Map keys must be either int or text"
     let (pairs, leftover) = split args
     assert (leftover == Nothing) line "Missing value for the last key"
