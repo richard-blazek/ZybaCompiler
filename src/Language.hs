@@ -9,7 +9,7 @@ data Type = Void | Int | Bool | Real | Text | Db | Function [Type] Type | Dictio
 data Builtin = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not | AsInt | AsReal | AsBool | AsText
   | Fun | Dict | List | Set | Get | Has | Count | Concat | Pad | Sort | Join | Insert | Erase | Append | Remove | Find | AsList | AsDict | Map
   | Filter | Fold | Keys | Values | Flat | Shuffle | Split | EscapeHtml | UnescapeHtml | EscapeUrl | UnescapeUrl | Replace | Hash | IsHashOf
-  | StartsWith | EndsWith | Contains | Lower | Upper | Trim | ReadFile | WriteFile | Connect | Query deriving (Eq, Ord)
+  | StartsWith | EndsWith | Contains | Lower | Upper | Trim | ReadFile | WriteFile | Connect | Connected | Query deriving (Eq, Ord)
 
 instance Show Type where
   show Void = "void"
@@ -35,7 +35,7 @@ builtins = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("/", Div), ("//", 
   ("map", Map), ("filter", Filter), ("fold", Fold), ("keys", Keys), ("values", Values), ("flat", Flat), ("shuffle", Shuffle),
   ("split", Split), ("escapeHtml", EscapeHtml), ("unescapeHtml", UnescapeHtml), ("escapeUrl", EscapeUrl), ("unescapeUrl", UnescapeUrl), ("replace", Replace), ("hash", Hash),
   ("isHashOf", IsHashOf), ("startsWith", StartsWith), ("endsWith", EndsWith), ("contains", Contains), ("lower", Lower), ("upper", Upper),
-  ("trim", Trim), ("readFile", ReadFile), ("writeFile", WriteFile), ("connect", Connect), ("query", Query)]
+  ("trim", Trim), ("readFile", ReadFile), ("writeFile", WriteFile), ("connect", Connect), ("connected", Connected), ("query", Query)]
 
 builtinsSet :: Set.Set String
 builtinsSet = Map.keysSet builtins
@@ -60,6 +60,8 @@ getResultType line builtin args = case (builtin, args) of
   (IntDiv, [a, b]) | all (`elem` [Int, Real]) [a, b] -> Right Int
   (Rem, [Int, Int]) -> Right Int
   (Rem, [a, b]) | all (`elem` [Int, Real]) [a, b] -> Right Real
+  (Pow, [Int, Int]) -> Right Int
+  (Pow, [a, b]) | all (`elem` [Int, Real]) [a, b] -> Right Real
   (And, [Int, Int]) -> Right Int
   (And, [Bool, Bool]) -> Right Bool
   (And, [Dictionary k1 v1, Dictionary k2 v2]) | v1 == v2 && k1 == k2 -> Right $ Dictionary k1 v1
@@ -85,8 +87,6 @@ getResultType line builtin args = case (builtin, args) of
   (Gt, compared) -> getResultType line Lt compared
   (Le, compared) -> getResultType line Lt compared
   (Ge, compared) -> getResultType line Lt compared
-  (Pow, [Int, Int]) -> Right Int
-  (Pow, [a, b]) | all (`elem` [Int, Real]) [a, b] -> Right Real
   (Not, [Int]) -> Right Int
   (Not, [Bool]) -> Right Bool
   (AsInt, [a]) | a `elem` [Int, Real, Bool, Text] -> Right Int
@@ -183,6 +183,7 @@ getResultType line builtin args = case (builtin, args) of
   (Upper, [Text]) -> Right Text
   (Trim, [Text]) -> Right Text
   (Connect, [Text, Text, Text]) -> Right Db
+  (Connected, [Db]) -> Right Bool
   (Query, Db : Record fields : Text : args) | all (`elem` [Text, Int, Bool, Real]) args -> Right $ Vector $ Record fields
   (Query, Db : Void : Text : args) | all (`elem` [Text, Int, Bool, Real]) args -> Right Void
   _ -> err line $ "Builtin " ++ show builtin ++ " does not accept arguments of types " ++ join ", " args

@@ -142,6 +142,7 @@ genBuiltin Lang.Lower [text] _ = "mb_strtolower(" ++ text ++ ",'UTF-8')"
 genBuiltin Lang.Upper [text] _ = "mb_strtoupper(" ++ text ++ ",'UTF-8')"
 genBuiltin Lang.Trim [text] _ = "trim(" ++ text ++ ")"
 genBuiltin Lang.Connect [conn, username, password] _ = "z1dbconnect(" ++ conn ++ "," ++ username ++ "," ++ password ++ ")"
+genBuiltin Lang.Connected [db] _ = "(" ++ db ++ "!==NULL)"
 genBuiltin Lang.Query (db : _ : sql : args) (_ : type' : _) = "z1dbquery(" ++ db ++ "," ++ sql ++ ",[" ++ intercalate "," args ++ "]," ++ encodeType type' ++ ")"
   where encodeType Lang.Void = "NULL"
         encodeType (Lang.Record fields) = "[" ++ intercalate "," (Map.mapWithKey encodeField fields) ++ "]"
@@ -187,7 +188,7 @@ genDeclaration :: (String -> String) -> String -> Declaration -> String
 genDeclaration qual this (name, value) = qual this ++ name ++ "=" ++ genValue qual this value ++ ";"
 
 preamble :: [String] -> String
-preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "real=0.0;", "bool=FALSE;", "text='';", "void=NULL;", "main=function(){};"]) quals) ++ "\
+preamble quals = "<?php " ++ concat (map (\q -> concat $ map (q ++) ["int=0;", "real=0.0;", "bool=FALSE;", "text='';", "void=NULL;", "db=NULL;", "main=function(){};"]) quals) ++ "\
 \session_start();\
 \mb_internal_encoding('UTF-8');\
 \mb_regex_encoding('UTF-8');\

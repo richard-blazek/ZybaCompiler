@@ -15,6 +15,7 @@
 \usepackage[T1]{fontenc}
 \usepackage{textcomp}
 \usepackage{array}
+\usepackage{multirow}
 
 \definecolor{keyword}{RGB}{0, 64, 255}
 
@@ -192,7 +193,7 @@ Příkazem může být výraz, jenž má být vyhodnocen, přiřazení, příkaz
 <while> ::= \emphasis{while} <condition> <block>
 \end{grammar}
 
-Cyklus \texttt{for} má dvě formy. První z nich se používá pro daný počet opakování, jež je specifikován nějakým výrazem, v tom případě po slově \texttt{for} následuje jméno konstanty, která udává, kolik opakování už proběhlo, operátor \texttt{\textless}, onen výraz a blok příkazů. Druhou lze použít pro iteraci přes pole (včetně asociativního), ta se zapisuje slovem \texttt{for}, po němž následují jména dvou konstant, z nichž první bude obsahovat index současného prvku a druhá jeho hodnotu, oddělovač\texttt{:}, výraz, jehož hodnotou je ono pole, a blok příkazů. První jméno je nepovinné, v tom případě se hodnota indexu nebude do žádné konstanty ukládat.
+Cyklus \texttt{for} má dvě formy. První z nich se používá pro daný počet opakování, jež je specifikován nějakým výrazem, v tom případě po slově \texttt{for} následuje jméno konstanty, která udává, kolik opakování už proběhlo, operátor \texttt{\textless}, onen výraz a blok příkazů. Druhou lze použít pro iteraci přes pole nebo slovník, ta se zapisuje slovem \texttt{for}, po němž následují jména dvou konstant, z nichž první bude obsahovat index současného prvku a druhá jeho hodnotu, oddělovač\texttt{:}, výraz, jehož hodnotou je ono pole či slovník, a blok příkazů. První jméno je nepovinné, v tom případě se hodnota indexu nebude do žádné konstanty ukládat.
 \begin{grammar}
 <for> ::= \emphasis{for} <name> \emphasis{\textless} <expression> <block>
 
@@ -257,8 +258,9 @@ Název & Popis & Výchozí hodnota \\\hline
 \texttt{real} & Reálné číslo & Nula jako reálné číslo (\texttt{0.0})\\\hline
 \texttt{bool} & Logická hodnota & Nepravda (\texttt{0b})\\\hline
 \texttt{text} & Textový řetězec & Prázdný text (\texttt{\quote{}})\\\hline
+\texttt{db} & Připojení k databázi & Nezahájené připojení\\\hline
 \texttt{T.list} & Pole hodnot typu \texttt{T} & Prázdné pole\\\hline
-\texttt{T.dict[K]} & Asociativní pole s klíči typu \texttt{K} a hodnotami typu \texttt{T} & Prázdné asociativní pole\\\hline
+\texttt{T.dict[K]} & Slovník s klíči typu \texttt{K} a hodnotami typu \texttt{T} & Prázdný slovník\\\hline
 \texttt{T.fun[A\textsubscript{0} \ldots{} A\textsubscript{m}]} & Funkce přebírající argumenty typů \texttt{A\textsubscript{0}} až \texttt{A\textsubscript{m}} a vracející \texttt{T} & Funkce přebírající libovolné argumenty typů \texttt{A\textsubscript{0}} až \texttt{A\textsubscript{m}} vracející vždy výchozí hodnotu typu \texttt{T}\\\hline
 \texttt{\{N\textsubscript{0} T\textsubscript{0} \ldots{} N\textsubscript{m} T\textsubscript{m}\}} & Záznam s prvky, jejichž názvy jsou \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a typy jsou \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}} & Záznam se všemi prvky nabývajícími svých výchozích hodnot\\\hline
 \end{tabular}
@@ -267,25 +269,66 @@ Funkce se vytváří pomocí syntaxe lambda funkce, jež specifikuje typy argume
 
 Záznam se vytváří stejným způsobem jako se značí typ záznamu, jen se píší hodnoty jeho prvků a ne typy. Zápis \texttt{\{N\textsubscript{0} H\textsubscript{0} \ldots{} N\textsubscript{m} H\textsubscript{m}\}} vytvoří záznam, jehož prvky budou mít názvy \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a nabývají hodnot \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}}. K prvkům záznamu se přistupuje pomocí tečky (např. \texttt{zaznam.prvek}), přičemž obsahuje-li záznam další záznamy, lze přístupy řetězit stejně jako u jmenných prostorů.
 
-\subsubsection{Zabudované metody a operátory}
-Datové typy mají svoje zabudované metody a operátory. Obojí jsou zvláštní výrazy, jež něco vykonají a vrátí nějakou hodnotu, ale liší se syntaxí. Syntaxe volání zabudovaných metod i operátorů již byla popsáná výše. Operátory logické konjunkce a disjunkce svoje argumenty vyhodnocují líně, tedy plyne-li ze znalosti prvního argumentu znalost výsledku, druhý argument se nevyhodnoduje. Následuje přehled metod a operátorů:
+Pole a slovníky se vytváří zcela totožným způsobem, jakým se značí typ pole či slovníku, právě proto, že typ je skutečnosti sám jen prázdné pole či slovník. Při vytváření lze rovnou přidat prvky tím, že se zabudované metodě \texttt{list} či \texttt{dict} předají další argumenty, což budou hodnoty oněch prvků. U slovníku se jako argumenty střídají klíče a prvky: \texttt{T.dict[K K\textsubscript{0} V\textsubscript{0} \ldots{} K\textsubscript{n} V\textsubscript{n}]}.
 
-\begin{tabular}{|m{2cm} m{5.5cm} m{7cm}|}\hline
-Název & Argumenty & Výsledek\\\hline
-\texttt{+} & Dvě čísla (\texttt{int} nebo \texttt{real}) & Součet, \texttt{int}, jsou-li oba \texttt{int}, jinak \texttt{real}\\\hline
-\texttt{-} & Dvě čísla (\texttt{int} nebo \texttt{real}) & Rozdíl, \texttt{int}, jsou-li oba \texttt{int}, jinak \texttt{real}\\\hline
-\texttt{*} & Dvě čísla (\texttt{int} nebo \texttt{real}) & Součin, \texttt{int}, jsou-li oba \texttt{int}, jinak \texttt{real}\\\hline
-\texttt{/} & Dvě čísla (\texttt{int} nebo \texttt{real}) & Podíl, \texttt{real}\\\hline
-\texttt{//} & Dvě čísla (\texttt{int} nebo \texttt{real}) & Podíl (zaokrouhlený k nule), \texttt{int}\\\hline
-\texttt{\%} & Dvě čísla (\texttt{int} nebo \texttt{real}) & Zbytek po dělení (první argument mínus jejich podíl zaokrouhlený k nule), \texttt{int}, jsou-li oba \texttt{int}, jinak \texttt{real}\\\hline
-\texttt{==} & Dvě hodnoty stejného typu, který není funkce, \texttt{void}, \texttt{real}, ani záznam či pole je obsahující & \texttt{1b}, jsou-li to stejné hodnoty, \texttt{bool}\\\hline
-\texttt{!=} & Dvě hodnoty stejného typu, který není funkce, \texttt{void}, \texttt{real}, ani záznam či pole je obsahující & \texttt{1b}, jsou-li to stejné hodnoty, \texttt{bool}\\\hline
-\texttt{\&} & Dvě hodnoty typu \texttt{int} & Bitová konjunkce, \texttt{int}\\\hline
-\texttt{|} & Dvě hodnoty typu \texttt{int} & Bitová disjunkce, \texttt{int}\\\hline
-\texttt{\^} & Dvě hodnoty typu \texttt{int} & Bitová nonekvivalence, \texttt{int}\\\hline
-\texttt{\&} & Dvě hodnoty typu \texttt{bool} & Logická konjunkce, \texttt{bool}\\\hline
-\texttt{|} & Dvě hodnoty typu \texttt{bool} & Logická disjunkce, \texttt{bool}\\\hline
-\texttt{\^} & Dvě hodnoty typu \texttt{bool} & Logická nonekvivalence, \texttt{bool}\\\hline
+Připojení k databázi se 
+
+Pole, slovníky a připojení k databázi jsou tzv. referenční typy, což znamená, že do proměnných se neukládá jejich hodnota, ale pouze reference na místo v paměti, kde je jejich hodnota uložená. Přiřadíme-li je proto do více proměnných, budou všechny obsahovat reference na stejné místo, takže změníme-li pomocí zabudovaných metod hodnotu na jednom místě, projeví se tato změna ve všech proměnných, které obsahují referenci na toto místo.
+
+\subsubsection{Zabudované metody a operátory}
+Datové typy mají svoje zabudované metody a operátory. Obojí jsou zvláštní výrazy, jež něco vykonají a vrátí nějakou hodnotu, ale liší se syntaxí. Syntaxe volání zabudovaných metod i operátorů již byla popsáná výše. Operátory logické konjunkce a disjunkce svoje argumenty vyhodnocují líně, tedy plyne-li ze znalosti prvního argumentu znalost výsledku, druhý argument se nevyhodnoduje. Operátory se dělí na aritmetické, bitové, logické, porovnávací a složené. Aritemetické operátory přebírají dva argumenty typu \texttt{int} nebo \texttt{real}, přičemž oba argumenty nemusí mít stejný typ. Patří mezi ně:
+
+\begin{tabular}{|m{1.5cm} m{5cm} m{8cm}|}\hline
+Operátor & Výsledek & Typ\\\hline
+\texttt{+} & Součet & \multirow{5}{*}{\texttt{int}, jsou-li argumenty \texttt{int}, jinak \texttt{real}}\\
+\texttt{-} & Rozdíl & \\
+\texttt{*} & Součin & \\
+\texttt{**} & Mocnina & \\
+\texttt{\%} & Zbytek po dělení (pro záporné dělence je záporný) & \\\hline
+\texttt{/} & Podíl & \texttt{real}\\\hline
+\texttt{//} & Podíl (zaokrouhlený k nule) & \texttt{int}\\\hline
+\end{tabular}
+
+Bitové operátory přijímají dva argumenty typu \texttt{int} a vrací rovněž \texttt{int}.
+
+\begin{tabular}{|m{1.5cm} m{5cm} m{8cm}|}\hline
+Operátor & Výsledek & Typ\\\hline
+\texttt{\&} & Bitová konjunkce & \texttt{int}\\\hline
+\texttt{|} & Bitová disjunkce & \texttt{int}\\\hline
+\texttt{\^} & Bitová nonekvivalence & \texttt{int}\\\hline
+\end{tabular}
+
+Logické operátory přebírají dva argumenty typu \texttt{bool} a vrací \texttt{bool}, přičemž logická konjunkce a disjunkce svoje argumenty vyhodnocují líně, což znamená, že plyne-li ze znalosti prvního argumentu znalost výsledku, druhý argument se nevyhodnoduje.
+
+\begin{tabular}{|m{1.5cm} m{5cm} m{8cm}|}\hline
+Operátor & Výsledek & Typ\\\hline
+\texttt{\&} & Logická konjunkce & \texttt{bool}\\\hline
+\texttt{|} & Logická disjunkce & \texttt{bool}\\\hline
+\texttt{\^} & Logická nonekvivalence & \texttt{bool}\\\hline
+\end{tabular}
+
+Porovnávací operátory zjišťují buď rovnost nebo uspořádání dvou hodnot. Ty pro zjišťování rovnosti přebírají dva argumenty stejného typu, který ovšem není funkce, \texttt{void}, \texttt{real}, \texttt{db}, ani pole, slovník či je obsahující. Zjišťování rovnosti u reálných čísel není povolené, protože kvůli jejich reprezentaci v počítači tato operace může dávat špatné výsledky. Pole, slovníky a záznamy se považují za rovné, pokud jsou si rovné všechny jejich prvky. Operátory zjišťující uspořádání přebírají buď dvě hodnoty typu \texttt{text}, nebo dvě čísla, z nichž každé je typu \texttt{int} či \texttt{real}.
+
+\begin{tabular}{|m{1.5cm} m{5cm} m{8cm}|}\hline
+Operátor & Výsledek & Typ\\\hline
+\texttt{==} & Rovnost & \texttt{bool}\\\hline
+\texttt{!=} & Nerovnost & \texttt{bool}\\\hline
+\texttt{<} & Menší než & \texttt{bool}\\\hline
+\texttt{>} & Větší než & \texttt{bool}\\\hline
+\texttt{<=} & Menší nebo rovno & \texttt{bool}\\\hline
+\texttt{>=} & Větší nebo rovno &\texttt{bool}\\\hline
+\end{tabular}
+
+Složené operátory pracují s poli, slovníky, záznamy a typem \texttt{text}. Operátory pracující s poli a slovníky přebírají dva argumenty stejného typu, nazvěme jej \texttt{T.list}, jde-li o pole, a \texttt{T.dict[K]}, jde-li o slovník. Dojde-li při průnicích nebo sjednoceních slovníků a záznamů ke kolizi dvou prvků se stejným klíčem nebo názvem, započítá se do výsledku prvek z pravého argumentu.
+
+\begin{tabular}{|m{1.5cm} m{5cm} m{8cm}|}\hline
+Operátor & Výsledek & Typ\\\hline
+\texttt{+} & Spojení textů & \texttt{text}\\\hline
+\texttt{+} & Spojení polí & \texttt{T.list}\\\hline
+\texttt{|} & Sjednocení slovníků & \texttt{T.dict[K]}\\\hline
+\texttt{\&} & Průnik slovníků & \texttt{T.dict[K]}\\\hline
+\texttt{|} & Sjednocení záznamů & Typ záznamu, který obsahuje všechny prvky, které byly alespoň v jednom ze záznamů\\\hline
+\texttt{\&} & Průnik záznamů & Typ záznamu, který obsahuje všechny prvky, které byly v obou záznamech\\\hline
 \end{tabular}
 
 \section{Konstrukce překladače}
