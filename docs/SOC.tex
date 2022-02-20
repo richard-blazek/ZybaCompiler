@@ -44,7 +44,7 @@
 \setlength{\headheight}{15pt}
 \pagestyle{fancy}
 \fancyhead{}
-\fancyhead[R]{Překladač jazyka Zyba}
+\fancyhead[R]{Překladač programovacího jazyka Zyba}
 \fancyhead[L]{Richard Blažek}
 \fancyfoot{}
 \fancyfoot[R]{\thepage}
@@ -59,7 +59,7 @@
 
   \vspace*{3.5cm}            
   \Huge
-  \textbf{Překladač jazyka Zyba}
+  \textbf{Překladač programovacího jazyka Zyba}
             
   \vspace{0.5cm}
   \LARGE
@@ -67,7 +67,7 @@
         
   \vspace*{1.5cm}
   \Huge
-  \textbf{Zyba language compiler}
+  \textbf{Zyba programming language compiler}
             
   \vspace{0.5cm}
   \LARGE
@@ -382,7 +382,7 @@ Modul \texttt{Fallible} obsahuje stejnojmennou monádu, její transformátor a f
 
 Modul \texttt{Lexer} implementuje lexikální analyzátor pro~Zybu. Jeho funkce \texttt{tokenize} přebírá \texttt{String} a vrací \texttt{Fallible [(Integer, Token)]}, z~čehož každá dvojice reprezentuje token a číslo řádku, na~němž se token nacházel. Čísla řádků se používají při~generování chybových hlášek. \texttt{Token} je algebraický datový typ, jehož konstruktory odpovídají jednotlivým typům tokenů zmiňovaných v~sekci Syntaxe.
 
-Modul \texttt{Parser} provádí syntaktickou analýzu programu. Obsahuje funkci \texttt{parse}, jež dostane na~vstupu \texttt{String}, rozdělí jej na~tokeny pomocí funkce \texttt{tokenize}, sestaví syntaktický strom a vrátí \texttt{Fallible File}. Typ \texttt{File}obsahuje seznam trojic \texttt{(Integer, Visibility, Declaration)}, kde první prvek je opět číslo řádku, druhý, \texttt{Visibility}, udává, zda je deklarace exportovaná, a třetí je samotná deklarace. Dále modul obsahuje algebraické datové typy modelující syntaktický strom \texttt{Declaration} pro~deklarace, \texttt{Statement} pro~příkazy, \texttt{Value} pro~výrazy a \texttt{Literal} pro literály. Mají konstruktory pro~každý typ syntaktické konstrukce zmíněné v~sekci syntaxe.
+Modul \texttt{Parser} provádí syntaktickou analýzu programu. Obsahuje funkci \texttt{parse}, jež dostane na~vstupu \texttt{String}, rozdělí jej na~tokeny pomocí funkce \texttt{tokenize}, sestaví syntaktický strom a vrátí \texttt{Fallible File}. Typ \texttt{File} obsahuje seznam trojic \texttt{(Integer, Visibility, Declaration)}, kde první prvek je opět číslo řádku, druhý, \texttt{Visibility}, udává, zda je deklarace exportovaná, a třetí je samotná deklarace. Dále modul obsahuje algebraické datové typy modelující syntaktický strom \texttt{Declaration} pro~deklarace, \texttt{Statement} pro~příkazy, \texttt{Value} pro~výrazy a \texttt{Literal} pro literály. Mají konstruktory pro~každý typ syntaktické konstrukce zmíněné v~sekci syntaxe.
 
 Modul \texttt{Language} definuje typy (algebraický typ \texttt{Type}) a zabudované metody a operátory (algebraický typ \texttt{Builtin}) jazyka Zyba. Kromě toho jsou v~něm obsaženy funkce pro~jejich vyhledávání a typovou kontrolu při~operacích s~nimi.
 
@@ -531,7 +531,7 @@ $z00main = function() use(&$z00factorial, &$z01args, &$z01print) {
 \end{verbatim}
 
 \section{Závěr}
-Navrhl jsem programovací jazyk Zyba a zkonstruován jeho překladač, jehož kód je součást přílohy této práce a je dostupný na GitHubu (\url{https://github.com/RichardBlazek/Compiler/}). Jazyk lze použít pro~psaní webových stránek, přičemž funkce pro~interakci s~okolím jsou buď obsaženy jako zabudované metody (práce s~databází) nebo je lze importovat z~PHP. Kód v~Zybě napsaný je dobře čitelný, překladač provádí statickou typovou kontrolu a systém importů a exportů je poměrně silný, třebaže by bylo možné implementovat ještě kruhové importy. Hlavní slabinou jazyka je chybějící podpora pro~generické programování, což znemožňuje tvorbu funkcí, které by pracovaly s~libovolnými daty (řazení, přístup k~databázi) a je tak nutné pro~ně buď vytvořit v~jazyce zabudované metody, nebo mít jednoúčelové funkce. To jsou tedy možné směry pro~budoucí vývoj jazyka.
+Navrhl jsem programovací jazyk Zyba a zkonstruoval jsem jeho překladač, jehož kód je součást přílohy této práce a je dostupný na GitHubu (\url{https://github.com/RichardBlazek/Compiler/}). Jazyk lze použít pro~psaní webových stránek, přičemž funkce pro~interakci s~okolím jsou buď obsaženy jako zabudované metody (práce s~databází) nebo je lze importovat z~PHP. Kód v~Zybě napsaný je dobře čitelný, překladač provádí statickou typovou kontrolu a systém importů a exportů je poměrně silný, třebaže by bylo možné implementovat ještě kruhové importy. Hlavní slabinou jazyka je chybějící podpora pro~generické programování, což znemožňuje tvorbu funkcí, které by pracovaly s~libovolnými daty (řazení, přístup k~databázi) a je tak nutné pro~ně buď vytvořit v~jazyce zabudované metody, nebo naprogramovat jednoúčelové funkce pro každý typ. Implementace kruhových importů a generického programování jsou tedy možné směry pro~budoucí vývoj jazyka.
 
 \newpage
 \printbibliography[heading=bibintoc, title={Použitá literatura}]
