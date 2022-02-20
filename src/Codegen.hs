@@ -10,7 +10,7 @@ import Data.Maybe (catMaybes)
 
 captures :: (String -> String) -> String -> Set.Set String -> [Statement] -> [Value] -> Set.Set String
 captures qual this skip [] [] = Set.empty
-captures qual this skip stms (Name pkg name : vals) = let n = qual pkg ++ name in (if Set.member n skip then id else Set.insert n) $ captures qual this skip stms vals
+captures qual this skip stms (Name pkg name : vals) = (let n = qual pkg ++ name in if Set.member n skip then id else Set.insert n) $ captures qual this skip stms vals
 captures qual this skip stms (Lambda args body : vals) = Set.union (captures qual this skip stms vals) $ captures qual this (Set.union skip $ Set.fromList $ map ((qual this ++) . fst) args) body []
 captures qual this skip stms (Call fun args : vals) = captures qual this skip stms (map fst args ++ (fst fun : vals))
 captures qual this skip stms (Record fields : vals) = captures qual this skip stms (map fst (Map.elems fields) ++ vals)
@@ -18,7 +18,7 @@ captures qual this skip stms (Access val _ : vals) = captures qual this skip stm
 captures qual this skip stms (Builtin _ args : vals) = captures qual this skip stms (map fst args ++ vals)
 captures qual this skip stms (_ : vals) = captures qual this skip stms vals
 captures qual this skip (Value value : stms) [] = captures qual this skip stms [fst value]
-captures qual this skip (Initialization name value : stms) [] = let n = qual this ++ name in Set.insert n $ captures qual this (Set.insert n skip) stms [fst value]
+captures qual this skip (Initialization name value : stms) [] = let n = qual this ++ name in captures qual this (Set.insert n skip) stms [fst value]
 captures qual this skip (Assignment _ value : stms) [] = captures qual this skip stms [fst value]
 captures qual this skip (Return value : stms) [] = captures qual this skip stms [fst value]
 captures qual this skip (IfChain chains else' : stms) [] = Set.unions $ captures qual this skip stms [] : map (uncurry (flip (captures qual this skip)) . map2 (listify . fst) id) chains

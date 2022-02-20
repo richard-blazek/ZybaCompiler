@@ -1,13 +1,13 @@
 # Compiler
-This is the source code of my compiler of my Zyba language. The language transpiles into PHP and could be eventually used as a substitute of PHP for developing web applications. However, neither the compiler nor the language are complete. Also, please note that the tests are obsolete and don't even compile.
+This is the source code of my compiler of my Zyba language. The language transpiles into PHP and could be eventually used as a substitute of PHP for developing web applications. However, neither the compiler nor the language are complete.
 
 Code example:
 ```python
 generate = fun[count: int] int.list {
 	result = int.list.pad[count]
 	next = seed[666]
-	for i < count {
-		result.set[i next[]]
+	for i : count {
+		result.set[i - 1 next[]]
 	}
 	result
 }
@@ -15,8 +15,8 @@ generate = fun[count: int] int.list {
 # It should be obvious what this function does
 factorial = fun[n: int] int {
     result = 1
-    for i < n {
-        result = result * (i + 1)
+    for i : n {
+        result = result * i
     }
     result
 }
@@ -26,11 +26,11 @@ true = 1b
 false = 0b
 
 # More constants
-maths = {
-    pi    3
-    e     3
-    three 3
-}
+maths = (
+    pi:    3
+    e:     3
+    three: 3
+)
 
 circleArea = fun[radius: real] real {
     radius * radius * maths.pi
