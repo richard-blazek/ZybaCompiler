@@ -108,7 +108,7 @@ programovací jazyk; překladač; transpiling; webová aplikace; PHP; Zyba
 
 \Large\textbf{Annotation}\normalsize
 
-The thesis is concerned with the design of the Zyba language and implementing its compiler. The compiler generates PHP code, making it possible for the language to be used on all webhostings where PHP is supported. Also, it will be possible to combine Zyba and PHP when developing web applications and use functions from one of the languages in the other one.
+The thesis is concerned with the design of the Zyba language and implementing its compiler. The compiler generates PHP code, making it possible for the language to be used on all webhostings where PHP is supported. Also, it will be possible to combine Zyba and PHP when developing web applications and use functions from one of the languages in~the other one.
 
 \Large\textbf{Keywords}\normalsize
 
@@ -150,7 +150,7 @@ Importovat lze jak ze Zyby tak i z~PHP. Import ze Zyby vyžaduje cestu k~souboru
 \end{grammar}
 
 \subsubsection{Výrazy}
-Výraz tvoří jeden či více podvýrazů oddělených binárními operátory. Podvýraz tvoří jednotka, kterou můžou následovat volání funkce a přístupy k~prvkům záznamu nebo jmenného prostoru. Volání funkce tvoří několik výrazů v~hranatých závorkách; přístup k~prvku tvoří tečka následovaná jménem. Zabudované metody se volají způsobem, který kombinuje syntaxi přístupu a syntaxi volání funkce: \texttt{argument1.metoda[argument2 \ldots{} argument\textsubscript{N}}, přičemž mají-li jen jeden argument, je možné závorky vynechat.
+Výraz tvoří jeden či více podvýrazů oddělených binárními operátory. Podvýraz tvoří jednotka, kterou můžou následovat volání funkce a přístupy k~prvkům záznamu nebo jmenného prostoru. Volání funkce tvoří několik výrazů v~hranatých závorkách; přístup k~prvku tvoří tečka následovaná jménem. Zabudované metody se volají způsobem, který kombinuje syntaxi přístupu a syntaxi volání funkce: \texttt{arg\textsubscript{1}.metoda[arg\textsubscript{2} \ldots{} arg\textsubscript{N}]}, přičemž mají-li jen jeden argument, je možné závorky vynechat.
 \begin{grammar}
 <expression> ::= <call> (<operator> <call>)*
 
@@ -202,12 +202,12 @@ Cyklus \texttt{for} lze použít pro~iteraci přes pole, slovník nebo celé č�
 Nejmenší jednotkou syntaxe jsou tokeny. Token může být jedno z~následujících:
 \begin{itemize}
 \item \textbf{Jméno} je posloupnost znaků, jež obsahuje pouze číslice, malá a velká písmena latinky a podtržítka a jejíž první znak není číslice. Zyba nemá klíčová slova, ale některá jména (např. \texttt{if}, \texttt{fun}, \texttt{export}) mají zvláštní význam na~určitých místech kódu, takže není vhodné je používat pro~pojmenování vlastních proměnných.
-\item \textbf{Literál celého čísla} je buď posloupnost dekadických číslic tvořící číslo, nebo posloupnost dekadických číslic, udávající základ číselné soustavy, a po ní znak \texttt{r} a posloupnost číslic z~oné číselné soustavy, písmena A až z~bez ohledu na~velikost se považují za~číslice 10 až 35. Lze používat i soustavy o základu vyšším než 36, ale není v~nich možné zapsat všechna čísla protože pro~ně nejsou další číslice.
+\item \textbf{Literál celého čísla} je buď posloupnost dekadických číslic tvořící číslo, nebo posloupnost dekadických číslic, udávající základ číselné soustavy, a po ní znak \texttt{r} a posloupnost číslic z~oné číselné soustavy, písmena A až Z bez~ohledu na~velikost se považují za~číslice 10 až 35. Lze používat i soustavy o základu vyšším než 36, ale není v~nich možné zapsat všechna čísla protože pro~ně nejsou další číslice.
 \item \textbf{Literál reálného čísla} začíná jako literál celého čísla, ale pokračuje desetinnou tečkou po které můžou následovat další číslice. Rovněž lze používat libovolnou číselnou soustavu.
 \item \textbf{Literál logické hodnoty} je \texttt{1b} pro~pravdu a \texttt{0b} pro~nepravdu. Je to totiž kratší než tradiční \texttt{true} a \texttt{false} a navíc je zápis obou hodnot stejně dlouhý.
 \item \textbf{Literál textu} je posloupnost znaků v~uvozovkách. Patří do~něj všechny znaky mezi~nimi, tedy i konce řádků a speciální znaky, ale je-li potřeba zapsat znak uvozovek, musí se zdvojit, aby nedošlo k~ukončení literálu.
 \item \textbf{Operátor} je libovolná poslounost znaků \uv{\texttt{+-*/\%\&|\textasciitilde\circumflex<>=!}}. Jestli dotyčný operátor opravdu existuje a lze jej aplikovat na~tyto argumenty se posoudí až při~vyhodnocování sémantiky.
-\item \textbf{Oddělovač} je jeden znak; některý ze znaků \uv{\texttt{()[]\{\}.:}}.
+\item \textbf{Oddělovač} je jeden znak; některý ze znaků \texttt{: . ( ) [ ] \{} nebo \texttt{\}}.
 \end{itemize}
 
 \subsubsection{Příklad}
@@ -267,7 +267,7 @@ Funkce se vytváří pomocí syntaxe lambda funkce, jež specifikuje typy argume
 
 Záznam se vytváří stejným způsobem jako se značí typ záznamu, jen se píší hodnoty jeho prvků a ne typy. Zápis \texttt{\{N\textsubscript{0} H\textsubscript{0} \ldots{} N\textsubscript{m} H\textsubscript{m}\}} vytvoří záznam, jehož prvky budou mít názvy \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a nabývají hodnot \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}}. K~prvkům záznamu se přistupuje pomocí tečky (např. \texttt{zaznam.prvek}), přičemž obsahuje-li záznam další záznamy, lze přístupy řetězit stejně jako u jmenných prostorů.
 
-Pole a slovníky se vytváří zcela totožným způsobem, jakým se značí typ pole či slovníku, právě proto, že typ je skutečnosti sám jen prázdné pole či slovník. Při~vytváření lze rovnou přidat prvky tím, že se zabudované metodě \texttt{list} či \texttt{dict} předají další argumenty, což budou hodnoty oněch prvků. U slovníku se jako argumenty střídají klíče a prvky: \texttt{T.dict[K K\textsubscript{0} V\textsubscript{0} \ldots{} K\textsubscript{n} V\textsubscript{n}]}. Připojení k databázi se vytváří zabudovanou metodou \texttt{connect}, jež přebírá tři argumenty typu \texttt{text}: \textit{connection string} používaný PHP knihovnou PDO, uživatelské jméno a heslo.
+Pole a slovníky se vytváří zcela totožným způsobem, jakým se značí typ pole či slovníku, právě proto, že typ je skutečnosti sám jen prázdné pole či slovník. Při~vytváření lze rovnou přidat prvky tím, že se zabudované metodě \texttt{list} či \texttt{dict} předají další argumenty, což budou hodnoty oněch prvků. U slovníku se jako argumenty střídají klíče a prvky: \texttt{T.dict[K K\textsubscript{0} V\textsubscript{0} \ldots{} K\textsubscript{n} V\textsubscript{n}]}. Připojení k databázi se vytváří zabudovanou metodou \texttt{connect}, jež přebírá tři argumenty typu \texttt{text}: první je tzv. \textit{connection string}, používaný PHP knihovnou PDO, další jsou uživatelské jméno a heslo.
 
 Pole, slovníky i připojení k~databázi jsou tzv. referenční typy, což znamená, že do~proměnných se neukládá jejich hodnota, ale pouze reference na~místo v~paměti, kde je jejich hodnota uložená. Přiřadíme-li je proto do~více proměnných, budou všechny obsahovat reference na~stejné místo, takže změníme-li pomocí zabudovaných metod hodnotu na~jednom místě, projeví se tato změna ve~všech proměnných, které obsahují referenci na~toto místo.
 
@@ -282,7 +282,7 @@ Operátor & Výsledek & Typ\\\hline
 \texttt{**} & Mocnina & \\
 \texttt{\%} & Zbytek po dělení (pro záporné dělence je záporný) & \\\hline
 \texttt{/} & Podíl & \texttt{real}\\\hline
-\texttt{//} & Podíl (zaokrouhlený k~nule) & \texttt{int}\\\hline
+\texttt{//} & Podíl zaokrouhlený k~nule & \texttt{int}\\\hline
 \end{tabular}
 
 Bitové operátory přijímají dva argumenty typu \texttt{int} a vrací rovněž \texttt{int}.
@@ -394,7 +394,7 @@ Modul \texttt{Loader} zajišťuje správu importů a spojení syntaktické a sé
 
 Modul \texttt{Codegen} završuje kompilaci, neboť jeho funkce \texttt{gen} vygeneruje PHP kód na~základě výstupu z~funkce \texttt{load}. V této funkci už nemůže dojít k chybě, protože program prošel všemi fázemi kontroly, takže návratová hodnota funkce je pouze \texttt{String}.
 
-Modul \texttt{Main} poté ve~funkci \texttt{main} přečte dva argumenty z~příkazové řádky -- cestu ke~vstupnímu Zyba souboru a výstupnímu PHP souboru. Zavolá funkci \texttt{load} s~cestou ke~vstupnímu souboru, její výsledek předá funkci \texttt{gen} a vzniklý PHP kód zapíše do~zadaného souboru. Dojde-li k chybě, nic se do zadaného souboru nezapíše a chybová hláška bude vypsána na standardní chybový výstup.
+Modul \texttt{Main} poté ve~funkci \texttt{main} přečte dva argumenty z~příkazové řádky -- cestu ke~vstupnímu Zyba souboru a výstupnímu PHP souboru. Zavolá funkci \texttt{load} s~cestou ke~vstupnímu souboru, její výsledek předá funkci \texttt{gen} a vzniklý PHP kód zapíše do~zadaného souboru. Dojde-li k chybě, nic se do zadaného souboru nezapíše a chybová hláška bude vypsána na~standardní chybový výstup.
 
 \subsection{Ukázka překladu}
 Zde je ukázka jednoduchého programu v Zybě a výsledného kódu v PHP. Jedná se o webovou stránku pro výpočet faktoriálu. Pokud bude v~URL argument \texttt{num}, převede jeho hodnotu na číslo a zobrazí stránku s faktoriálem z tohoto čísla; jinak zobrazí formulář, do~něhož uživatel může zadat číslo a po~stisku tlačítka bude přesměrován na stejnou stránku se~zadaným číslem předeným v~URL jako argument \texttt{num}, takže se zobrazí faktoriál zadaného čísla.
@@ -497,8 +497,41 @@ main = fun[] void {
 }
 \end{verbatim}
 
+Přeložíme-li soubor \texttt{example.zyba}, dostaneme PHP soubor v~němž budou pomocné funkce, třídy a proměnné vytvořené překladačem, obsah importovaných PHP souborů a překlad dvou Zyba souborů. Jako ukázku zde uvádím jen tu část výstupu, jež obsahuje překlad samotného souboru \texttt{example.zyba}. Prefixem \texttt{\$z00} začínají funkce a proměnné právě z~tohoto souboru, prefix \texttt{\$z01} mají funkce importované z~\texttt{web.zyba}.
+
+\begin{verbatim}
+$z00factorial = function($z00n){
+  $z00result = 1;
+  for($z00i = $z00n; $z00i > 0; --$z00i){
+    $z00result = (int)($z00result * $z00i);
+  }
+  return $z00result;
+};
+$z00main = function() use(&$z00factorial, &$z01args, &$z01print) {
+  $z01print('<!DOCTYPE html>
+  <html lang="cs-cz">
+    <head>
+      <title>Faktoriál</title>
+      <meta charset="utf-8" />
+    </head>
+    <body>');
+  if ($z01args->hasD('num')) {
+    $z00num = (int)$z01args->getD('num');
+    $z00fact = $z00factorial($z00num);
+    $z01print((((('<p>' . json_encode($z00num))
+      . '! = ') . json_encode($z00fact)).'</p>'));
+  } else {
+    $z01print('<form>
+      Číslo: <input type="number" name="num"/>
+      <input type="submit" value="Spočítat"/>
+    </form>');
+  }
+  $z01print('</body></html>');
+};
+\end{verbatim}
+
 \section{Závěr}
-Navrhl jsem programovací jazyk Zyba a zkonstruován jeho překladač. Jazyk lze použít pro~psaní webových stránek, přičemž funkce pro~interakci s~okolím jsou buď obsaženy jako zabudované metody (práce s~databází) nebo je lze importovat z~PHP. Kód v~Zybě napsaný je dobře čitelný, překladač provádí statickou typovou kontrolu a systém importů a exportů je poměrně silný, třebaže by bylo možné implementovat ještě kruhové importy. Hlavní slabinou jazyka je chybějící podpora pro~generické programování, což znemožňuje tvorbu funkcí, které by pracovaly s~libovolnými daty (řazení, přístup k~databázi) a je tak nutné pro~ně buď vytvořit v~jazyce zabudované metody, nebo mít jednoúčelové funkce. To jsou tedy možné směry pro~budoucí vývoj jazyka.
+Navrhl jsem programovací jazyk Zyba a zkonstruován jeho překladač, jehož kód je součást přílohy této práce a je dostupný na GitHubu (\url{https://github.com/RichardBlazek/Compiler/}). Jazyk lze použít pro~psaní webových stránek, přičemž funkce pro~interakci s~okolím jsou buď obsaženy jako zabudované metody (práce s~databází) nebo je lze importovat z~PHP. Kód v~Zybě napsaný je dobře čitelný, překladač provádí statickou typovou kontrolu a systém importů a exportů je poměrně silný, třebaže by bylo možné implementovat ještě kruhové importy. Hlavní slabinou jazyka je chybějící podpora pro~generické programování, což znemožňuje tvorbu funkcí, které by pracovaly s~libovolnými daty (řazení, přístup k~databázi) a je tak nutné pro~ně buď vytvořit v~jazyce zabudované metody, nebo mít jednoúčelové funkce. To jsou tedy možné směry pro~budoucí vývoj jazyka.
 
 \newpage
 \printbibliography[heading=bibintoc, title={Použitá literatura}]
