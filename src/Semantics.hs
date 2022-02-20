@@ -5,7 +5,7 @@ import qualified Parser
 import qualified Scope
 import qualified Language as Lang
 import Data.Foldable (foldlM)
-import Functions (mapCatFoldlM, tailRecM, fmap2, map2, (??), sequence2)
+import Functions (mapCatFoldlM, tailRecM, fmap2, map2, (??), sequence2, listify)
 import Fallible (Fallible, err, assert, dropLeft)
 
 data Statement
@@ -14,18 +14,17 @@ data Statement
   | Assignment String TypedValue
   | IfChain [(TypedValue, [Statement])] [Statement]
   | While TypedValue [Statement]
-  | For String TypedValue [Statement]
-  | Foreach String (Maybe String) TypedValue [Statement]
+  | For String (Maybe String) TypedValue [Statement]
   | Return TypedValue deriving (Eq, Show)
 
 data Value
   = Literal Parser.Literal
-  | Record (Map.Map String TypedValue)
-  | Lambda [(String, Lang.Type)] [Statement]
   | Name String String
+  | Lambda [(String, Lang.Type)] [Statement]
   | Call TypedValue [TypedValue]
-  | Builtin Lang.Builtin [TypedValue]
+  | Record (Map.Map String TypedValue)
   | Access TypedValue String
+  | Builtin Lang.Builtin [TypedValue]
   | PhpValue String deriving (Eq, Show)
 
 type TypedValue = (Value, Lang.Type)
@@ -125,23 +124,17 @@ analyseStatement scope returnType (line, Parser.While cond body) = do
   body' <- analyseBlock scope returnType body
   Right (While cond' body', scope)
 
-analyseStatement scope returnType (line, Parser.For value count body) = do
-  count'@(_, type') <- analyseValue scope count
-  assert (type' == Lang.Int) line $ "Number of repetitions must have an int type"
-  innerScope <- Scope.addConstant line value Lang.Int scope
-  body' <- analyseBlock innerScope returnType body
-  Right (For value count' body', scope)
-
-analyseStatement scope returnType (line, Parser.Foreach valueName keyName iterable body) = do
+analyseStatement scope returnType (line, Parser.For valueName keyName iterable body) = do
   iterable'@(_, type') <- analyseValue scope iterable
   iteratingVariables <- variables type' keyName
-  innerScope <- foldlM (\scope' (name, type') -> Scope.addVariable line name type' scope') scope iteratingVariables
+  innerScope <- foldlM (\scope' (name, type') -> Scope.addConstant line name type' scope') scope iteratingVariables
   body' <- analyseBlock innerScope returnType body
-  Right (Foreach valueName keyName iterable' body', scope)
+  Right (For valueName keyName iterable' body', scope)
   where variables (Lang.Vector valueType) (Just keyName) = Right [(valueName, valueType), (keyName, Lang.Int)]
         variables (Lang.Vector valueType) Nothing = Right [(valueName, valueType)]
         variables (Lang.Dictionary keyType valueType) (Just keyName) = Right [(valueName, valueType), (keyName, keyType)]
         variables (Lang.Dictionary _ valueType) Nothing = Right [(valueName, valueType)]
+        variables Lang.Int keyName = assert (keyName == Nothing) line "Cannot have a key when iterating through integer" >> Right [(valueName, Lang.Int)]
         variables _ _ = err line "Iterable must be a vector or a dictionary"
 
 analyseStatement scope returnType (line, Parser.Return value) = do
@@ -157,7 +150,7 @@ analyseBlock scope returnType statements = tailRecM if' then' else' ([], scope, 
 
 analyseDeclaration :: Map.Map String Scope.Scope -> Scope.Scope -> (Integer, Parser.Visibility, Parser.Declaration) -> Fallible (Scope.Scope, [Declaration])
 analyseDeclaration files scope (line, export, Parser.Import name path) = fmap (flip (,) []) $ Scope.addNamespace line export name (files Map.! path) scope
-analyseDeclaration _ scope (_, export, Parser.Declaration name value@(_, Parser.Lambda _ _ _)) = fmap ((,) scope . (:[]) . (,) name) $ analyseValue scope value
+analyseDeclaration _ scope (_, export, Parser.Declaration name value@(_, Parser.Lambda _ _ _)) = fmap ((,) scope . listify . (,) name) $ analyseValue scope value
 analyseDeclaration _ scope (line, export, Parser.Declaration name value) = do
   value'@(_, type') <- analyseValue scope value
   scope' <- Scope.addGlobal line export name type' scope

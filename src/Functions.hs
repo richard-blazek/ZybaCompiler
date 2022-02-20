@@ -1,4 +1,4 @@
-module Functions (zipMaps, swap, map2, (??), intercalate, join, pad, mapCatFoldlM, tailRecM, tailRec2M, fmap2, sequence2, split, after, leaf) where
+module Functions (zipMaps, swap, map2, (??), intercalate, join, pad, mapCatFoldlM, tailRecM, tailRec2M, fmap2, sequence2, split, after, leaf, replace, listify) where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.Map.Merge.Strict as Merge
@@ -61,3 +61,12 @@ after f g x = do
 
 leaf :: a -> Tree.Tree a
 leaf = (`Tree.Node` [])
+
+replace :: Eq a => a -> [a] -> [a] -> [a]
+replace _ _ [] = []
+replace x y (x' : xs)
+  | x == x' = y ++ replace x y xs
+  | otherwise = x' : replace x y xs
+
+listify :: a -> [a]
+listify = (: [])

@@ -9,7 +9,7 @@ import qualified Language as Lang
 import Fallible (Fallible, FallibleIO, err, correct, wrap)
 import Data.Maybe (catMaybes)
 import Data.Containers.ListUtils (nubOrdOn)
-import Functions (mapCatFoldlM, map2, fmap2, leaf)
+import Functions (mapCatFoldlM, map2, fmap2, leaf, listify)
 
 data File = Zyba Parser.File | Php String
 data Lang = ZybaLang | PhpLang deriving (Eq, Show)
@@ -45,7 +45,7 @@ loadDependencies cache (path : upper) deps = do
   case filter (`Map.notMember` deps) zybas of
     [] -> loadDependencies cache upper $ Map.insert path (Tree.Node (path, file) children) deps
     next : _ -> checkCircular next >> loadDependencies cache (next : path : upper) deps
-  where getPhps = mapCatFoldlM (\cache' path' -> fmap2 id ((:[]) . getFile) $ lookupCache PhpLang cache' path')
+  where getPhps = mapCatFoldlM (\cache' path' -> fmap2 id (listify . getFile) $ lookupCache PhpLang cache' path')
         getFile (LoadedFile file _ _) = file
         checkCircular path = if path `elem` upper then wrap $ err (-1) $ "Circular dependency: " ++ path else return ()
 

@@ -5,23 +5,25 @@ import qualified Data.Map.Strict as Map
 import qualified Language as Lang
 import Semantics (Value (..), Declaration, Statement (..))
 import Parser (Literal (..))
-import Functions (intercalate, split, pad, map2, (??))
+import Functions (intercalate, split, pad, map2, (??), replace, listify)
 import Data.Maybe (catMaybes)
 
 captures :: (String -> String) -> String -> Set.Set String -> [Statement] -> [Value] -> Set.Set String
 captures qual this skip [] [] = Set.empty
 captures qual this skip stms (Name pkg name : vals) = let n = qual pkg ++ name in (if Set.member n skip then id else Set.insert n) $ captures qual this skip stms vals
-captures qual this skip stms (Lambda args body : vals) = Set.unions [captures qual this skip stms vals, captures qual this (Set.union skip $ Set.fromList $ map ((qual this ++) . fst) args) body []]
+captures qual this skip stms (Lambda args body : vals) = Set.union (captures qual this skip stms vals) $ captures qual this (Set.union skip $ Set.fromList $ map ((qual this ++) . fst) args) body []
 captures qual this skip stms (Call fun args : vals) = captures qual this skip stms (map fst args ++ (fst fun : vals))
+captures qual this skip stms (Record fields : vals) = captures qual this skip stms (map fst (Map.elems fields) ++ vals)
+captures qual this skip stms (Access val _ : vals) = captures qual this skip stms (fst val : vals)
+captures qual this skip stms (Builtin _ args : vals) = captures qual this skip stms (map fst args ++ vals)
 captures qual this skip stms (_ : vals) = captures qual this skip stms vals
 captures qual this skip (Value value : stms) [] = captures qual this skip stms [fst value]
 captures qual this skip (Initialization name value : stms) [] = let n = qual this ++ name in Set.insert n $ captures qual this (Set.insert n skip) stms [fst value]
 captures qual this skip (Assignment _ value : stms) [] = captures qual this skip stms [fst value]
 captures qual this skip (Return value : stms) [] = captures qual this skip stms [fst value]
-captures qual this skip (IfChain chains else' : stms) [] = Set.unions $ map (uncurry (flip (captures qual this skip)) . map2 ((:[]) . fst) id) chains
-captures qual this skip (While condition block : stms) [] = Set.unions [captures qual this skip stms [fst condition], captures qual this skip block []]
-captures qual this skip (For name value block : stms) [] = Set.unions [captures qual this skip stms [fst value], captures qual this (Set.insert (qual this ++ name) skip) block []]
-captures qual this skip (Foreach name key value block : stms) [] = Set.unions [captures qual this skip stms [fst value], captures qual this (Set.union skip $ Set.fromList $ map (qual this ++) $ catMaybes [Just name, key]) block []]
+captures qual this skip (IfChain chains else' : stms) [] = Set.unions $ captures qual this skip stms [] : map (uncurry (flip (captures qual this skip)) . map2 (listify . fst) id) chains
+captures qual this skip (While condition block : stms) [] = Set.union (captures qual this skip stms [fst condition]) $ captures qual this skip block []
+captures qual this skip (For name key value block : stms) [] = Set.union (captures qual this skip stms [fst value]) $ captures qual this (Set.union skip $ Set.fromList $ map (qual this ++) $ catMaybes [Just name, key]) block []
 
 genDefault :: Lang.Type -> String
 genDefault Lang.Void = "NULL"
@@ -156,9 +158,9 @@ genStatement qual this _ (While condition block) = "while(" ++ genValue qual thi
 genStatement qual this _ (Return value) = "return " ++ genValue qual this value ++ ";"
 genStatement qual this _ (IfChain chain else') = intercalate "else " (map genIf chain) ++ "else{" ++ genBlock qual this False else' ++ "}"
   where genIf (cond, block) = "if(" ++ genValue qual this cond ++ "){" ++ genBlock qual this False block ++ "}"
-genStatement qual this _ (For name count block) = "for(" ++ i ++ "=0;" ++ i ++ "<" ++ genValue qual this count ++ ";++" ++ i ++ "){" ++ genBlock qual this False block ++ "}"
+genStatement qual this _ (For name Nothing count@(_, Lang.Int) block) = "for(" ++ i ++ "=" ++ genValue qual this count ++ ";" ++ i ++ ">0;--" ++ i ++ "){" ++ genBlock qual this False block ++ "}"
   where i = qual this ++ name
-genStatement qual this _ (Foreach valueName key iterable block) = case key of
+genStatement qual this _ (For valueName key iterable block) = case key of
   Nothing -> "foreach(" ++ genValue qual this iterable ++ " as " ++ qual this ++ valueName ++ "){" ++ genBlock qual this False block ++ "}"
   Just keyName -> "foreach(" ++ genValue qual this iterable ++ " as " ++ qual this ++ valueName ++ "=>" ++ qual this ++ keyName ++ "){" ++ genBlock qual this False block ++ "}"
 
@@ -171,7 +173,7 @@ genValue :: (String -> String) -> String -> (Value, Lang.Type) -> String
 genValue _ _ (Literal (Bool b), _) = if b then "TRUE" else "FALSE"
 genValue _ _ (Literal (Int i), _) = show i
 genValue _ _ (Literal (Real r), _) = show r
-genValue _ _ (Literal (Text s), _) = show s
+genValue _ _ (Literal (Text s), _) = '\'' : replace '\'' "\\'" (replace '\\' "\\\\" s) ++ "'"
 genValue qual this (Name pkg name, _) = qual pkg ++ name
 genValue qual this (Call fun args, _) = genValue qual this fun ++ "(" ++ (intercalate "," $ map (genValue qual this) args) ++ ")"
 genValue qual this (Builtin builtin args, _) = genBuiltin builtin (map (genValue qual this) args) $ map snd args

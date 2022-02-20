@@ -3,7 +3,7 @@ module Language (Type (..), Builtin (..), builtinCall, fieldAccess, removeBuilti
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Fallible (Fallible (..), err, assert, assertJust)
-import Functions (join, split, swap, (??), zipMaps, intercalate)
+import Functions (join, split, swap, (??), zipMaps, intercalate, listify)
 
 data Type = Void | Int | Bool | Real | Text | Db | Function [Type] Type | Dictionary Type Type | Vector Type | Record (Map.Map String Type) deriving (Eq, Ord)
 data Builtin = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not | AsInt | AsReal | AsBool | AsText
@@ -91,7 +91,7 @@ getResultType line builtin args = case (builtin, args) of
   (AsText, [a]) | a `elem` [Int, Real, Bool, Text] -> Right Text
   (AsText, [Vector v]) -> getResultType line AsText [v]
   (AsText, [Dictionary k v]) -> getResultType line AsText [v]
-  (AsText, [Record fields]) -> mapM (getResultType line AsText . (:[])) (Map.elems fields) >> Right Text
+  (AsText, [Record fields]) -> mapM (getResultType line AsText . listify) (Map.elems fields) >> Right Text
   (Fun, returned : args) -> Right $ Function args returned
   (List, v : args) -> do
     assert (all (== v) args) line "All values must have the specified type"

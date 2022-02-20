@@ -57,28 +57,28 @@
 \begin{titlepage}
     \begin{center}
 
-	\vspace*{3.5cm}            
-	\Huge
-	\textbf{Překladač jazyka Zyba}
+  \vspace*{3.5cm}            
+  \Huge
+  \textbf{Překladač jazyka Zyba}
             
-	\vspace{0.5cm}
-	\LARGE
-	Staticky typovaný jazyk kompilovaný do~PHP
+  \vspace{0.5cm}
+  \LARGE
+  Staticky typovaný jazyk kompilovaný do~PHP
         
-	\vspace*{1.5cm}
-	\Huge
-	\textbf{Zyba language compiler}
+  \vspace*{1.5cm}
+  \Huge
+  \textbf{Zyba language compiler}
             
-	\vspace{0.5cm}
-	\LARGE
-	Language with static typing transpiled into PHP
+  \vspace{0.5cm}
+  \LARGE
+  Language with static typing transpiled into PHP
             
-	\vfill
+  \vfill
             
-	\large
+  \large
         Středoškolská odborná činnost, rok 2022\\
-	Richard Blažek\\
-	Gymnázium Brno, třída Kapitána Jaroše 14
+  Richard Blažek\\
+  Gymnázium Brno, třída Kapitána Jaroše 14
     \end{center}
 \end{titlepage}
 \thispagestyle{empty}
@@ -138,7 +138,7 @@ Soubor v~Zybě se skládá z~deklarací. Každá deklarace buď přiřadí urči
 <assignment> ::= <name> \emphasis{=} <expression>
 \end{grammar}
 
-Importovat lze jak ze Zyby tak i z~PHP. Import ze Zyby vyžaduje cestu k~souboru, který má být importován, a název jmenného prostoru, do~kterého budou importované hodnoty spadat. Import z~PHP to vyžaduje rovněž, ale před názvem jmenného prostoru musí být napsáno slovo \texttt{php} a za~cestou k~souboru musí následovat záznam se jmény a typy importovaných hodnot. Záznam tvoří složené závorky a v~nich několik dvojic názvů (tj. jména importovaných hodnot) a výrazů (tj. jejich typy).
+Importovat lze jak ze Zyby tak i z~PHP. Import ze Zyby vyžaduje cestu k~souboru, který má být importován, a název jmenného prostoru, do~kterého budou importované hodnoty spadat. Import z~PHP to vyžaduje rovněž, ale před názvem jmenného prostoru musí být napsáno slovo \texttt{php} a za~cestou k~souboru musí následovat záznam se jmény a typy importovaných hodnot. Záznam tvoří závorky a v~nich několik dvojic názvů (tj. jména importovaných hodnot) a výrazů (tj. jejich typy); mezi~názvem a výrazem je vždy dvojtečka.
 \begin{grammar}
 <import> ::= <import-zyba> | <import-php>
 
@@ -146,7 +146,7 @@ Importovat lze jak ze Zyby tak i z~PHP. Import ze Zyby vyžaduje cestu k~souboru
 
 <import-php> ::= \emphasis{import php} <name> <literal-text> <record>
 
-<record> ::= \emphasis{\{} (<name> <expression>)* \emphasis{\}}
+<record> ::= \emphasis{(} (<name> \emphasis{:} <expression>)* \emphasis{)}
 \end{grammar}
 
 \subsubsection{Výrazy}
@@ -193,10 +193,8 @@ Příkazem může být výraz, jenž má být vyhodnocen, přiřazení, příkaz
 <while> ::= \emphasis{while} <condition> <block>
 \end{grammar}
 
-Cyklus \texttt{for} má dvě formy. První z~nich se používá pro~daný počet opakování, jež je specifikován nějakým výrazem, v~tom případě po slově \texttt{for} následuje jméno konstanty, která udává, kolik opakování už proběhlo, operátor \texttt{\textless}, onen výraz a blok příkazů. Druhou lze použít pro~iteraci přes pole nebo slovník, ta se zapisuje slovem \texttt{for}, po němž následují jména dvou konstant, z~nichž první bude obsahovat index současného prvku a druhá jeho hodnotu, oddělovač\texttt{:}, výraz, jehož hodnotou je ono pole či slovník, a blok příkazů. První jméno je nepovinné, v~tom případě se hodnota indexu nebude do~žádné konstanty ukládat.
+Cyklus \texttt{for} lze použít pro~iteraci přes pole, slovník nebo celé číslo. Zapisuje slovem \texttt{for}, po němž následují jména dvou konstant, z~nichž první bude obsahovat index současného prvku a druhá jeho hodnotu, oddělovač\texttt{:}, výraz, přes jehož hodnotu se iteruje, a blok příkazů. První jméno je nepovinné, v~tom případě se hodnota indexu nebude do~žádné konstanty ukládat. Iterace přes celé číslo znamená, že hodnota současného prvku bude postupně nabývat hodnot od~toho čísla až do~nuly; index současného prvku při~tom do~konstanty uložit nelze.
 \begin{grammar}
-<for> ::= \emphasis{for} <name> \emphasis{\textless} <expression> <block>
-
 <for> ::= \emphasis{for} <name>? <name> \emphasis{:} <expression> <block>
 \end{grammar}
 
@@ -217,24 +215,24 @@ Nejmenší jednotkou syntaxe jsou tokeny. Token může být jedno z~následujíc
 # Toto je komentář
 # Deklarace konstant
 a = 1103515245
-# 12345 zapsané v~osmičkové soustavě
+# 12345 zapsané v osmičkové soustavě
 c = 8r30071
-# Tady využíváme literály v~soustavě o základu 256
+# Tady využíváme literály v soustavě o základu 256
 # Číslice 36 až 255 neexistují, ale toto číslo je nepotřebuje
 m = 256r10000
-# Pokud je poslední příkaz ve~funkci vyhodnocení výrazu,
+# Pokud je poslední příkaz ve funkci vyhodnocení výrazu,
 # vrátí se hodnota toho výrazu
 next = fun[x: int] int {
-    x * a + c % m
+  x * a + c % m
 }
-# Zápis funkce s~více argumenty
+# Zápis funkce s více argumenty
 mocnina = fun[zaklad exp: int] int {
-    result = 1
-    while exp > 0 {
-    	result = result * zaklad
-    	exp = exp - 1
-    }
-    return result
+  result = 1
+  while exp > 0 {
+    result = result * zaklad
+    exp = exp - 1
+  }
+  return result
 }
 \end{verbatim}
 
@@ -262,7 +260,7 @@ Název & Popis & Výchozí hodnota \\\hline
 \texttt{T.list} & Pole hodnot typu \texttt{T} & Prázdné pole\\\hline
 \texttt{T.dict[K]} & Slovník s~klíči typu \texttt{K} (musí být \texttt{int} nebo \texttt{text}) a hodnotami typu \texttt{T} & Prázdný slovník\\\hline
 \texttt{T.fun[A\textsubscript{0} \ldots{} A\textsubscript{m}]} & Funkce přebírající argumenty typů \texttt{A\textsubscript{0}} až \texttt{A\textsubscript{m}} a vracející \texttt{T} & Funkce přebírající libovolné argumenty typů \texttt{A\textsubscript{0}} až \texttt{A\textsubscript{m}} vracející vždy výchozí hodnotu typu \texttt{T}\\\hline
-\texttt{\{N\textsubscript{0} T\textsubscript{0} \ldots{} N\textsubscript{m} T\textsubscript{m}\}} & Záznam s~prvky, jejichž názvy jsou \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a typy jsou \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}} & Záznam se všemi prvky nabývajícími svých výchozích hodnot\\\hline
+\texttt{(N\textsubscript{0}:T\textsubscript{0} \ldots{} N\textsubscript{m}:T\textsubscript{m})} & Záznam s~prvky, jejichž názvy jsou \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a typy jsou \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}} & Záznam se všemi prvky nabývajícími svých výchozích hodnot\\\hline
 \end{tabular}
 
 Funkce se vytváří pomocí syntaxe lambda funkce, jež specifikuje typy argumentů a návratové hodnoty a obsahuje kód, který se při~zavolání funkce vykoná. Pokud se program dostane k~příkazu \texttt{return}, funkce skončí a vrátí hodnotu předanou tomuto příkazu. Poslední výraz ve~funkci, jejíž návratový typ není \texttt{void}, musí být \texttt{return} nebo vyhodnocení výrazu, které na~tomto místě znamená, že funkce výsledek tohoto výrazu vrátí. Funkce se volá pomocí hranatých závorek, předají se jí argumenty odpovídajících typů a výsledkem volání funkce je hodnota, již funkce vrátila. Každý soubor může obsahovat funkci s~názvem \texttt{main}, všechny tyto funkce se po spuštění zavolají, přičemž je zaručeno, že \texttt{main} z určitého souboru se zavolá až po zavolání funkcí z importovaných souborů a jejich závislostí.
@@ -333,47 +331,47 @@ Operátor & Výsledek & Typ\\\hline
 Překladač je napsaný v~jazyce Haskell a jeho kód je rozdělený do~několika modulů.
 \begin{figure}[H]
 \begin{center}
-	\begin{tikzpicture}[node distance=2cm]
-		\node (functions) [block] {Functions};
-		\node (fallible) [block, right of=functions, xshift=2cm] {Fallible};
-		\node (scope) [block, below of=functions, xshift=2cm] {Scope};
-		\node (parser) [block, above of=functions] {Parser};
-		\node (lexer) [block, above of=fallible] {Lexer};
-		\node (codegen) [block, left of=functions, xshift=\minus4cm] {Codegen};
-		\node (language) [block, above of=codegen, xshift=2cm]{Language};
-		\node (semantics) [block, below of=functions, xshift=\minus4cm] {Semantics};
-		\node (loader) [block, below of=semantics, xshift=2cm] {Loader};
-		\node (main) [block, left of=loader, xshift=\minus2cm] {Main};
-		\draw [arrow] (fallible) -- (lexer);
-		\draw [arrow] (fallible) -- (parser);
-		\draw [arrow] (functions) -- (parser);
-		\draw [arrow] (lexer) -- (parser);
-		\draw [arrow] (functions) -- (language);
-		\draw [arrow] (fallible) -- (language);
-		\draw [arrow] (fallible) -- (scope);
-		\draw [arrow] (language) -- (scope);
-		\draw [arrow] (parser) -- (scope);
-		\draw [arrow] (parser) -- (semantics);
-		\draw [arrow] (scope) -- (semantics);
-		\draw [arrow] (language) -- (semantics);
-		\draw [arrow] (functions) -- (semantics);
-		\draw [arrow] (fallible) -- (semantics);
-		\draw [arrow] (parser) -- (loader);
-		\draw [arrow] (scope) -- (loader);
-		\draw [arrow] (language) -- (loader);
-		\draw [arrow] (functions) -- (loader);
-		\draw [arrow] (fallible) -- (loader);
-		\draw [arrow] (semantics) -- (loader);
-		\draw [arrow] (language) -- (codegen);
-		\draw [arrow] (semantics) -- (codegen);
-		\draw [arrow] (parser) -- (codegen);
-		\draw [arrow] (functions) -- (codegen);
-		\draw [arrow] (loader) -- (main);
-		\draw [arrow] (codegen) -- (main);
-		\draw [arrow] (fallible) -- (main);
-	\end{tikzpicture}
-	\caption{Graf závislostí mezi~moduly}
-	\label{projects}
+  \begin{tikzpicture}[node distance=2cm]
+    \node (functions) [block] {Functions};
+    \node (fallible) [block, right of=functions, xshift=2cm] {Fallible};
+    \node (scope) [block, below of=functions, xshift=2cm] {Scope};
+    \node (parser) [block, above of=functions] {Parser};
+    \node (lexer) [block, above of=fallible] {Lexer};
+    \node (codegen) [block, left of=functions, xshift=\minus4cm] {Codegen};
+    \node (language) [block, above of=codegen, xshift=2cm]{Language};
+    \node (semantics) [block, below of=functions, xshift=\minus4cm] {Semantics};
+    \node (loader) [block, below of=semantics, xshift=2cm] {Loader};
+    \node (main) [block, left of=loader, xshift=\minus2cm] {Main};
+    \draw [arrow] (fallible) -- (lexer);
+    \draw [arrow] (fallible) -- (parser);
+    \draw [arrow] (functions) -- (parser);
+    \draw [arrow] (lexer) -- (parser);
+    \draw [arrow] (functions) -- (language);
+    \draw [arrow] (fallible) -- (language);
+    \draw [arrow] (fallible) -- (scope);
+    \draw [arrow] (language) -- (scope);
+    \draw [arrow] (parser) -- (scope);
+    \draw [arrow] (parser) -- (semantics);
+    \draw [arrow] (scope) -- (semantics);
+    \draw [arrow] (language) -- (semantics);
+    \draw [arrow] (functions) -- (semantics);
+    \draw [arrow] (fallible) -- (semantics);
+    \draw [arrow] (parser) -- (loader);
+    \draw [arrow] (scope) -- (loader);
+    \draw [arrow] (language) -- (loader);
+    \draw [arrow] (functions) -- (loader);
+    \draw [arrow] (fallible) -- (loader);
+    \draw [arrow] (semantics) -- (loader);
+    \draw [arrow] (language) -- (codegen);
+    \draw [arrow] (semantics) -- (codegen);
+    \draw [arrow] (parser) -- (codegen);
+    \draw [arrow] (functions) -- (codegen);
+    \draw [arrow] (loader) -- (main);
+    \draw [arrow] (codegen) -- (main);
+    \draw [arrow] (fallible) -- (main);
+  \end{tikzpicture}
+  \caption{Graf závislostí mezi~moduly}
+  \label{projects}
 \end{center}
 \end{figure}
 
@@ -399,6 +397,105 @@ Modul \texttt{Codegen} završuje kompilaci, neboť jeho funkce \texttt{gen} vyge
 Modul \texttt{Main} poté ve~funkci \texttt{main} přečte dva argumenty z~příkazové řádky -- cestu ke~vstupnímu Zyba souboru a výstupnímu PHP souboru. Zavolá funkci \texttt{load} s~cestou ke~vstupnímu souboru, její výsledek předá funkci \texttt{gen} a vzniklý PHP kód zapíše do~zadaného souboru. Dojde-li k chybě, nic se do zadaného souboru nezapíše a chybová hláška bude vypsána na standardní chybový výstup.
 
 \subsection{Ukázka překladu}
+Zde je ukázka jednoduchého programu v Zybě a výsledného kódu v PHP. Jedná se o webovou stránku pro výpočet faktoriálu. Pokud bude v~URL argument \texttt{num}, převede jeho hodnotu na číslo a zobrazí stránku s faktoriálem z tohoto čísla; jinak zobrazí formulář, do~něhož uživatel může zadat číslo a po~stisku tlačítka bude přesměrován na stejnou stránku se~zadaným číslem předeným v~URL jako argument \texttt{num}, takže se zobrazí faktoriál zadaného čísla.
+
+Program používá pomocnou knihovnu \texttt{web} napsanou v Zybě a PHP, jež zajišťuje přístup k~potřebným funkcím a proměnným z PHP. Celý program tak tvoří tři soubory: \texttt{web.php}, \texttt{web.zyba} a \texttt{example.zyba}.
+
+Soubor \texttt{web.php} (\texttt{z1array} je pomocná třída, která se vytvoří při překladu Zyby a obsahuje PHP pole a metody pro práci s ním):
+\begin{verbatim}
+<?php
+$__GET = z1array::n($_GET);
+$__POST = z1array::n($_POST);
+$__COOKIE = z1array::n($_COOKIE);
+$__SESSION = z1array::n($_SESSION);
+$__FILES = [];
+foreach ($_FILES as $fname => $f) {
+  $__FILES[$fname] = z1array::n([
+    'name' => $f['name'],
+    'type' => $f['type'],
+    'size' => $f['size'],
+    'ok' => $f['code'] === 0,
+    'tmp_name' => $f['tmp_name']
+  ]);
+}
+$__FILES = z1array::n($__FILES);
+$move_uploaded_file = function($from, $to) {
+  move_uploaded_file($from, $to);
+};
+$echo = function($s) {
+  echo($s);
+};
+?>
+\end{verbatim}
+
+Soubor \texttt{web.zyba}:
+\begin{verbatim}
+export File = (
+  name: text
+  type: text
+  size: int
+  ok: bool
+  tmp_name: text
+)
+
+import php old "web.php" (
+  __GET: text.dict[text]
+  __POST: text.dict[text]
+  __COOKIE: text.dict[text]
+  __SESSION: text.dict[text]
+  __FILES: File.dict[text]
+  move_uploaded_file: void.fun[text text]
+  echo: void.fun[text]
+)
+
+export args = old.__GET
+export form = old.__POST
+export cookies = old.__COOKIE
+export session = old.__SESSION
+export files = old.__FILES
+
+export save_uploaded = fun[key where : text] void {
+  old.move_uploaded_file[files.get[key].tmp_name where]
+}
+
+export print = fun[value : text] void {
+  old.echo[value]
+}
+\end{verbatim}
+
+Soubor \texttt{example.zyba}:
+\begin{verbatim}
+import web "web.zyba"
+
+factorial = fun[n : int] int {
+  result = 1
+  for i : n {
+    result = result * i
+  }
+  result
+}
+
+main = fun[] void {
+  web.print["<!DOCTYPE html>
+  <html lang=""cs-cz"">
+    <head>
+      <title>Faktoriál</title>
+      <meta charset=""utf-8"" />
+    </head>
+    <body>"]
+  if web.args.has["num"] {
+    num = web.args.get["num"].asInt
+    fact = factorial[num]
+    web.print["<p>" + num.asText + "! = " + fact.asText + "</p>"]
+  } else {
+    web.print["<form>
+      Číslo: <input type=""number"" name=""num""/>
+      <input type=""submit"" value=""Spočítat""/>
+    </form>"]
+  }
+  web.print["</body></html>"]
+}
+\end{verbatim}
 
 \section{Závěr}
 Navrhl jsem programovací jazyk Zyba a zkonstruován jeho překladač. Jazyk lze použít pro~psaní webových stránek, přičemž funkce pro~interakci s~okolím jsou buď obsaženy jako zabudované metody (práce s~databází) nebo je lze importovat z~PHP. Kód v~Zybě napsaný je dobře čitelný, překladač provádí statickou typovou kontrolu a systém importů a exportů je poměrně silný, třebaže by bylo možné implementovat ještě kruhové importy. Hlavní slabinou jazyka je chybějící podpora pro~generické programování, což znemožňuje tvorbu funkcí, které by pracovaly s~libovolnými daty (řazení, přístup k~databázi) a je tak nutné pro~ně buď vytvořit v~jazyce zabudované metody, nebo mít jednoúčelové funkce. To jsou tedy možné směry pro~budoucí vývoj jazyka.
