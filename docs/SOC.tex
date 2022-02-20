@@ -63,7 +63,7 @@
             
 	\vspace{0.5cm}
 	\LARGE
-	Staticky typovaný jazyk kompilovaný do PHP
+	Staticky typovaný jazyk kompilovaný do~PHP
         
 	\vspace*{1.5cm}
 	\Huge
@@ -95,12 +95,12 @@ V~Brně dne \today{} \repeatchar{40}{.}
 \thispagestyle{empty}
 \Large\textbf{Poděkování}\normalsize
 
-Tímto bych chtěl poděkovat Matěji Žáčkovi za odborné vedení práce.
+Tímto bych chtěl poděkovat Matěji Žáčkovi za~odborné vedení práce.
 \newpage
 \thispagestyle{empty}
 \Large\textbf{Anotace}\normalsize
 
-Práce se zabývá navržením jazyka Zyba a implementací překladače tohoto jazyka do PHP, což by mělo umožnit používání tohoto jazyka na všech webhostinzích, které podporují PHP skripty. Rovněž bude možné vyvíjet část projektu v Zybě a část v PHP a používat funkce z jednoho jazyka ve druhém.
+Práce se zabývá navržením jazyka Zyba a implementací překladače tohoto jazyka do~PHP, což by mělo umožnit používání tohoto jazyka na~všech webhostinzích, které podporují PHP skripty. Rovněž bude možné vyvíjet část projektu v~Zybě a část v~PHP a používat funkce z~jednoho jazyka ve~druhém.
 
 \Large\textbf{Klíčová slova}\normalsize
 
@@ -118,18 +118,18 @@ programming lanugage; compiler; transpiling; web application; PHP; Zyba
 \tableofcontents
 \newpage
 \section{Úvod}
-Cílem této práce je navrhnout programovací jazyk Zyba, který by měl umožnit psaní přehlednějšího kódu než PHP, a implementovat překladač ze Zyby do PHP, aby bylo možné programy v Zybě používat na všech na všech serverech s podporou PHP skriptů. Navrhl jsem Zybu jako staticky typovaný jazyk, protože překlad z jednoho dynamicky typovaného jazyka do druhého by umožnil provádět při překladu pouze syntatickou kontrolu. K vyhodnocení typů by mohlo dojít až za běhu programu a Zyba by tak představovala jen alternativní syntaxi pro PHP. Zybu jsem navrhl jako jazyk jednoduchý na naučení, ale s dostatečnou funkcionalitou pro psaní webových stránek.
+Cílem této práce je navrhnout programovací jazyk Zyba, který by měl umožnit psaní přehlednějšího kódu než PHP, a implementovat překladač ze Zyby do~PHP, aby bylo možné programy v~Zybě používat na~všech na~všech serverech s~podporou PHP skriptů. Navrhl jsem Zybu jako staticky typovaný jazyk, protože překlad z~jednoho dynamicky typovaného jazyka do~druhého by umožnil provádět při~překladu pouze syntatickou kontrolu. Vyhodnocení typů by mohlo proběhnout až za~běhu programu a Zyba by tak představovala jen alternativní syntaxi pro~PHP. Zybu jsem navrhl jako jazyk jednoduchý na~naučení, ale s~dostatečnou funkcionalitou pro~psaní webových stránek.
 
-Překladač jsem se rozhodl napsat v jazyce Haskell, protože umožňuje psát velmi stručné a přehledné programy. K čitelnosti programu přispívá jednak syntaxe jazyka, v němž se struktura programu vyjadřuje formátováním zdrojového kódu a ne oddělovači, jednak jeho striktní dodržování funkcionálního paradigmatu, které vyžaduje, aby funkce byly referenčně transparentní (tzn. bez vedlejších efektů). Navíc jeho typový systém obsahuje algebraické datové typy a umožňuje zápis rekurzivních typů, což se u překladače hodí například na zápis syntaktického stromu.
+Překladač jsem se rozhodl napsat v~jazyce Haskell, protože umožňuje psát velmi stručné a přehledné programy. K~čitelnosti programu přispívá jednak syntaxe jazyka, v~němž se struktura programu vyjadřuje formátováním zdrojového kódu a ne oddělovači, jednak jeho striktní dodržování funkcionálního paradigmatu, které vyžaduje, aby funkce byly referenčně transparentní (tzn. bez vedlejších efektů). Navíc jeho typový systém obsahuje algebraické datové typy a umožňuje zápis rekurzivních typů, což se u překladače hodí například na~zápis syntaktického stromu.
 
 \section{Návrh jazyka}
 \subsection{Syntaxe}
-Syntaxe Zyby je stejně jako u řady dalších jazyků (např. C++, Java, C\#, JavaScript) odvozená z jazyka C, aby byla blízká ostatním programátorům, ale liší se v řadě detailů. Všechny operátory jsou binární, zleva asociativní a mají stejnou prioritu. Práce s poli a slovníky (tj. jejich vytváření a přístup k prvkům a jejich změna) není záležitostí speciální syntaxe, ale provádí se zabudovanými metodami až na úrovni sémantiky. Volání funkce je vyjádřeno hranatými závorkami. Díky těmto změnám je syntaxe jednoznačná, aniž by musel uživatel používat středníky. Středníky a čárky jsou považovány za bílé znaky, takže je možné je používat, kde to programátor uzná za vhodné pro přehlednost kódu. Komentáře jsou jednořádkové a začínají křížkem (\texttt{\#}).
+Syntaxe Zyby je stejně jako u řady dalších jazyků (např. C++, Java, C\#, JavaScript) odvozená z~jazyka C, aby byla blízká ostatním programátorům, ale liší se v~řadě detailů. Všechny operátory jsou binární, zleva asociativní a mají stejnou prioritu. Práce s~poli a slovníky (tj. jejich vytváření a přístup k~prvkům a jejich změna) není záležitostí speciální syntaxe, ale provádí se zabudovanými metodami až na~úrovni sémantiky. Volání funkce je vyjádřeno hranatými závorkami. Díky těmto změnám je syntaxe jednoznačná, aniž by musel uživatel používat středníky. Středníky a čárky jsou považovány za~bílé znaky, takže je možné je používat, kde to programátor uzná za~vhodné pro~přehlednost kódu. Komentáře jsou jednořádkové a začínají křížkem (\texttt{\#}).
 
-Následuje popis prvků syntaxe a její formální popis v rozšířené Backus-Naurově formě.
+Následuje popis prvků syntaxe a její formální popis v~rozšířené Backus-Naurově formě.
 
 \subsubsection{Deklarace}
-Soubor v Zybě se skládá z deklarací. Každá deklarace buď přiřadí určité globální konstantě hodnotu určitého výrazu, nebo importuje deklarace z jiného souboru. Importují se přitom pouze ty deklarace, které byly uvozeny slovem \texttt{export}
+Soubor v~Zybě se skládá z~deklarací. Každá deklarace buď přiřadí určité globální konstantě hodnotu určitého výrazu, nebo importuje deklarace z~jiného souboru. Importují se přitom pouze ty deklarace, které byly uvozeny slovem \texttt{export}
 \begin{grammar}
 <file> ::= ((\emphasis{export})? <declaration>)*
 
@@ -138,7 +138,7 @@ Soubor v Zybě se skládá z deklarací. Každá deklarace buď přiřadí urči
 <assignment> ::= <name> \emphasis{=} <expression>
 \end{grammar}
 
-Importovat lze jak ze Zyby tak i z PHP. Import ze Zyby vyžaduje cestu k souboru, který má být importován, a název jmenného prostoru, do kterého budou importované hodnoty spadat. Import z PHP to vyžaduje rovněž, ale před názvem jmenného prostoru musí být napsáno slovo \texttt{php} a za cestou k souboru musí následovat záznam se jmény a typy importovaných hodnot. Záznam tvoří složené závorky a v nich několik dvojic názvů (tj. jména importovaných hodnot) a výrazů (tj. jejich typy).
+Importovat lze jak ze Zyby tak i z~PHP. Import ze Zyby vyžaduje cestu k~souboru, který má být importován, a název jmenného prostoru, do~kterého budou importované hodnoty spadat. Import z~PHP to vyžaduje rovněž, ale před názvem jmenného prostoru musí být napsáno slovo \texttt{php} a za~cestou k~souboru musí následovat záznam se jmény a typy importovaných hodnot. Záznam tvoří složené závorky a v~nich několik dvojic názvů (tj. jména importovaných hodnot) a výrazů (tj. jejich typy).
 \begin{grammar}
 <import> ::= <import-zyba> | <import-php>
 
@@ -150,7 +150,7 @@ Importovat lze jak ze Zyby tak i z PHP. Import ze Zyby vyžaduje cestu k souboru
 \end{grammar}
 
 \subsubsection{Výrazy}
-Výraz tvoří jeden či více podvýrazů oddělených binárními operátory. Podvýraz tvoří jednotka, kterou můžou následovat volání funkce a přístupy k prvkům záznamu nebo jmenného prostoru. Volání funkce tvoří několik výrazů v hranatých závorkách; přístup k prvku tvoří tečka následovaná jménem. Zabudované metody se volají způsobem, který kombinuje syntaxi přístupu a syntaxi volání funkce: \texttt{argument1.metoda[argument2 \ldots{} argument\textsubscript{N}}, přičemž mají-li jen jeden argument, je možné závorky vynechat.
+Výraz tvoří jeden či více podvýrazů oddělených binárními operátory. Podvýraz tvoří jednotka, kterou můžou následovat volání funkce a přístupy k~prvkům záznamu nebo jmenného prostoru. Volání funkce tvoří několik výrazů v~hranatých závorkách; přístup k~prvku tvoří tečka následovaná jménem. Zabudované metody se volají způsobem, který kombinuje syntaxi přístupu a syntaxi volání funkce: \texttt{argument1.metoda[argument2 \ldots{} argument\textsubscript{N}}, přičemž mají-li jen jeden argument, je možné závorky vynechat.
 \begin{grammar}
 <expression> ::= <call> (<operator> <call>)*
 
@@ -161,7 +161,7 @@ Výraz tvoří jeden či více podvýrazů oddělených binárními operátory. 
 <access> ::= \emphasis{.} <name>
 \end{grammar}
 
-Jednotek je několik druhů: výraz v závorkách; literál celého čísla, reálného čísla, logické hodnoty či text; záznam nebo lambda funkce.
+Jednotek je několik druhů: výraz v~závorkách; literál celého čísla, reálného čísla, logické hodnoty či text; záznam nebo lambda funkce.
 \begin{grammar}
 <unit> ::= \emphasis{(} <expression> \emphasis{)}
 
@@ -173,7 +173,7 @@ Jednotek je několik druhů: výraz v závorkách; literál celého čísla, re�
 \end{grammar}
 
 \subsubsection{Funkce a příkazy}
-Lambda funkce začíná slovem \texttt{fun}. Následují argumenty funkce v hranatých závorkách, výraz specifikující typ navrácené hodnoty a blok, který tvoří několik příkazů ve složených závorkách. Argumenty funkce, pokud nějaké jsou, se zapisují po skupinách, z nichž každá se skládá z názvů jednoho či více argumentů následovaných dvojtečkou a výrazem specifikujícím typ těchto argumentů.
+Lambda funkce začíná slovem \texttt{fun}. Následují argumenty funkce v~hranatých závorkách, výraz specifikující typ navrácené hodnoty a blok, který tvoří několik příkazů ve~složených závorkách. Argumenty funkce, pokud nějaké jsou, se zapisují po skupinách, z~nichž každá se skládá z~názvů jednoho či více argumentů následovaných dvojtečkou a výrazem specifikujícím typ těchto argumentů.
 \begin{grammar}
 <lambda> ::= \emphasis{fun} \emphasis{[} <arguments> \emphasis{]} <expression> <block>
 
@@ -182,7 +182,7 @@ Lambda funkce začíná slovem \texttt{fun}. Následují argumenty funkce v hran
 <block> ::= \emphasis{\{} <statement>* \emphasis{\}}
 \end{grammar}
 
-Příkazem může být výraz, jenž má být vyhodnocen, přiřazení, příkazy \texttt{return} a \texttt{if} nebo cykly \texttt{while} či \texttt{for}. Příkaz \texttt{return} je slovo \texttt{return} následované výrazem, jenž má být navrácená hodnota. Příkaz \texttt{if} začíná slovem \texttt{if} následovaným výrazem (podmínkou) a blokem příkazů; za blokem můžou následovat další části, jež začínají slovy \texttt{else if} a rovněž pokračují podmínkou a blokem příkazů; poté může následovat slovo \texttt{else} následované blokem, který se provede, pokud žádná z předchozích podmínek nebyla splněna. Cyklus \texttt{while} začíná slovem \texttt{while} následovaným výrazem (podmínkou) a blokem příkazů.
+Příkazem může být výraz, jenž má být vyhodnocen, přiřazení, příkazy \texttt{return} a \texttt{if} nebo cykly \texttt{while} či \texttt{for}. Příkaz \texttt{return} je slovo \texttt{return} následované výrazem, jenž má být navrácená hodnota. Příkaz \texttt{if} začíná slovem \texttt{if} následovaným výrazem (podmínkou) a blokem příkazů; za~blokem můžou následovat další části, jež začínají slovy \texttt{else if} a rovněž pokračují podmínkou a blokem příkazů; poté může následovat slovo \texttt{else} následované blokem, který se provede, pokud žádná z~předchozích podmínek nebyla splněna. Cyklus \texttt{while} začíná slovem \texttt{while} následovaným výrazem (podmínkou) a blokem příkazů.
 \begin{grammar}
 <statement> ::= <expression> | <assignment> | <if> | <while> | <for>
 
@@ -193,7 +193,7 @@ Příkazem může být výraz, jenž má být vyhodnocen, přiřazení, příkaz
 <while> ::= \emphasis{while} <condition> <block>
 \end{grammar}
 
-Cyklus \texttt{for} má dvě formy. První z nich se používá pro daný počet opakování, jež je specifikován nějakým výrazem, v tom případě po slově \texttt{for} následuje jméno konstanty, která udává, kolik opakování už proběhlo, operátor \texttt{\textless}, onen výraz a blok příkazů. Druhou lze použít pro iteraci přes pole nebo slovník, ta se zapisuje slovem \texttt{for}, po němž následují jména dvou konstant, z nichž první bude obsahovat index současného prvku a druhá jeho hodnotu, oddělovač\texttt{:}, výraz, jehož hodnotou je ono pole či slovník, a blok příkazů. První jméno je nepovinné, v tom případě se hodnota indexu nebude do žádné konstanty ukládat.
+Cyklus \texttt{for} má dvě formy. První z~nich se používá pro~daný počet opakování, jež je specifikován nějakým výrazem, v~tom případě po slově \texttt{for} následuje jméno konstanty, která udává, kolik opakování už proběhlo, operátor \texttt{\textless}, onen výraz a blok příkazů. Druhou lze použít pro~iteraci přes pole nebo slovník, ta se zapisuje slovem \texttt{for}, po němž následují jména dvou konstant, z~nichž první bude obsahovat index současného prvku a druhá jeho hodnotu, oddělovač\texttt{:}, výraz, jehož hodnotou je ono pole či slovník, a blok příkazů. První jméno je nepovinné, v~tom případě se hodnota indexu nebude do~žádné konstanty ukládat.
 \begin{grammar}
 <for> ::= \emphasis{for} <name> \emphasis{\textless} <expression> <block>
 
@@ -201,14 +201,14 @@ Cyklus \texttt{for} má dvě formy. První z nich se používá pro daný počet
 \end{grammar}
 
 \subsubsection{Tokeny}
-Nejmenší jednotkou syntaxe jsou tokeny. Token může být jedno z následujících:
+Nejmenší jednotkou syntaxe jsou tokeny. Token může být jedno z~následujících:
 \begin{itemize}
-\item \textbf{Jméno} je posloupnost znaků, jež obsahuje pouze číslice, malá a velká písmena latinky a podtržítka a jejíž první znak není číslice. Zyba nemá klíčová slova, ale některá jména (např. \texttt{if}, \texttt{fun}, \texttt{export}) mají zvláštní význam na určitých místech kódu, takže není vhodné je používat pro pojmenování vlastních proměnných.
-\item \textbf{Literál celého čísla} je buď posloupnost dekadických číslic tvořící číslo, nebo posloupnost dekadických číslic, udávající základ číselné soustavy, a po ní znak \texttt{r} a posloupnost číslic z oné číselné soustavy, písmena A až Z bez ohledu na velikost se považují za číslice 10 až 35. Lze používat i soustavy o základu vyšším než 36, ale není v nich možné zapsat všechna čísla protože pro ně nejsou další číslice.
+\item \textbf{Jméno} je posloupnost znaků, jež obsahuje pouze číslice, malá a velká písmena latinky a podtržítka a jejíž první znak není číslice. Zyba nemá klíčová slova, ale některá jména (např. \texttt{if}, \texttt{fun}, \texttt{export}) mají zvláštní význam na~určitých místech kódu, takže není vhodné je používat pro~pojmenování vlastních proměnných.
+\item \textbf{Literál celého čísla} je buď posloupnost dekadických číslic tvořící číslo, nebo posloupnost dekadických číslic, udávající základ číselné soustavy, a po ní znak \texttt{r} a posloupnost číslic z~oné číselné soustavy, písmena A až z~bez ohledu na~velikost se považují za~číslice 10 až 35. Lze používat i soustavy o základu vyšším než 36, ale není v~nich možné zapsat všechna čísla protože pro~ně nejsou další číslice.
 \item \textbf{Literál reálného čísla} začíná jako literál celého čísla, ale pokračuje desetinnou tečkou po které můžou následovat další číslice. Rovněž lze používat libovolnou číselnou soustavu.
-\item \textbf{Literál logické hodnoty} je \texttt{1b} pro pravdu a \texttt{0b} pro nepravdu. Je to totiž kratší než tradiční \texttt{true} a \texttt{false} a navíc je zápis obou hodnot stejně dlouhý.
-\item \textbf{Literál textu} je posloupnost znaků v uvozovkách. Patří do něj všechny znaky mezi nimi, tedy i konce řádků a speciální znaky, ale je-li potřeba zapsat znak uvozovek, musí se zdvojit, aby nedošlo k ukončení literálu.
-\item \textbf{Operátor} je libovolná poslounost znaků \uv{\texttt{+-*/\%\&|\textasciitilde\circumflex<>=!}}. Jestli dotyčný operátor opravdu existuje a lze jej aplikovat na tyto argumenty se posoudí až při vyhodnocování sémantiky.
+\item \textbf{Literál logické hodnoty} je \texttt{1b} pro~pravdu a \texttt{0b} pro~nepravdu. Je to totiž kratší než tradiční \texttt{true} a \texttt{false} a navíc je zápis obou hodnot stejně dlouhý.
+\item \textbf{Literál textu} je posloupnost znaků v~uvozovkách. Patří do~něj všechny znaky mezi~nimi, tedy i konce řádků a speciální znaky, ale je-li potřeba zapsat znak uvozovek, musí se zdvojit, aby nedošlo k~ukončení literálu.
+\item \textbf{Operátor} je libovolná poslounost znaků \uv{\texttt{+-*/\%\&|\textasciitilde\circumflex<>=!}}. Jestli dotyčný operátor opravdu existuje a lze jej aplikovat na~tyto argumenty se posoudí až při~vyhodnocování sémantiky.
 \item \textbf{Oddělovač} je jeden znak; některý ze znaků \uv{\texttt{()[]\{\}.:}}.
 \end{itemize}
 
@@ -217,17 +217,17 @@ Nejmenší jednotkou syntaxe jsou tokeny. Token může být jedno z následujíc
 # Toto je komentář
 # Deklarace konstant
 a = 1103515245
-# 12345 zapsané v osmičkové soustavě
+# 12345 zapsané v~osmičkové soustavě
 c = 8r30071
-# Tady využíváme literály v soustavě o základu 256
+# Tady využíváme literály v~soustavě o základu 256
 # Číslice 36 až 255 neexistují, ale toto číslo je nepotřebuje
 m = 256r10000
-# Pokud je poslední příkaz ve funkci vyhodnocení výrazu,
+# Pokud je poslední příkaz ve~funkci vyhodnocení výrazu,
 # vrátí se hodnota toho výrazu
 next = fun[x: int] int {
     x * a + c % m
 }
-# Zápis funkce s více argumenty
+# Zápis funkce s~více argumenty
 mocnina = fun[zaklad exp: int] int {
     result = 1
     while exp > 0 {
@@ -239,44 +239,42 @@ mocnina = fun[zaklad exp: int] int {
 \end{verbatim}
 
 \subsection{Kontext}
-Každé jméno v kódu překladač vyhodnoduje v určitém kontextu, který zahrnuje všechna jména, jež na daném místě v kódu označují nějakou proměnnou, konstantu či jmenný prostor. Proměnné i konstanty jsou jména zastupující určitou hodnotu. Jmenný prostor je kolekce obsahující další proměnné, konstanty a jmenné prostory, k nimž se přistupuje skrz onen jmenný prostor.
+Každé jméno v~kódu překladač vyhodnoduje v~určitém kontextu, který zahrnuje všechna jména, jež na~daném místě v~kódu označují nějakou proměnnou, konstantu či jmenný prostor. Proměnné i konstanty jsou jména zastupující určitou hodnotu. Jmenný prostor je kolekce obsahující další proměnné, konstanty a jmenné prostory, k~nimž se přistupuje skrz onen jmenný prostor.
 
-Proměnná se vytváří uvnitř bloku příkazů přiřazením hodnoty určitému jménu, jenž na daném místě ještě nic neoznačuje, a je přístupné až do konce toho bloku. Argumenty lambda funkcí jsou rovněž proměnné, jejichž hodnoty se nastaví při zavolání funkce na hodnoty předaných argumentů a jsou dostupné uvnitř celé lambda funkce. Proměnnou jde změnit tím, že se do ní přiřadí nová hodnota; ta musí mít stejný typ jako předchozí hodnota proměnné, kterou nová hodnota nahradila.
+Proměnná se vytváří uvnitř bloku příkazů přiřazením hodnoty určitému jménu, jenž na~daném místě ještě nic neoznačuje, a je přístupné až do~konce toho bloku. Argumenty lambda funkcí jsou rovněž proměnné, jejichž hodnoty se nastaví při~zavolání funkce na~hodnoty předaných argumentů a jsou dostupné uvnitř celé lambda funkce. Proměnnou jde změnit tím, že se do~ní přiřadí nová hodnota; ta musí mít stejný typ jako předchozí hodnota proměnné, kterou nová hodnota nahradila.
 
-Konstanta se deklaruje buď přiřazením na úrovni souboru (vně všech bloků), tehdy je dostupná od přiřazení až po konec souboru, nebo vzniká v cyklu \texttt{for} a je přístupná uvnitř jeho bloku. Přiřadíme-li na úrovni souboru konstantě lambda funkci, bude konstanta přístupná v celém souboru, nejen po přiřazení. Jednou vytvořené konstantě už není možné přiřadit novou hodnotu a není možné vytvořit ani jmenný prostor se stejným názvem, ale konstanta vytvořená v cyklu \texttt{for} má novou hodnotu při každé iteraci.
+Konstanta se deklaruje buď přiřazením na~úrovni souboru (vně všech bloků), tehdy je dostupná od přiřazení až po konec souboru, nebo vzniká v~cyklu \texttt{for} a je přístupná uvnitř jeho bloku. Přiřadíme-li na~úrovni souboru konstantě lambda funkci, bude konstanta přístupná v~celém souboru, nejen po přiřazení. Jednou vytvořené konstantě už není možné přiřadit novou hodnotu a není možné vytvořit ani jmenný prostor se stejným názvem, ale konstanta vytvořená v~cyklu \texttt{for} má novou hodnotu při~každé iteraci.
 
-Jmenný prostor vzniká při importu z jiného souboru a obsahuje všechny exportované konstanty a jmenné prostory deklarované v onom souboru. Od dotyčného importu do konce souboru přes něj lze přistupovat k jeho prvkům pomocí již zmiňované syntaxe \texttt{prostor.prvek}. Obsahuje-li jmenný prostor další exportované jmenné prostory, lze přístupy zřetězit a přistupovat i k jejich prvkům: \texttt{prostor1.prostor2.prostor3.prvek}. Kruhové závislosti mezi soubory jsou zakázané.
+Jmenný prostor vzniká při~importu z~jiného souboru a obsahuje všechny exportované konstanty a jmenné prostory deklarované v~onom souboru. Od dotyčného importu do~konce souboru přes něj lze přistupovat k~jeho prvkům pomocí syntaxe \texttt{prostor.prvek}. Obsahuje-li jmenný prostor další exportované jmenné prostory, lze přístupy zřetězit a přistupovat i k~jejich prvkům: \texttt{prostor1.prostor2.prostor3.prvek}. Kruhové závislosti mezi~soubory jsou zakázané.
 
 \subsection{Typový systém}
-Zyba je staticky typovaný jazyk se silnou typovou kontrolou; typy všech hodnot tedy musí být známy v čase překladu a nemůžou se implicitně konvertovat. Pro konverzi hodnoty z jednoho typu na druhý lze použít zabudované metody, pokud programátor nechce konverzi implementovat ručně. Určitou zvláštností Zyby je to, že v místě, kde je očekáván typ, se dá použít libovolná hodnota onoho typu (např. hodnota \texttt{3+4} se dá použít jako typ \texttt{int}). Jména \texttt{int}, \texttt{bool} a další totiž ve skutečnosti znamenají pouze výchozí hodnoty těchto typů, nikoliv typy samotné (např. \texttt{int} je totéž jako \texttt{0}). Samozřejmě by se při psaní kódu měly používat názvy typů na místech, kde je očekáván typ, a hodnoty na místech, kde je očekávána hodnota; je sice možné to nedodržovat, ale vzniklý kód bude matoucí. Tato zvláštnost ale má i některé výhody, protože jednak činí jazyk jednodušším a navíc umožňuje vytvářet typové aliasy úplně stejně jako se vytváří proměnné a konstanty. Ostatně tento přístup má určitou paralelu v chování některých objektově orientovaných jazyků (např. C++\cite{cpp}), které umožňují volat statické metody jak na třídě, tak i na objektu; i v nich se tedy dá někdy použít hodnota (objekt) na místo typu (třídy).
+Zyba je staticky typovaný jazyk se silnou typovou kontrolou; typy všech hodnot tedy musí být známy v~čase překladu a nemůžou se implicitně konvertovat. Pro~konverzi hodnoty z~jednoho typu na~druhý lze použít zabudované metody, pokud programátor nechce konverzi implementovat ručně. Určitou zvláštností Zyby je to, že v~místě, kde je očekáván typ, se dá použít libovolná hodnota onoho typu (např. hodnota \texttt{3+4} se dá použít jako typ \texttt{int}). Jména \texttt{int}, \texttt{bool} a další totiž ve~skutečnosti znamenají pouze výchozí hodnoty těchto typů, nikoliv typy samotné (např. \texttt{int} je totéž jako \texttt{0}). Samozřejmě by se při~psaní kódu měly používat názvy typů na~místech, kde je očekáván typ, a hodnoty na~místech, kde je očekávána hodnota; je sice možné to nedodržovat, ale vzniklý kód bude matoucí. Tato zvláštnost ale má i některé výhody, protože jednak činí jazyk jednodušším a navíc umožňuje vytvářet typové aliasy úplně stejně jako se vytváří proměnné a konstanty. Ostatně tento přístup má určitou paralelu v~chování některých objektově orientovaných jazyků (např. C++\cite{cpp}), které umožňují volat statické metody jak na~třídě, tak i na~objektu; i v~nich se tedy dá někdy použít hodnota (objekt) na~místo typu (třídy).
 
 \subsubsection{Datové typy}
 \begin{tabular}{|m{3.5cm} m{6cm} m{5cm}|}\hline
 Název & Popis & Výchozí hodnota \\\hline
 \texttt{void} & Prázdná hodnota, návratový typ funkcí, které nic nevracejí & Bezvýznamná hodnota\\\hline
-\texttt{int} & Celé číslo, 32bitové nebo 64bitové v závislosti na systému & Nula (\texttt{0})\\\hline
+\texttt{int} & Celé číslo, 32bitové nebo 64bitové v~závislosti na~systému & Nula (\texttt{0})\\\hline
 \texttt{real} & Reálné číslo & Nula jako reálné číslo (\texttt{0.0})\\\hline
 \texttt{bool} & Logická hodnota & Nepravda (\texttt{0b})\\\hline
 \texttt{text} & Textový řetězec & Prázdný text (\texttt{\quote{}})\\\hline
-\texttt{db} & Připojení k databázi & Nezahájené připojení\\\hline
+\texttt{db} & Připojení k~databázi & Nezahájené připojení\\\hline
 \texttt{T.list} & Pole hodnot typu \texttt{T} & Prázdné pole\\\hline
-\texttt{T.dict[K]} & Slovník s klíči typu \texttt{K} a hodnotami typu \texttt{T} & Prázdný slovník\\\hline
+\texttt{T.dict[K]} & Slovník s~klíči typu \texttt{K} (musí být \texttt{int} nebo \texttt{text}) a hodnotami typu \texttt{T} & Prázdný slovník\\\hline
 \texttt{T.fun[A\textsubscript{0} \ldots{} A\textsubscript{m}]} & Funkce přebírající argumenty typů \texttt{A\textsubscript{0}} až \texttt{A\textsubscript{m}} a vracející \texttt{T} & Funkce přebírající libovolné argumenty typů \texttt{A\textsubscript{0}} až \texttt{A\textsubscript{m}} vracející vždy výchozí hodnotu typu \texttt{T}\\\hline
-\texttt{\{N\textsubscript{0} T\textsubscript{0} \ldots{} N\textsubscript{m} T\textsubscript{m}\}} & Záznam s prvky, jejichž názvy jsou \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a typy jsou \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}} & Záznam se všemi prvky nabývajícími svých výchozích hodnot\\\hline
+\texttt{\{N\textsubscript{0} T\textsubscript{0} \ldots{} N\textsubscript{m} T\textsubscript{m}\}} & Záznam s~prvky, jejichž názvy jsou \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a typy jsou \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}} & Záznam se všemi prvky nabývajícími svých výchozích hodnot\\\hline
 \end{tabular}
 
-Funkce se vytváří pomocí syntaxe lambda funkce, jež specifikuje typy argumentů a návratové hodnoty a obsahuje kód, který se při zavolání funkce vykoná. Pokud se program dostane k příkazu \texttt{return}, funkce skončí a vrátí hodnotu předanou tomuto příkazu. Poslední výraz ve funkci, jejíž návratový typ není \texttt{void}, musí být \texttt{return} nebo vyhodnocení výrazu, které na tomto místě znamená, že funkce výsledek tohoto výrazu vrátí. Funkce se volá pomocí hranatých závorek, předají se jí argumenty odpovídajících typů a výsledkem volání funkce je hodnota, již funkce vrátila. V každém souboru může být funkce s názvem \texttt{main}, všechny tyto funkce se po spuštění zavolají, přičemž 
+Funkce se vytváří pomocí syntaxe lambda funkce, jež specifikuje typy argumentů a návratové hodnoty a obsahuje kód, který se při~zavolání funkce vykoná. Pokud se program dostane k~příkazu \texttt{return}, funkce skončí a vrátí hodnotu předanou tomuto příkazu. Poslední výraz ve~funkci, jejíž návratový typ není \texttt{void}, musí být \texttt{return} nebo vyhodnocení výrazu, které na~tomto místě znamená, že funkce výsledek tohoto výrazu vrátí. Funkce se volá pomocí hranatých závorek, předají se jí argumenty odpovídajících typů a výsledkem volání funkce je hodnota, již funkce vrátila. Každý soubor může obsahovat funkci s~názvem \texttt{main}, všechny tyto funkce se po spuštění zavolají, přičemž je zaručeno, že \texttt{main} z určitého souboru se zavolá až po zavolání funkcí z importovaných souborů a jejich závislostí.
 
-Záznam se vytváří stejným způsobem jako se značí typ záznamu, jen se píší hodnoty jeho prvků a ne typy. Zápis \texttt{\{N\textsubscript{0} H\textsubscript{0} \ldots{} N\textsubscript{m} H\textsubscript{m}\}} vytvoří záznam, jehož prvky budou mít názvy \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a nabývají hodnot \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}}. K prvkům záznamu se přistupuje pomocí tečky (např. \texttt{zaznam.prvek}), přičemž obsahuje-li záznam další záznamy, lze přístupy řetězit stejně jako u jmenných prostorů.
+Záznam se vytváří stejným způsobem jako se značí typ záznamu, jen se píší hodnoty jeho prvků a ne typy. Zápis \texttt{\{N\textsubscript{0} H\textsubscript{0} \ldots{} N\textsubscript{m} H\textsubscript{m}\}} vytvoří záznam, jehož prvky budou mít názvy \texttt{N\textsubscript{0}} až \texttt{N\textsubscript{m}} a nabývají hodnot \texttt{T\textsubscript{0}} až \texttt{T\textsubscript{m}}. K~prvkům záznamu se přistupuje pomocí tečky (např. \texttt{zaznam.prvek}), přičemž obsahuje-li záznam další záznamy, lze přístupy řetězit stejně jako u jmenných prostorů.
 
-Pole a slovníky se vytváří zcela totožným způsobem, jakým se značí typ pole či slovníku, právě proto, že typ je skutečnosti sám jen prázdné pole či slovník. Při vytváření lze rovnou přidat prvky tím, že se zabudované metodě \texttt{list} či \texttt{dict} předají další argumenty, což budou hodnoty oněch prvků. U slovníku se jako argumenty střídají klíče a prvky: \texttt{T.dict[K K\textsubscript{0} V\textsubscript{0} \ldots{} K\textsubscript{n} V\textsubscript{n}]}.
+Pole a slovníky se vytváří zcela totožným způsobem, jakým se značí typ pole či slovníku, právě proto, že typ je skutečnosti sám jen prázdné pole či slovník. Při~vytváření lze rovnou přidat prvky tím, že se zabudované metodě \texttt{list} či \texttt{dict} předají další argumenty, což budou hodnoty oněch prvků. U slovníku se jako argumenty střídají klíče a prvky: \texttt{T.dict[K K\textsubscript{0} V\textsubscript{0} \ldots{} K\textsubscript{n} V\textsubscript{n}]}. Připojení k databázi se vytváří zabudovanou metodou \texttt{connect}, jež přebírá tři argumenty typu \texttt{text}: \textit{connection string} používaný PHP knihovnou PDO, uživatelské jméno a heslo.
 
-Připojení k databázi se 
-
-Pole, slovníky a připojení k databázi jsou tzv. referenční typy, což znamená, že do proměnných se neukládá jejich hodnota, ale pouze reference na místo v paměti, kde je jejich hodnota uložená. Přiřadíme-li je proto do více proměnných, budou všechny obsahovat reference na stejné místo, takže změníme-li pomocí zabudovaných metod hodnotu na jednom místě, projeví se tato změna ve všech proměnných, které obsahují referenci na toto místo.
+Pole, slovníky i připojení k~databázi jsou tzv. referenční typy, což znamená, že do~proměnných se neukládá jejich hodnota, ale pouze reference na~místo v~paměti, kde je jejich hodnota uložená. Přiřadíme-li je proto do~více proměnných, budou všechny obsahovat reference na~stejné místo, takže změníme-li pomocí zabudovaných metod hodnotu na~jednom místě, projeví se tato změna ve~všech proměnných, které obsahují referenci na~toto místo.
 
 \subsubsection{Zabudované metody a operátory}
-Datové typy mají svoje zabudované metody a operátory. Obojí jsou zvláštní výrazy, jež něco vykonají a vrátí nějakou hodnotu, ale liší se syntaxí. Syntaxe volání zabudovaných metod i operátorů již byla popsáná výše. Operátory logické konjunkce a disjunkce svoje argumenty vyhodnocují líně, tedy plyne-li ze znalosti prvního argumentu znalost výsledku, druhý argument se nevyhodnoduje. Operátory se dělí na aritmetické, bitové, logické, porovnávací a složené. Aritemetické operátory přebírají dva argumenty typu \texttt{int} nebo \texttt{real}, přičemž oba argumenty nemusí mít stejný typ. Patří mezi ně:
+Datové typy mají svoje zabudované metody a operátory. Obojí jsou zvláštní výrazy, jež něco vykonají a vrátí nějakou hodnotu, ale liší se syntaxí. Syntaxe volání zabudovaných metod i operátorů již byla popsáná výše. Operátory logické konjunkce a disjunkce svoje argumenty vyhodnocují líně, tedy plyne-li ze znalosti prvního argumentu znalost výsledku, druhý argument se nevyhodnoduje. Operátory se dělí na~aritmetické, bitové, logické, porovnávací a složené. Aritemetické operátory přebírají dva argumenty typu \texttt{int} nebo \texttt{real}, přičemž oba argumenty nemusí mít stejný typ. Patří mezi~ně:
 
 \begin{tabular}{|m{1.5cm} m{5cm} m{8cm}|}\hline
 Operátor & Výsledek & Typ\\\hline
@@ -286,7 +284,7 @@ Operátor & Výsledek & Typ\\\hline
 \texttt{**} & Mocnina & \\
 \texttt{\%} & Zbytek po dělení (pro záporné dělence je záporný) & \\\hline
 \texttt{/} & Podíl & \texttt{real}\\\hline
-\texttt{//} & Podíl (zaokrouhlený k nule) & \texttt{int}\\\hline
+\texttt{//} & Podíl (zaokrouhlený k~nule) & \texttt{int}\\\hline
 \end{tabular}
 
 Bitové operátory přijímají dva argumenty typu \texttt{int} a vrací rovněž \texttt{int}.
@@ -307,7 +305,7 @@ Operátor & Výsledek & Typ\\\hline
 \texttt{\^} & Logická nonekvivalence & \texttt{bool}\\\hline
 \end{tabular}
 
-Porovnávací operátory zjišťují buď rovnost nebo uspořádání dvou hodnot. Ty pro zjišťování rovnosti přebírají dva argumenty stejného typu, který ovšem není funkce, \texttt{void}, \texttt{real}, \texttt{db}, ani pole, slovník či je obsahující. Zjišťování rovnosti u reálných čísel není povolené, protože kvůli jejich reprezentaci v počítači tato operace může dávat špatné výsledky. Pole, slovníky a záznamy se považují za rovné, pokud jsou si rovné všechny jejich prvky. Operátory zjišťující uspořádání přebírají buď dvě hodnoty typu \texttt{text}, nebo dvě čísla, z nichž každé je typu \texttt{int} či \texttt{real}.
+Porovnávací operátory zjišťují buď rovnost nebo uspořádání dvou hodnot. Ty pro~zjišťování rovnosti přebírají dva argumenty stejného typu, který ovšem není funkce, \texttt{void}, \texttt{real}, \texttt{db}, ani pole, slovník či je obsahující. Zjišťování rovnosti u reálných čísel není povolené, protože kvůli jejich reprezentaci v~počítači tato operace může dávat špatné výsledky. Pole, slovníky a záznamy se považují za~rovné, pokud jsou si rovné všechny jejich prvky. Operátory zjišťující uspořádání přebírají buď dvě hodnoty typu \texttt{text}, nebo dvě čísla, z~nichž každé je typu \texttt{int} či \texttt{real}.
 
 \begin{tabular}{|m{1.5cm} m{5cm} m{8cm}|}\hline
 Operátor & Výsledek & Typ\\\hline
@@ -319,7 +317,7 @@ Operátor & Výsledek & Typ\\\hline
 \texttt{>=} & Větší nebo rovno &\texttt{bool}\\\hline
 \end{tabular}
 
-Složené operátory pracují s poli, slovníky, záznamy a typem \texttt{text}. Operátory pracující s poli a slovníky přebírají dva argumenty stejného typu, nazvěme jej \texttt{T.list}, jde-li o pole, a \texttt{T.dict[K]}, jde-li o slovník. Dojde-li při průnicích nebo sjednoceních slovníků a záznamů ke kolizi dvou prvků se stejným klíčem nebo názvem, započítá se do výsledku prvek z pravého argumentu.
+Složené operátory pracují s~poli, slovníky, záznamy a typem \texttt{text}. Operátory pracující s~poli a slovníky přebírají dva argumenty stejného typu, nazvěme jej \texttt{T.list}, jde-li o pole, a \texttt{T.dict[K]}, jde-li o slovník. Dojde-li při~průnicích nebo sjednoceních slovníků a záznamů ke~kolizi dvou prvků se stejným klíčem nebo názvem, započítá se do~výsledku prvek z~pravého argumentu.
 
 \begin{tabular}{|m{1.5cm} m{5cm} m{8cm}|}\hline
 Operátor & Výsledek & Typ\\\hline
@@ -327,12 +325,12 @@ Operátor & Výsledek & Typ\\\hline
 \texttt{+} & Spojení polí & \texttt{T.list}\\\hline
 \texttt{|} & Sjednocení slovníků & \texttt{T.dict[K]}\\\hline
 \texttt{\&} & Průnik slovníků & \texttt{T.dict[K]}\\\hline
-\texttt{|} & Sjednocení záznamů & Typ záznamu, který obsahuje všechny prvky, které byly alespoň v jednom ze záznamů\\\hline
-\texttt{\&} & Průnik záznamů & Typ záznamu, který obsahuje všechny prvky, které byly v obou záznamech\\\hline
+\texttt{|} & Sjednocení záznamů & Typ záznamu, který obsahuje všechny prvky, které byly alespoň v~jednom ze záznamů\\\hline
+\texttt{\&} & Průnik záznamů & Typ záznamu, který obsahuje všechny prvky, které byly v~obou záznamech\\\hline
 \end{tabular}
 
 \section{Konstrukce překladače}
-Překladač je napsaný v jazyce Haskell a jeho kód je rozdělený do několika modulů.
+Překladač je napsaný v~jazyce Haskell a jeho kód je rozdělený do~několika modulů.
 \begin{figure}[H]
 \begin{center}
 	\begin{tikzpicture}[node distance=2cm]
@@ -374,27 +372,36 @@ Překladač je napsaný v jazyce Haskell a jeho kód je rozdělený do několika
 		\draw [arrow] (codegen) -- (main);
 		\draw [arrow] (fallible) -- (main);
 	\end{tikzpicture}
-	\caption{Graf závislostí mezi moduly}
+	\caption{Graf závislostí mezi~moduly}
 	\label{projects}
 \end{center}
 \end{figure}
 
-Modul \texttt{Functions} obsahuje jen pomocné funkce, které nemají nic společného s logikou tohoto konkrétního programu, jedná se o různé funkce pro práci s textem, seznamy a monádami. Modul \texttt{Fallible} definuje stejnojmennou monádu, její transformátor a funkce pro práci s nimi, což slouží k práci s chybami při překladu.
+\subsection{Přehled modulů}
+Modul \texttt{Functions} zahrnuje pouze pomocné funkce, které nemají nic společného s~logikou tohoto konkrétního programu a pracují s~textem, seznamy a monádami. Slouží ke~zkrácení kódu v~ostatních modulech tím, že abstrahují chování, jež se v~nich opakuje.
 
-Lexikální analyzátor pro Zybu implementuje modul \texttt{Lexer}, jehož funkce \texttt{tokenize} dostane na vstupu text a vrátí seznam dvojic \texttt{(Integer, Token)}, jež reprezentují tokeny a čísla řádků, na nichž se tokeny nacházely (kvůli generování chybových hlášek). Typ \texttt{Token} je algebraický datový typ, jehož konstruktory odpovídají typům tokenů zmiňovaných v sekci Syntaxe.
+Modul \texttt{Fallible} obsahuje stejnojmennou monádu, její transformátor a funkce pro~práci s~nimi. Monáda \texttt{Fallible} je alias pro~\texttt{Either String} a obsahuje buď hodnotu nějakého výsledku, nebo text s~chybovou hláškou. Její spojování je definováno tak, že spojení chybové hodnoty s~další funkcí bude tuto funkci ignorovat a vrátí původní chybovou hodnotu. Pokud v~některé funkci při~překladu programu dojde k~chybě, což může nastat jen tehdy, když je program špatně napsaný, vrátí příslušná funkce hodnotu \texttt{Fallible} reprezentující chybu a vzhledem k~vlastnostem spojení se další části překladu neprovedou a výsledkem programu bude chyba. Dále je zde definována monáda \texttt{FallibleIO}, což je alias pro~výsledek monádového transformátoru, který zabalí monádu \texttt{IO} do~\texttt{Fallible}.
 
-Syntaktická analýza se odehrává v modulu \texttt{Parser}, jehož funkce \texttt{parse} přijímá text, funkcí \texttt{tokenize} jej rozdělí na tokeny a pak sestaví syntaktický strom. Výsledkem je hodnota typu \texttt{File}, který obsahuje seznam trojic \texttt{(Integer, Visibility, Declaration)}, kde první prvek je opět číslo řádku, druhý je viditelnost deklarace (tj. zda je deklarace exportovaná) a třetí je samotná deklarace. Dále modul obsahuje algebraické datové typy \texttt{Declaration}, pro reprezentaci deklarací, \texttt{Visibility}, která udává, zda je deklarace exportovaná, \texttt{Statement}, který reprezentuje příkaz (a má konstruktor pro každý typ příkazu), \texttt{Value} reprezentující výraz a \texttt{Literal}, který obsahuje hodnotu literálů.
+Modul \texttt{Lexer} implementuje lexikální analyzátor pro~Zybu. Jeho funkce \texttt{tokenize} přebírá \texttt{String} a vrací \texttt{Fallible [(Integer, Token)]}, z~čehož každá dvojice reprezentuje token a číslo řádku, na~němž se token nacházel. Čísla řádků se používají při~generování chybových hlášek. \texttt{Token} je algebraický datový typ, jehož konstruktory odpovídají jednotlivým typům tokenů zmiňovaných v~sekci Syntaxe.
 
-V modulu \texttt{Language} jsou definované zabudované metody a operátory (algebraický typ \texttt{Builtin}), typy (algebraický typ \texttt{Type}) a funkce pro práci s nimi. Další modul, \texttt{Scope}, obsahuje stejnojmenný typ, který reprezentuje kontext pro proměnné, konstanty a jmenné prostory, funkce pro jejich přidávání do kontextu a pro zjišťování obsahu kontextu. Typ \texttt{Scope} totiž neexportuje konstruktor, takže z jiných modulů lze k jeho obsahu přistupovat jen pomocí těchto funkcí.
+Modul \texttt{Parser} provádí syntaktickou analýzu programu. Obsahuje funkci \texttt{parse}, jež dostane na~vstupu \texttt{String}, rozdělí jej na~tokeny pomocí funkce \texttt{tokenize}, sestaví syntaktický strom a vrátí \texttt{Fallible File}. Typ \texttt{File}obsahuje seznam trojic \texttt{(Integer, Visibility, Declaration)}, kde první prvek je opět číslo řádku, druhý, \texttt{Visibility}, udává, zda je deklarace exportovaná, a třetí je samotná deklarace. Dále modul obsahuje algebraické datové typy modelující syntaktický strom \texttt{Declaration} pro~deklarace, \texttt{Statement} pro~příkazy, \texttt{Value} pro~výrazy a \texttt{Literal} pro literály. Mají konstruktory pro~každý typ syntaktické konstrukce zmíněné v~sekci syntaxe.
 
-Tyto dva moduly se využívají při sémantické analýze v modulu \texttt{Semantics}. Jsou tu definovány typy \texttt{Value}, \texttt{Statement} a \texttt{Declaration}, jejichž hodnoty se vytváří ze stejnojmenných typů z modulu \texttt{Parser} po sémantické analýze. Hlavní funkce \texttt{analyse} přijímá jednak hodnotu typu \texttt{File}, která obsahuje syntaktický strom analyzovaného souboru, ale taky mapu \texttt{Map String Scope}, jež obsahuje kontexty s exportovanými deklaracemi z již analyzovaných souborů překládaného programu, a \texttt{String} obsahující cestu k právě analyzovanému souboru. Výsledkem analýzy je dvojice \texttt{(Scope, [(String, TypedValue)])}, jejíž první prvek je kontext, který se případně předá této funkci při analýze dalších souborů, druhým prvkem je seznam deklarací v analyzovaném souboru.
+Modul \texttt{Language} definuje typy (algebraický typ \texttt{Type}) a zabudované metody a operátory (algebraický typ \texttt{Builtin}) jazyka Zyba. Kromě toho jsou v~něm obsaženy funkce pro~jejich vyhledávání a typovou kontrolu při~operacích s~nimi.
 
-Správu importů a spojení syntaktické a sémantické analýzy zajišťuje modul \texttt{Loader}. Obsahuje funkci \texttt{load}, jež dostane na vstupu cestu k hlavnímu souboru a vrátí jako výsledek dvojici. První prvek dvojice je seznam obsahů všech importovaných PHP souborů. Druhý prvek je seznam dvojic, z nichž každá reprezentuje jeden soubor Zyby. Obsahuje jeho název a seznam deklarací (typ \texttt{Semantics.Declaration}) z onoho souboru. Zyba soubory jsou seřazeny v takovém pořadí, že pokud modul A závisí na modulu B, bude v seznamu modul B před modulem A.
+Modul \texttt{Scope} definuje stejnojmenný typ, který reprezentuje kontext pro~proměnné, konstanty a jmenné prostory. Modul ovšem neexportuje konstruktor typu \texttt{Scope}, takže z~jiných modulů lze kontext číst a měnit jen pomocí dalších funkcí z~tohoto modulu.
 
-Kompilaci završí modul \texttt{Codegen}, jehož funkce \texttt{gen} vygeneruje PHP kód na základě výstupu z funkce \texttt{load}. Modul \texttt{Main} poté ve funkci \texttt{main} očekává dva parametry v příkazové řádce -- cestu ke vstupnímu Zyba souboru a výstupnímu PHP souboru. Zavolá funkci \texttt{load} s cestou ke vstupnímu souboru, výsledek předá funkci \texttt{gen} a vzniklý PHP kód zapíše do zadaného souboru.
+Modul \texttt{Semantics} se zabývá sémantickou analýzou. Jsou tu definovány typy \texttt{Value} a \texttt{Statement}, jejichž hodnoty se vytváří ze stejnojmenných typů z~modulu \texttt{Parser} po~sémantické analýze. Hlavní funkce \texttt{analyse} přijímá hodnotu typu \texttt{File} se syntaktickým stromem analyzovaného souboru, mapu \texttt{Map String Scope}, obsahující kontexty s~deklaracemi exportovanými z~již analyzovaných souborů překládaného programu, a \texttt{String} obsahující cestu k~právě analyzovanému souboru; návratová hodnota je typu \texttt{Fallible (Scope, [Declaration])}. První prvek dvojice je kontext s~exportovanými deklaracemi, druhým prvkem je seznam deklarací; v seznamu však jsou jen hodnoty a nikoliv importy, protože seznam se používá jen při~generování kódu pro~deklarované hodnoty. \texttt{Declatation} se definuje jako \texttt{(String, (Value, Type))}, což jsou název, hodnota a typ deklarované hodnoty.
+
+Modul \texttt{Loader} zajišťuje správu importů a spojení syntaktické a sémantické analýzy. Obsahuje funkci \texttt{load}, jež dostane na~vstupu cestu k~hlavnímu souboru a vrátí jako výsledek \texttt{FallibleIO ([String], [(String, [Declaration])])}. První prvek vnější dvojice je seznam obsahů všech importovaných PHP souborů. Druhý prvek je seznam dvojic, z~nichž každá obsahuje název a seznam deklarací hodnot jednoho souboru Zyby. Zyba soubory jsou seřazeny v~takovém pořadí, že pokud modul A závisí na~modulu B, bude v~seznamu modul B před modulem A. Z~toho taky plyne, že není možné mít kruhové závislosti a v~případě výskytu takové závislosti vrátí funkce \texttt{load} hodnotu chyby.
+
+Modul \texttt{Codegen} završuje kompilaci, neboť jeho funkce \texttt{gen} vygeneruje PHP kód na~základě výstupu z~funkce \texttt{load}. V této funkci už nemůže dojít k chybě, protože program prošel všemi fázemi kontroly, takže návratová hodnota funkce je pouze \texttt{String}.
+
+Modul \texttt{Main} poté ve~funkci \texttt{main} přečte dva argumenty z~příkazové řádky -- cestu ke~vstupnímu Zyba souboru a výstupnímu PHP souboru. Zavolá funkci \texttt{load} s~cestou ke~vstupnímu souboru, její výsledek předá funkci \texttt{gen} a vzniklý PHP kód zapíše do~zadaného souboru. Dojde-li k chybě, nic se do zadaného souboru nezapíše a chybová hláška bude vypsána na standardní chybový výstup.
+
+\subsection{Ukázka překladu}
 
 \section{Závěr}
-Navrhl jsem programovací jazyk Zyba a zkonstruován jeho překladač. Jazyk lze použít pro psaní webových stránek, přičemž funkce pro interakci s okolím jsou buď obsaženy jako zabudované metody (práce s databází) nebo je lze importovat z PHP. Kód v Zybě napsaný je dobře čitelný, překladač provádí statickou typovou kontrolu a systém importů a exportů je poměrně silný, třebaže by bylo možné implementovat ještě kruhové importy. Hlavní slabinou jazyka je chybějící podpora pro generické programování, což znemožňuje tvorbu funkcí, které by pracovaly s libovolnými daty (řazení, přístup k databázi) a je tak nutné pro ně buď vytvořit v jazyce zabudované metody, nebo mít jednoúčelové funkce. To jsou tedy možné směry pro budoucí vývoj jazyka.
+Navrhl jsem programovací jazyk Zyba a zkonstruován jeho překladač. Jazyk lze použít pro~psaní webových stránek, přičemž funkce pro~interakci s~okolím jsou buď obsaženy jako zabudované metody (práce s~databází) nebo je lze importovat z~PHP. Kód v~Zybě napsaný je dobře čitelný, překladač provádí statickou typovou kontrolu a systém importů a exportů je poměrně silný, třebaže by bylo možné implementovat ještě kruhové importy. Hlavní slabinou jazyka je chybějící podpora pro~generické programování, což znemožňuje tvorbu funkcí, které by pracovaly s~libovolnými daty (řazení, přístup k~databázi) a je tak nutné pro~ně buď vytvořit v~jazyce zabudované metody, nebo mít jednoúčelové funkce. To jsou tedy možné směry pro~budoucí vývoj jazyka.
 
 \newpage
 \printbibliography[heading=bibintoc, title={Použitá literatura}]

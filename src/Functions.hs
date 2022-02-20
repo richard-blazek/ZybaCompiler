@@ -1,4 +1,4 @@
-module Functions (zipMaps, map2, (??), intercalate, join, pad, mapCatFoldlM, tailRecM, tailRec2M, fmap2, sequence2, split, after, leaf) where
+module Functions (zipMaps, swap, map2, (??), intercalate, join, pad, mapCatFoldlM, tailRecM, tailRec2M, fmap2, sequence2, split, after, leaf) where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.Map.Merge.Strict as Merge
@@ -6,6 +6,9 @@ import qualified Data.Tree as Tree
 
 zipMaps :: Ord k => Map.Map k v -> Map.Map k w -> Map.Map k (v, w)
 zipMaps = Merge.merge Merge.dropMissing Merge.dropMissing $ Merge.zipWithMatched $ const (,)
+
+swap :: (a, b) -> (b, a)
+swap (a, b) = (b, a)
 
 map2 :: (a -> c) -> (b -> d) -> (a, b) -> (c, d)
 map2 f g (a, b) = (f a, g b)

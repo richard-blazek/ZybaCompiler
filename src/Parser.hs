@@ -78,18 +78,16 @@ parseArguments tokens = tailRecM if' then' else' ([], [], tokens)
 
 parseLambda :: Integer -> [(Integer, Lexer.Token)] -> Fallible ((Integer, Value), [(Integer, Lexer.Token)])
 parseLambda line tokens = do
-  tokens' <- expect (Lexer.Separator '[') tokens
-  ((args, (returnType, block)), tokens'') <- after parseArguments (after parseValue parseBlock) tokens'
+  ((args, (returnType, block)), tokens'') <- expect (Lexer.Separator '[') tokens >>= after parseArguments (after parseValue parseBlock)
   Right ((line, Lambda args returnType block), tokens'')
 
 parseCall :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Value), [(Integer, Lexer.Token)])
 parseCall tokens = parseFactor tokens >>= uncurry (tailRec2M if' id id else')
-  where if' fun tokens = Right $ null tokens || snd (head tokens) `notElem` [Lexer.Separator '[', Lexer.Separator '.', Lexer.Separator ':']
-        else' fun ((line, Lexer.Separator '[') : tokens) = fmap2 ((,) line . Call fun) id $ parseValues tokens
+  where if' fun tokens = Right $ null tokens || snd (head tokens) `notElem` [Lexer.Separator '[', Lexer.Separator '.']
+        else' fun ((line, Lexer.Separator '[') : tokens) = fmap2 ((,) line . Call fun) id $ parseMany parseValue (Lexer.Separator ']') tokens
         else' (line, Name names) ((_, Lexer.Separator '.') : (_, Lexer.Name name) : tokens) = Right ((line, Name $ name : names), tokens)
         else' obj ((line, Lexer.Separator '.') : (_, Lexer.Name name) : tokens) = Right ((line, Access obj name), tokens)
         else' obj ((line, Lexer.Separator c) : _) = err line $ "Expected field or builtin name after " ++ [c]
-        parseValues = parseMany parseValue $ Lexer.Separator ']'
 
 parseValue :: [(Integer, Lexer.Token)] -> Fallible ((Integer, Value), [(Integer, Lexer.Token)])
 parseValue tokens = parseCall tokens >>= uncurry (tailRec2M if' id id else')

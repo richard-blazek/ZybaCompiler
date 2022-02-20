@@ -3,29 +3,25 @@ module Language (Type (..), Builtin (..), builtinCall, fieldAccess, removeBuilti
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Fallible (Fallible (..), err, assert, assertJust)
-import Functions (join, split, (??), zipMaps, intercalate)
+import Functions (join, split, swap, (??), zipMaps, intercalate)
 
-data Type = Void | Int | Bool | Real | Text | Db | Function [Type] Type | Dictionary Type Type | Vector Type | Record (Map.Map String Type) deriving (Eq)
+data Type = Void | Int | Bool | Real | Text | Db | Function [Type] Type | Dictionary Type Type | Vector Type | Record (Map.Map String Type) deriving (Eq, Ord)
 data Builtin = Add | Sub | Mul | Div | IntDiv | Rem | And | Or | Xor | Eq | Neq | Lt | Gt | Le | Ge | Pow | Not | AsInt | AsReal | AsBool | AsText
   | Fun | Dict | List | Set | Get | Has | Count | Concat | Pad | Sort | Join | Insert | Erase | Append | Remove | Find | AsList | AsDict | Map
   | Filter | Fold | Keys | Values | Flat | Shuffle | Split | EscapeHtml | UnescapeHtml | EscapeUrl | UnescapeUrl | Replace | Hash | IsHashOf
-  | StartsWith | EndsWith | Contains | Lower | Upper | Trim | ReadFile | WriteFile | Connect | Connected | Query deriving (Eq, Ord)
+  | StartsWith | EndsWith | Contains | Lower | Upper | Trim | Connect | Connected | Query deriving (Eq, Ord)
 
 instance Show Type where
-  show Void = "void"
-  show Int = "int"
-  show Bool = "bool"
-  show Real = "real"
-  show Text = "text"
-  show Db = "db"
   show (Function ts t) = show t ++ ".fun[" ++ intercalate ", " (map show ts) ++ "]" 
   show (Dictionary k v) = show v ++ ".dict[" ++ show k ++ "]"
   show (Vector t) = show t ++ ".list"
   show (Record m) = "{" ++ intercalate " " (map (\(k, v) -> k ++ " " ++ show v) (Map.toList m)) ++ "}"
+  show t = typesReversed Map.! t
+    where typesReversed = Map.fromList $ map swap $ Map.toList constants
 
 instance Show Builtin where
   show builtin = builtinsReversed Map.! builtin
-    where builtinsReversed = Map.fromList $ map (\(k, v) -> (v, k)) $ Map.toList builtins
+    where builtinsReversed = Map.fromList $ map swap $ Map.toList builtins
 
 builtins :: Map.Map String Builtin
 builtins = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("/", Div), ("//", IntDiv), ("%", Rem), ("&", And), ("|", Or), ("^", Xor), ("==", Eq), ("!=", Neq),
@@ -35,13 +31,13 @@ builtins = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("/", Div), ("//", 
   ("map", Map), ("filter", Filter), ("fold", Fold), ("keys", Keys), ("values", Values), ("flat", Flat), ("shuffle", Shuffle),
   ("split", Split), ("escapeHtml", EscapeHtml), ("unescapeHtml", UnescapeHtml), ("escapeUrl", EscapeUrl), ("unescapeUrl", UnescapeUrl), ("replace", Replace), ("hash", Hash),
   ("isHashOf", IsHashOf), ("startsWith", StartsWith), ("endsWith", EndsWith), ("contains", Contains), ("lower", Lower), ("upper", Upper),
-  ("trim", Trim), ("readFile", ReadFile), ("writeFile", WriteFile), ("connect", Connect), ("connected", Connected), ("query", Query)]
+  ("trim", Trim), ("connect", Connect), ("connected", Connected), ("query", Query)]
 
 builtinsSet :: Set.Set String
 builtinsSet = Map.keysSet builtins
 
 constants :: Map.Map String Type
-constants = Map.fromList [("int", Int), ("bool", Bool), ("real", Real), ("text", Text), ("void", Void), ("db", Db)]
+constants = Map.fromList [("void", Void), ("int", Int), ("bool", Bool), ("real", Real), ("text", Text), ("db", Db)]
 
 removeBuiltins :: Set.Set String -> Set.Set String
 removeBuiltins = (`Set.difference` builtinsSet)

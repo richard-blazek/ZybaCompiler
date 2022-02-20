@@ -5,7 +5,7 @@ import qualified Data.Map.Strict as Map
 import qualified Language as Lang
 import Semantics (Value (..), Declaration, Statement (..))
 import Parser (Literal (..))
-import Functions (intercalate, split, pad, map2)
+import Functions (intercalate, split, pad, map2, (??))
 import Data.Maybe (catMaybes)
 
 captures :: (String -> String) -> String -> Set.Set String -> [Statement] -> [Value] -> Set.Set String
@@ -354,9 +354,11 @@ genPkg :: (String -> String) -> String -> [Declaration] -> String
 genPkg qual pkg decls = "<?php " ++ concat (map (genDeclaration qual pkg) decls) ++ "?>"
 
 genMainCalls :: [String] -> String
-genMainCalls qualified = "<?php " ++ concat (map (\q -> q ++ "main();") $ reverse qualified) ++ "?>"
+genMainCalls prefixes = "<?php " ++ concat (map (++ "main();") $ reverse prefixes) ++ "?>"
 
 gen :: [String] -> [(String, [Declaration])] -> String
-gen phps pkgs = concat phps ++ preamble qualified ++ concat (map (uncurry $ genPkg (quals Map.!)) pkgs) ++ genMainCalls qualified
-  where qualified = let len = length pkgs in map (("$z0" ++) . pad (length $ show len) '0' . show) [0..len-1]
-        quals = Map.fromList $ zip (reverse $ map fst pkgs) qualified
+gen phps pkgs = preamble prefixes ++ concat phps ++ concat (map (uncurry $ genPkg qualify) pkgs) ++ genMainCalls prefixes
+  where prefixes = let len = length pkgs in map (("$z0" ++) . pad (length $ show len) '0' . show) [0..len-1]
+        qualified = Map.fromList $ zip (reverse $ map fst pkgs) prefixes
+        qualify x | Map.member x qualified = qualified Map.! x
+                  | otherwise = "$"
