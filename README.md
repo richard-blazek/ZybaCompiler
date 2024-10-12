@@ -1,8 +1,23 @@
 # Compiler
-This is the source code of my compiler of my Zyba language. The language transpiles into PHP and could be eventually used as a substitute of PHP for developing web applications. However, neither the compiler nor the language are complete.
+This is the source code of my compiler of my Zyba language. Zyba is a statically typed imperative programming language.
 
-Code example:
-```python
+## Why?
+As a high school student, I disliked having to build websites in PHP for my part-time job. And I was interested in programming
+languages and compilers. Naturally, it occurred to me that I could make my own *better* language which would transpile to PHP
+and avoid having to deal with that distasteful langauge.
+
+Unfortunately, after finishing this compiler and participating with this project in a Czech High School Science
+Contest (Středoškolská odborná činnost), I had to focus on my high school leaving exams and did not develop Zyba any
+further. Moreover, I never worked on a project which would require usage of PHP, so I was not motivated to make Zyba even
+better.
+
+So this is the language. To a large extent, it is a thin layer on top of PHP. Unlike PHP, the language is statically typed,
+but it does not have support for generic programming or polymorphism, so the typing system might not be expressive enough
+for practical usage. On the other hand, I believe that the module system of Zyba is a large improvement compared to PHP and
+its "require_once" command.
+
+## Examples
+```
 generate = fun[count: int] int.list {
 	result = int.list.pad[count]
 	next = seed[666]
@@ -101,5 +116,4 @@ seed = fun[s: int] int.fun {
         s
     }
 }
-
 ```
